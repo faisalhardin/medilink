@@ -4,26 +4,54 @@
 *.dll
 *.so
 *.dylib
+*.log
 
-# Test binary, built with "go test -c"
+# Test binary, built with `go test -c`
 *.test
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
 # Dependency directories (remove the comment below to include it)
-# vendor/
+/vendor
+.idea/
+log/
+cmd/files
 
-# Go workspace file
-go.work
-tmp/
+# Ignore generated file
+*.xlsx
+*.csv
 
-# IDE specific files
-.vscode
-.idea
+# Environment, please use main.development.ini.example to create the new one
+*main.development.ini
+*main.staging.ini
+*main.production.ini
+*vendor.development.ini
+*vendor.staging.ini
+*vendor.production.ini
+*agent.development.ini
+*agent.staging.ini
+*agent.production.ini
+*.development.yaml
+*enterpriseapp-adsol.development.yaml
+*enterpriseapp-adsol.development.json
+*enterpriseapp-adsol.staging.json
+*enterpriseapp-adsol.production.json
 
-# .env file
+# ignore docker environment
 .env
 
-# Project build
-main
+# Auto-generated debug binary
+cmd/__debug_bin
+
+/testing
+
+**/.DS_Store
+
+# Sonar scanner files
+.scannerwork
+
+# Ignore generated file
+internal/entity/repo/db/gomock_reflect*
+
+*auth-vessel.development.json

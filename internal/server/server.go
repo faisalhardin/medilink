@@ -9,7 +9,7 @@ import (
 
 	_ "github.com/joho/godotenv/autoload"
 
-	"myauth/internal/database"
+	"github.com/faisalhardin/auth-vessel/internal/database"
 )
 
 type Server struct {

@@ -1,0 +1,9 @@
+{
+    "go.delveConfig": {
+        "debugAdapter": "legacy"
+    },
+    "go.useLanguageServer": true,
+    "go.testFlags": [
+       "-race"
+    ],
+}

@@ -1,4 +1,4 @@
-# Project myauth
+# Project github.com/faisalhardin/auth-vessel
 
 One Paragraph of project description goes here
 

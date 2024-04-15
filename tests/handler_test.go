@@ -2,10 +2,11 @@ package tests
 
 import (
 	"io"
-	"myauth/internal/server"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/faisalhardin/auth-vessel/internal/server"
 )
 
 func TestHandler(t *testing.T) {
