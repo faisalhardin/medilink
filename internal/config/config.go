@@ -29,11 +29,12 @@ type GoogleAuth struct {
 }
 
 type GoogleAuthConfig struct {
-	MaxAge      int    `yaml:"max_age"`
-	IsProd      bool   `yaml:"is_prod"`
-	CallbackURL string `yaml:"callback_url"`
-	HttpOnly    bool   `yaml:"http_only"`
-	CookiePath  string `yaml:"cookie_path"`
+	MaxAge           int    `yaml:"max_age"`
+	IsProd           bool   `yaml:"is_prod"`
+	CallbackURL      string `yaml:"callback_url"`
+	HttpOnly         bool   `yaml:"http_only"`
+	CookiePath       string `yaml:"cookie_path"`
+	HomepageRedirect string `yaml:"homepage_redirect"`
 }
 
 func New(repoName string) (*Config, error) {

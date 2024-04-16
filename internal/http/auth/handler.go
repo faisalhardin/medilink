@@ -2,43 +2,37 @@ package auth
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
+	"github.com/faisalhardin/auth-vessel/internal/config"
+	authrepo "github.com/faisalhardin/auth-vessel/internal/entitiy/repo/auth"
 	"github.com/go-chi/chi/v5"
-	"github.com/markbates/goth/gothic"
 )
 
 type AuthHandler struct {
+	Cfg      *config.Config
+	AuthRepo authrepo.Auth
+}
+
+func New(handler *AuthHandler) *AuthHandler {
+	return handler
 }
 
 func (h *AuthHandler) GetAuthCallbackFunction(w http.ResponseWriter, r *http.Request) {
 	provider := chi.URLParam(r, "provider")
 	r = r.WithContext(context.WithValue(context.Background(), "provider", provider))
 
-	user, err := gothic.CompleteUserAuth(w, r)
-	if err != nil {
-		fmt.Fprintln(w, r)
-		return
-	}
-
-	fmt.Println(user)
-	fmt.Println("here 3")
-	http.Redirect(w, r, "http://localhost:5173", http.StatusFound)
-	fmt.Println("here 4")
+	h.AuthRepo.GetAuthCallbackFunction(w, r)
+	http.Redirect(w, r, h.Cfg.GoogleAuthConfig.HomepageRedirect, http.StatusFound)
 }
 
-func (h *AuthHandler) beginAuthProviderCallback(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) BeginAuthProviderCallback(w http.ResponseWriter, r *http.Request) {
 	// try to get the user without re-authenticating
 	provider := chi.URLParam(r, "provider")
 	r = r.WithContext(context.WithValue(context.Background(), "provider", provider))
-	fmt.Println("here")
-	gothic.BeginAuthHandler(w, r)
-	fmt.Println("here 2")
+	h.AuthRepo.BeginAuthProviderCallback(w, r)
 }
 
-func (h *AuthHandler) logout(res http.ResponseWriter, req *http.Request) {
-	gothic.Logout(res, req)
-	res.Header().Set("Location", "/")
-	res.WriteHeader(http.StatusTemporaryRedirect)
+func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	h.AuthRepo.Logout(w, r)
 }

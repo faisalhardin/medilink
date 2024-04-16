@@ -7,24 +7,23 @@ import (
 	"log"
 	"net/http"
 
+	auth "github.com/faisalhardin/auth-vessel/internal/entitiy/repo/httprepo"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/markbates/goth/gothic"
 )
 
-func (s *Server) RegisterRoutes() http.Handler {
+func RegisterRoutes(handler auth.AuthHandler) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 
-	r.Get("/", s.HelloWorldHandler)
-
-	r.Get("/health", s.healthHandler)
-
-	r.Get("/auth/{provider}/callback", s.getAuthCallbackFunction)
-
-	r.Get("/logout/{provider}", s.logout)
-
-	r.Get("/auth/{provider}", s.beginAuthProviderCallback)
+	r.Route("/v1", func(v1 chi.Router) {
+		v1.Group(func(authed chi.Router) {
+			authed.Get("/auth/{provider}/callback", handler.GetAuthCallbackFunction)
+			authed.Get("/auth/{provider}", handler.BeginAuthProviderCallback)
+			authed.Get("/logout/{provider}", handler.Logout)
+		})
+	})
 
 	return r
 }

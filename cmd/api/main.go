@@ -5,8 +5,10 @@ import (
 	"log"
 
 	"github.com/faisalhardin/auth-vessel/internal/config"
-	"github.com/faisalhardin/auth-vessel/internal/repo/auth"
+	authhandler "github.com/faisalhardin/auth-vessel/internal/http/auth"
+	authrepo "github.com/faisalhardin/auth-vessel/internal/repo/auth"
 	"github.com/faisalhardin/auth-vessel/internal/server"
+	"github.com/markbates/goth/providers/google"
 )
 
 const (
@@ -28,18 +30,16 @@ func main() {
 
 	cfg.Vault = vault
 
-	auth.NewAuth(&auth.Config{
-		ClientID:     cfg.Vault.GoogleAuth.ClientID,
-		ClientSecret: cfg.Vault.GoogleAuth.ClientSecret,
-		Key:          cfg.Vault.GoogleAuth.Key,
-		MaxAge:       cfg.GoogleAuthConfig.MaxAge,
-		IsSecure:     cfg.GoogleAuthConfig.IsProd,
-		Path:         cfg.GoogleAuthConfig.CookiePath,
-		IsHttpOnly:   cfg.GoogleAuthConfig.HttpOnly,
-		CallbackURL:  cfg.GoogleAuthConfig.CallbackURL,
+	authRepo := authrepo.New(&authrepo.Config{Cfg: cfg},
+		google.New(cfg.Vault.GoogleAuth.ClientID, cfg.Vault.GoogleAuth.ClientSecret, cfg.GoogleAuthConfig.CallbackURL),
+	)
+
+	authHandler := authhandler.New(&authhandler.AuthHandler{
+		Cfg:      cfg,
+		AuthRepo: authRepo,
 	})
 
-	server := server.NewServer()
+	server := server.NewServer(server.RegisterRoutes(authHandler))
 
 	err = server.ListenAndServe()
 	if err != nil {
