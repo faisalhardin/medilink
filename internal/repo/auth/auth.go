@@ -11,18 +11,18 @@ import (
 	"github.com/markbates/goth/gothic"
 )
 
-type Config struct {
+type Options struct {
 	Cfg *config.Config
 }
 
-func New(cfg *Config, providers ...goth.Provider) *Config {
+func New(opt *Options, providers ...goth.Provider) *Options {
 
-	store := sessions.NewCookieStore([]byte(cfg.Cfg.Vault.GoogleAuth.Key))
-	store.MaxAge(cfg.Cfg.GoogleAuthConfig.MaxAge)
+	store := sessions.NewCookieStore([]byte(opt.Cfg.Vault.GoogleAuth.Key))
+	store.MaxAge(opt.Cfg.GoogleAuthConfig.MaxAge)
 
-	store.Options.Path = cfg.Cfg.GoogleAuthConfig.CookiePath
-	store.Options.HttpOnly = cfg.Cfg.GoogleAuthConfig.HttpOnly
-	store.Options.Secure = cfg.Cfg.GoogleAuthConfig.IsProd
+	store.Options.Path = opt.Cfg.GoogleAuthConfig.CookiePath
+	store.Options.HttpOnly = opt.Cfg.GoogleAuthConfig.HttpOnly
+	store.Options.Secure = opt.Cfg.GoogleAuthConfig.IsProd
 
 	gothic.Store = store
 
@@ -30,10 +30,10 @@ func New(cfg *Config, providers ...goth.Provider) *Config {
 		providers...,
 	)
 
-	return cfg
+	return opt
 }
 
-func (h *Config) GetAuthCallbackFunction(w http.ResponseWriter, r *http.Request) {
+func (opt *Options) GetAuthCallbackFunction(w http.ResponseWriter, r *http.Request) {
 	user, err := gothic.CompleteUserAuth(w, r)
 	if err != nil {
 		fmt.Fprintln(w, r)
@@ -44,13 +44,13 @@ func (h *Config) GetAuthCallbackFunction(w http.ResponseWriter, r *http.Request)
 
 }
 
-func (h *Config) BeginAuthProviderCallback(w http.ResponseWriter, r *http.Request) {
+func (opt *Options) BeginAuthProviderCallback(w http.ResponseWriter, r *http.Request) {
 	gothic.BeginAuthHandler(w, r)
-	http.Redirect(w, r, h.Cfg.GoogleAuthConfig.HomepageRedirect, http.StatusFound)
 }
 
-func (h *Config) Logout(res http.ResponseWriter, req *http.Request) {
-	gothic.Logout(res, req)
-	res.Header().Set("Location", "/")
-	res.WriteHeader(http.StatusTemporaryRedirect)
+func (opt *Options) Logout(w http.ResponseWriter, r *http.Request) {
+	gothic.Logout(w, r)
+	w.Header().Set("Location", "/")
+	w.WriteHeader(http.StatusTemporaryRedirect)
+
 }

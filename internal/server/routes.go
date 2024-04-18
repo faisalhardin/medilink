@@ -25,6 +25,9 @@ func RegisterRoutes(handler auth.AuthHandler) http.Handler {
 		})
 	})
 
+	r.Get("/ping", handler.PingAPI)
+	r.Get("/redirect", handler.TestAPIRedirect)
+
 	return r
 }
 

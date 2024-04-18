@@ -30,7 +30,7 @@ func main() {
 
 	cfg.Vault = vault
 
-	authRepo := authrepo.New(&authrepo.Config{Cfg: cfg},
+	authRepo := authrepo.New(&authrepo.Options{Cfg: cfg},
 		google.New(cfg.Vault.GoogleAuth.ClientID, cfg.Vault.GoogleAuth.ClientSecret, cfg.GoogleAuthConfig.CallbackURL),
 	)
 
