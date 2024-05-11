@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	auth "github.com/faisalhardin/auth-vessel/internal/entitiy/repo/httprepo"
+	utilhandler "github.com/faisalhardin/auth-vessel/internal/library/util/handler"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/markbates/goth/gothic"
@@ -16,7 +17,7 @@ import (
 func RegisterRoutes(handler auth.AuthHandler) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
-
+	r.Use(utilhandler.Handler)
 	r.Route("/v1", func(v1 chi.Router) {
 		v1.Group(func(authed chi.Router) {
 			authed.Get("/auth/{provider}/callback", handler.GetAuthCallbackFunction)
