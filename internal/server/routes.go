@@ -23,6 +23,8 @@ func RegisterRoutes(handler auth.AuthHandler) http.Handler {
 			authed.Get("/auth/{provider}/callback", handler.GetAuthCallbackFunction)
 			authed.Get("/auth/{provider}", handler.BeginAuthProviderCallback)
 			authed.Get("/logout/{provider}", handler.Logout)
+			authed.Post("/register/user", handler.TestBinding)
+			authed.Get("/user", handler.TestSchemaBinding)
 		})
 	})
 

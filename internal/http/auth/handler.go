@@ -6,8 +6,14 @@ import (
 
 	"github.com/faisalhardin/auth-vessel/internal/config"
 	authrepo "github.com/faisalhardin/auth-vessel/internal/entitiy/repo/auth"
+	"github.com/faisalhardin/auth-vessel/internal/entitiy/user"
 	commonwriter "github.com/faisalhardin/auth-vessel/internal/library/common/writer"
+	"github.com/faisalhardin/auth-vessel/internal/library/util/common/binding"
 	"github.com/go-chi/chi/v5"
+)
+
+var (
+	bindingBind = binding.Bind
 )
 
 type AuthHandler struct {
@@ -52,4 +58,36 @@ func (h *AuthHandler) TestAPIRedirect(w http.ResponseWriter, r *http.Request) {
 
 	ctx := context.Background()
 	commonwriter.Redirect(ctx, w, r, "https://inspirybox.id", http.StatusTemporaryRedirect)
+}
+
+func (h *AuthHandler) TestReturnError(w http.ResponseWriter, r *http.Request) {
+
+}
+
+func (h *AuthHandler) TestBinding(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	requestData := user.User{}
+	err := bindingBind(r, &requestData)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, requestData)
+
+}
+
+func (h *AuthHandler) TestSchemaBinding(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	requestData := user.UserRequest{}
+	err := bindingBind(r, &requestData)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, requestData)
+
 }

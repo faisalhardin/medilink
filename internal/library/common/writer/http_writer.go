@@ -4,6 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+
+	"github.com/faisalhardin/auth-vessel/internal/library/common/commonerr"
+	"github.com/faisalhardin/auth-vessel/internal/library/util/requestinfo"
+	"github.com/go-chi/chi/v5"
+	"github.com/pkg/errors"
 )
 
 type key struct{}
@@ -13,6 +18,10 @@ var errCtxKey key
 type Response struct {
 	Data   interface{}   `json:"data,omitempty"`
 	Errors []interface{} `json:"errors,omitempty"`
+}
+
+type ErrorMessage struct {
+	ErrorMessage []*commonerr.ErrorFormat `json:"error_messages"`
 }
 
 func WriteJSONAPIData(w http.ResponseWriter, r *http.Request, status int, data interface{}) (int, error) {
@@ -72,4 +81,53 @@ func Redirect(ctx context.Context, w http.ResponseWriter, r *http.Request, url s
 	http.Redirect(w, r, url, statusCode)
 
 	return nil
+}
+
+func SetError(ctx context.Context, w http.ResponseWriter, errValue error) (err error) {
+
+	requestInfo := getRequestInfo(ctx)
+	switch errCause := errors.Cause(errValue).(type) {
+	case *commonerr.ErrorMessage:
+		requestInfo.SetHTTPStatus(errCause.Code)
+		err = SetErrorFormat(ctx, w, errCause)
+	default:
+		requestInfo.SetHTTPStatus(http.StatusInternalServerError)
+		_, err = WriteJSON(w, http.StatusInternalServerError, &ErrorMessage{
+			ErrorMessage: commonerr.SetNewInternalError().ErrorList,
+		})
+	}
+	return
+}
+
+// SetErrorFormat http
+func SetErrorFormat(ctx context.Context, w http.ResponseWriter, errFormat *commonerr.ErrorMessage) (err error) {
+	_, err = WriteJSON(w, errFormat.Code, &ErrorMessage{
+		ErrorMessage: errFormat.ErrorList,
+	})
+	return
+}
+
+func getRequestInfo(ctx context.Context) requestinfo.RequestInfo {
+	ctxData := chi.RouteContext(ctx)
+	reqInfo := requestinfo.GetRequestInfo(ctx)
+	if ctxData != nil {
+		reqInfo.RequestURL = ctxData.RoutePattern()
+	}
+	return reqInfo
+}
+
+func WriteJSON(w http.ResponseWriter, status int, data interface{}) (int, error) {
+	w.Header().Set("Content-Type", "application/json")
+	b, err := json.Marshal(data)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		writeLen, writeErr := w.Write([]byte(`{"errors":["Internal Server Error"]}`))
+		if writeErr != nil {
+			return writeLen, writeErr
+		}
+		return writeLen, err
+	}
+
+	w.WriteHeader(status)
+	return w.Write(b)
 }
