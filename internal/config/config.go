@@ -18,8 +18,24 @@ type Config struct {
 type Server struct {
 }
 
+type VaultData struct {
+	Data Vault `json:"data"`
+}
+
 type Vault struct {
-	GoogleAuth GoogleAuth `json:"google_auth"`
+	GoogleAuth GoogleAuth        `json:"google_auth"`
+	DBMaster   map[string]string `json:"db_master"`
+	DBSlave    map[string]string `json:"db_slave"`
+}
+
+type DBMaster struct {
+	Host       string `json:"host"`
+	Port       string `json:"port"`
+	Password   string `json:"password"`
+	User       string `json:"user"`
+	DBName     string `json:"dbname"`
+	SSLMode    string `json:"disable"`
+	SearchPath string `json:"search_path"`
 }
 
 type GoogleAuth struct {
@@ -47,10 +63,8 @@ func New(repoName string) (*Config, error) {
 	}
 	defer func() {
 		if err := f.Close(); err != nil {
-			fmt.Print("Failed to close file: %s\n", err)
+			fmt.Printf("Failed to close file: %s\n", err)
 		}
-
-		return
 	}()
 
 	var cfg Config
@@ -61,28 +75,26 @@ func New(repoName string) (*Config, error) {
 	return &cfg, nil
 }
 
-func NewVault() (Vault, error) {
+func NewVault() (VaultData, error) {
 	dir, _ := os.Getwd()
 	filename := "files/etc/configuration/auth-vessel.development.json"
 
 	f, err := os.Open(fmt.Sprintf("%s/%s", dir, filename))
 	if err != nil {
-		return Vault{}, err
+		return VaultData{}, err
 	}
 	defer func() {
 		if err := f.Close(); err != nil {
-			fmt.Print("Failed to close file: %s\n", err)
+			fmt.Printf("Failed to close file: %s\n", err)
 		}
-
-		return
 	}()
 
 	byteValue, _ := io.ReadAll(f)
 
-	var vault Vault
-	err = json.Unmarshal(byteValue, &vault)
+	var vaultData VaultData
+	err = json.Unmarshal(byteValue, &vaultData)
 	if err != nil {
-		return Vault{}, err
+		return VaultData{}, err
 	}
-	return vault, nil
+	return vaultData, nil
 }

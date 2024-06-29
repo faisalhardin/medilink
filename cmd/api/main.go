@@ -6,8 +6,11 @@ import (
 
 	"github.com/faisalhardin/auth-vessel/internal/config"
 	authhandler "github.com/faisalhardin/auth-vessel/internal/http/auth"
+	xormlib "github.com/faisalhardin/auth-vessel/internal/library/db/xorm"
 	authrepo "github.com/faisalhardin/auth-vessel/internal/repo/auth"
+	userrepo "github.com/faisalhardin/auth-vessel/internal/repo/user"
 	"github.com/faisalhardin/auth-vessel/internal/server"
+	_ "github.com/lib/pq"
 	"github.com/markbates/goth/providers/google"
 )
 
@@ -28,15 +31,27 @@ func main() {
 		log.Fatalf("failed to init the vault: %v", err)
 	}
 
-	cfg.Vault = vault
+	cfg.Vault = vault.Data
 
 	authRepo := authrepo.New(&authrepo.Options{Cfg: cfg},
 		google.New(cfg.Vault.GoogleAuth.ClientID, cfg.Vault.GoogleAuth.ClientSecret, cfg.GoogleAuthConfig.CallbackURL),
 	)
 
+	db, err := xormlib.NewDBConnection(cfg)
+	if err != nil {
+		log.Fatalf("failed to init db: %v", err)
+		return
+	}
+	defer db.CloseDBConnection()
+
+	userRepo := userrepo.New(&userrepo.Conn{
+		DB: db,
+	})
+
 	authHandler := authhandler.New(&authhandler.AuthHandler{
 		Cfg:      cfg,
 		AuthRepo: authRepo,
+		UserRepo: *userRepo,
 	})
 
 	server := server.NewServer(server.RegisterRoutes(authHandler))

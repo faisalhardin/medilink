@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/faisalhardin/auth-vessel/internal/config"
@@ -9,6 +10,7 @@ import (
 	"github.com/faisalhardin/auth-vessel/internal/entitiy/user"
 	commonwriter "github.com/faisalhardin/auth-vessel/internal/library/common/writer"
 	"github.com/faisalhardin/auth-vessel/internal/library/util/common/binding"
+	userrepo "github.com/faisalhardin/auth-vessel/internal/repo/user"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -18,7 +20,8 @@ var (
 
 type AuthHandler struct {
 	Cfg      *config.Config
-	AuthRepo authrepo.Auth
+	AuthRepo authrepo.AuthRepo
+	UserRepo userrepo.Conn
 }
 
 func New(handler *AuthHandler) *AuthHandler {
@@ -90,4 +93,24 @@ func (h *AuthHandler) TestSchemaBinding(w http.ResponseWriter, r *http.Request) 
 
 	commonwriter.SetOKWithData(ctx, w, requestData)
 
+}
+
+func (h *AuthHandler) TestGetUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	requestData := user.User{}
+	err := bindingBind(r, &requestData)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	user, _, err := h.UserRepo.GetUserByParams(ctx, requestData)
+	if err != nil {
+		fmt.Println(err)
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, user)
 }

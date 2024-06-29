@@ -55,3 +55,5 @@ cmd/__debug_bin
 internal/entity/repo/db/gomock_reflect*
 
 *auth-vessel.development.json
+
+*.sh

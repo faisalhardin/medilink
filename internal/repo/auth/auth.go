@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/faisalhardin/auth-vessel/internal/config"
@@ -33,15 +32,8 @@ func New(opt *Options, providers ...goth.Provider) *Options {
 	return opt
 }
 
-func (opt *Options) GetAuthCallbackFunction(w http.ResponseWriter, r *http.Request) {
-	user, err := gothic.CompleteUserAuth(w, r)
-	if err != nil {
-		fmt.Fprintln(w, r)
-		return
-	}
-
-	fmt.Println(user)
-
+func (opt *Options) GetAuthCallbackFunction(w http.ResponseWriter, r *http.Request) (goth.User, error) {
+	return gothic.CompleteUserAuth(w, r)
 }
 
 func (opt *Options) BeginAuthProviderCallback(w http.ResponseWriter, r *http.Request) {

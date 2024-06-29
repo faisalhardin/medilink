@@ -10,4 +10,5 @@ type AuthHandler interface {
 	TestAPIRedirect(w http.ResponseWriter, r *http.Request)
 	TestBinding(w http.ResponseWriter, r *http.Request)
 	TestSchemaBinding(w http.ResponseWriter, r *http.Request)
+	TestGetUser(w http.ResponseWriter, r *http.Request)
 }
