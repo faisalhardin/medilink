@@ -3,7 +3,7 @@ package user
 import (
 	"context"
 
-	"github.com/faisalhardin/auth-vessel/internal/entitiy/user"
+	"github.com/faisalhardin/medilink/internal/entitiy/user"
 )
 
 type UserDB interface {

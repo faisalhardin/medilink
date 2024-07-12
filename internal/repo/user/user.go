@@ -3,8 +3,8 @@ package user
 import (
 	"context"
 
-	"github.com/faisalhardin/auth-vessel/internal/entitiy/user"
-	xormlib "github.com/faisalhardin/auth-vessel/internal/library/db/xorm"
+	"github.com/faisalhardin/medilink/internal/entitiy/user"
+	xormlib "github.com/faisalhardin/medilink/internal/library/db/xorm"
 )
 
 const (

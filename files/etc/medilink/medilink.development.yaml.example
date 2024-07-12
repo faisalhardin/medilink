@@ -1,0 +1,11 @@
+server:
+  host: "127.0.0.1"
+  port: "8080"
+
+google_auth_config:
+  max_age: 5
+  is_prod: false
+  callback_url: "localhost"
+  http_only: true
+  cookie_path: ""
+  hompage_redirect: ""

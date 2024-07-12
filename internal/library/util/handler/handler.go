@@ -4,7 +4,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/faisalhardin/auth-vessel/internal/library/util/requestinfo"
+	"github.com/faisalhardin/medilink/internal/library/util/requestinfo"
 )
 
 func Handler(next http.Handler) http.Handler {

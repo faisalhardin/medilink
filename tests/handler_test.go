@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/faisalhardin/auth-vessel/internal/server"
+	"github.com/faisalhardin/medilink/internal/server"
 )
 
 func TestHandler(t *testing.T) {

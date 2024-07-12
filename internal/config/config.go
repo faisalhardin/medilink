@@ -16,6 +16,8 @@ type Config struct {
 }
 
 type Server struct {
+	Host string `yaml:"host"`
+	Port string `yaml:"port"`
 }
 
 type VaultData struct {
@@ -23,9 +25,13 @@ type VaultData struct {
 }
 
 type Vault struct {
-	GoogleAuth GoogleAuth        `json:"google_auth"`
-	DBMaster   map[string]string `json:"db_master"`
-	DBSlave    map[string]string `json:"db_slave"`
+	GoogleAuth GoogleAuth `json:"google_auth"`
+	DBMaster   DBConfig   `json:"db_master"`
+	DBSlave    DBConfig   `json:"db_slave"`
+}
+
+type DBConfig struct {
+	DSN string `json:"dsn"`
 }
 
 type DBMaster struct {
@@ -55,7 +61,8 @@ type GoogleAuthConfig struct {
 
 func New(repoName string) (*Config, error) {
 	dir, _ := os.Getwd()
-	filename := "files/etc/auth-vessel/auth-vessel.development.yaml"
+	dir = "D:/gol/medilink/medilink"
+	filename := "files/etc/medilink/medilink.development.yaml"
 
 	f, err := os.Open(fmt.Sprintf("%s/%s", dir, filename))
 	if err != nil {
@@ -77,7 +84,8 @@ func New(repoName string) (*Config, error) {
 
 func NewVault() (VaultData, error) {
 	dir, _ := os.Getwd()
-	filename := "files/etc/configuration/auth-vessel.development.json"
+	dir = "D:/gol/medilink/medilink"
+	filename := "files/etc/configuration/medilink.development.json"
 
 	f, err := os.Open(fmt.Sprintf("%s/%s", dir, filename))
 	if err != nil {

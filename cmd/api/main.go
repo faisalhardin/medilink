@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/faisalhardin/auth-vessel/internal/config"
-	authhandler "github.com/faisalhardin/auth-vessel/internal/http/auth"
-	xormlib "github.com/faisalhardin/auth-vessel/internal/library/db/xorm"
-	authrepo "github.com/faisalhardin/auth-vessel/internal/repo/auth"
-	userrepo "github.com/faisalhardin/auth-vessel/internal/repo/user"
-	"github.com/faisalhardin/auth-vessel/internal/server"
+	"github.com/faisalhardin/medilink/internal/config"
+	authhandler "github.com/faisalhardin/medilink/internal/http/auth"
+	xormlib "github.com/faisalhardin/medilink/internal/library/db/xorm"
+	authrepo "github.com/faisalhardin/medilink/internal/repo/auth"
+	userrepo "github.com/faisalhardin/medilink/internal/repo/user"
+	"github.com/faisalhardin/medilink/internal/server"
 	_ "github.com/lib/pq"
 	"github.com/markbates/goth/providers/google"
 )

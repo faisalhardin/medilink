@@ -3,8 +3,9 @@ package xormlib
 import (
 	"fmt"
 
-	"github.com/faisalhardin/auth-vessel/internal/config"
+	"github.com/faisalhardin/medilink/internal/config"
 	"github.com/go-xorm/xorm"
+	_ "github.com/lib/pq"
 	"github.com/pkg/errors"
 	"xorm.io/core"
 )
@@ -16,12 +17,12 @@ type DBConnect struct {
 
 func NewDBConnection(cfg *config.Config) (dbConnection *DBConnect, err error) {
 
-	masterDB, err := generateXormEngineInstance(cfg.Vault.DBMaster)
+	masterDB, err := generateXormEngineInstance(cfg.Vault.DBMaster.DSN)
 	if err != nil {
 		return nil, errors.New("failed to make connection to master db")
 	}
 
-	slaveDB, err := generateXormEngineInstance(cfg.Vault.DBSlave)
+	slaveDB, err := generateXormEngineInstance(cfg.Vault.DBSlave.DSN)
 	if err != nil {
 		return nil, errors.New("failed to make connection to slave db")
 	}
@@ -49,14 +50,7 @@ func (conn *DBConnect) CloseDBConnection() error {
 	return nil
 }
 
-func generateXormEngineInstance(DBConfig map[string]string) (*xorm.Engine, error) {
-	var dsn string
-	for k, v := range DBConfig {
-		if len(v) == 0 {
-			continue
-		}
-		dsn = fmt.Sprintf("%s %s=%s", dsn, k, v)
-	}
+func generateXormEngineInstance(dsn string) (*xorm.Engine, error) {
 
 	engine, err := xorm.NewEngine("postgres", dsn)
 	if err != nil {

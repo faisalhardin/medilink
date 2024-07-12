@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/faisalhardin/auth-vessel/internal/library/common/commonerr"
-	"github.com/faisalhardin/auth-vessel/internal/library/util/validation"
+	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
+	"github.com/faisalhardin/medilink/internal/library/util/validation"
 	"github.com/go-playground/locales/en"
 
 	"github.com/gorilla/schema"

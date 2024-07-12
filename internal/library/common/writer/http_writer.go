@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/faisalhardin/auth-vessel/internal/library/common/commonerr"
-	"github.com/faisalhardin/auth-vessel/internal/library/util/requestinfo"
+	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
+	"github.com/faisalhardin/medilink/internal/library/util/requestinfo"
 	"github.com/go-chi/chi/v5"
 	"github.com/pkg/errors"
 )

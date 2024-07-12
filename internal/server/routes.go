@@ -7,8 +7,8 @@ import (
 	"log"
 	"net/http"
 
-	auth "github.com/faisalhardin/auth-vessel/internal/entitiy/repo/httprepo"
-	utilhandler "github.com/faisalhardin/auth-vessel/internal/library/util/handler"
+	auth "github.com/faisalhardin/medilink/internal/entitiy/repo/httprepo"
+	utilhandler "github.com/faisalhardin/medilink/internal/library/util/handler"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/markbates/goth/gothic"
@@ -47,8 +47,8 @@ func (s *Server) HelloWorldHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
-	jsonResp, _ := json.Marshal(s.db.Health())
-	_, _ = w.Write(jsonResp)
+	// jsonResp, _ := json.Marshal(s.db.Health())
+	// _, _ = w.Write(jsonResp)
 }
 
 func (s *Server) getAuthCallbackFunction(w http.ResponseWriter, r *http.Request) {

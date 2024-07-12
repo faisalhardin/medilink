@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/faisalhardin/auth-vessel/internal/config"
-	authrepo "github.com/faisalhardin/auth-vessel/internal/entitiy/repo/auth"
-	"github.com/faisalhardin/auth-vessel/internal/entitiy/user"
-	commonwriter "github.com/faisalhardin/auth-vessel/internal/library/common/writer"
-	"github.com/faisalhardin/auth-vessel/internal/library/util/common/binding"
-	userrepo "github.com/faisalhardin/auth-vessel/internal/repo/user"
+	"github.com/faisalhardin/medilink/internal/config"
+	authrepo "github.com/faisalhardin/medilink/internal/entitiy/repo/auth"
+	"github.com/faisalhardin/medilink/internal/entitiy/user"
+	commonwriter "github.com/faisalhardin/medilink/internal/library/common/writer"
+	"github.com/faisalhardin/medilink/internal/library/util/common/binding"
+	userrepo "github.com/faisalhardin/medilink/internal/repo/user"
 	"github.com/go-chi/chi/v5"
 )
 

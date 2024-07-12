@@ -1,0 +1,15 @@
+{
+  "data": {
+    "google_auth": {
+      "client_id": "",
+      "client_secret": "",
+      "key": ""
+    },
+    "db_master": {
+      "dsn": ""
+    },
+    "db_slave": {
+      "dsn": ""
+    }
+  }
+}

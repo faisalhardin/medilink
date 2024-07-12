@@ -16,7 +16,6 @@
 /vendor
 .idea/
 log/
-cmd/files
 
 # Ignore generated file
 *.xlsx
@@ -33,10 +32,10 @@ cmd/files
 *agent.staging.ini
 *agent.production.ini
 *.development.yaml
-*enterpriseapp-adsol.development.yaml
-*enterpriseapp-adsol.development.json
-*enterpriseapp-adsol.staging.json
-*enterpriseapp-adsol.production.json
+*medilink.development.yaml
+*medilink.development.json
+*medilink.staging.json
+*medilink.production.json
 
 # ignore docker environment
 .env
@@ -54,6 +53,6 @@ cmd/__debug_bin
 # Ignore generated file
 internal/entity/repo/db/gomock_reflect*
 
-*auth-vessel.development.json
+*medilink.development.json
 
 *.sh

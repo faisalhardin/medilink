@@ -3,7 +3,7 @@ package auth
 import (
 	"net/http"
 
-	"github.com/faisalhardin/auth-vessel/internal/config"
+	"github.com/faisalhardin/medilink/internal/config"
 
 	"github.com/gorilla/sessions"
 	"github.com/markbates/goth"
