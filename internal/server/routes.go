@@ -7,29 +7,34 @@ import (
 	"log"
 	"net/http"
 
-	auth "github.com/faisalhardin/medilink/internal/entitiy/repo/httprepo"
 	utilhandler "github.com/faisalhardin/medilink/internal/library/util/handler"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/markbates/goth/gothic"
 )
 
-func RegisterRoutes(handler auth.AuthHandler) http.Handler {
+func RegisterRoutes(m *module) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(utilhandler.Handler)
 	r.Route("/v1", func(v1 chi.Router) {
+		// v1.Group(func(authed chi.Router) {
+		// 	authed.Get("/auth/{provider}/callback", handler..GetAuthCallbackFunction)
+		// 	authed.Get("/auth/{provider}", handler.BeginAuthProviderCallback)
+		// 	authed.Get("/logout/{provider}", handler.Logout)
+		// 	authed.Post("/register/user", handler.TestBinding)
+		// 	authed.Get("/user", handler.TestSchemaBinding)
+		// })
+
 		v1.Group(func(authed chi.Router) {
-			authed.Get("/auth/{provider}/callback", handler.GetAuthCallbackFunction)
-			authed.Get("/auth/{provider}", handler.BeginAuthProviderCallback)
-			authed.Get("/logout/{provider}", handler.Logout)
-			authed.Post("/register/user", handler.TestBinding)
-			authed.Get("/user", handler.TestSchemaBinding)
+			authed.Post("/institution", m.httpHandler.InstitutionHandler.InsertNewInstitution)
+			authed.Get("/institution", m.httpHandler.InstitutionHandler.FindInstitutions)
 		})
+
 	})
 
-	r.Get("/ping", handler.PingAPI)
-	r.Get("/redirect", handler.TestAPIRedirect)
+	// r.Get("/ping", handler.PingAPI)
+	// r.Get("/redirect", handler.TestAPIRedirect)
 
 	return r
 }

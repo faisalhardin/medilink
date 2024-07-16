@@ -6,8 +6,8 @@ import (
 	"net/http"
 
 	"github.com/faisalhardin/medilink/internal/config"
-	authrepo "github.com/faisalhardin/medilink/internal/entitiy/repo/auth"
-	"github.com/faisalhardin/medilink/internal/entitiy/user"
+	authrepo "github.com/faisalhardin/medilink/internal/entity/repo/auth"
+	"github.com/faisalhardin/medilink/internal/entity/user"
 	commonwriter "github.com/faisalhardin/medilink/internal/library/common/writer"
 	"github.com/faisalhardin/medilink/internal/library/util/common/binding"
 	userrepo "github.com/faisalhardin/medilink/internal/repo/user"

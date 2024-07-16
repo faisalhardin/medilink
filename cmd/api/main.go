@@ -4,14 +4,18 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/faisalhardin/medilink/internal/entity/http"
+
 	"github.com/faisalhardin/medilink/internal/config"
-	authhandler "github.com/faisalhardin/medilink/internal/http/auth"
 	xormlib "github.com/faisalhardin/medilink/internal/library/db/xorm"
-	authrepo "github.com/faisalhardin/medilink/internal/repo/auth"
-	userrepo "github.com/faisalhardin/medilink/internal/repo/user"
+	institutionrepo "github.com/faisalhardin/medilink/internal/repo/institution"
+
+	institutionUC "github.com/faisalhardin/medilink/internal/usecase/institution"
+
+	institutionHandler "github.com/faisalhardin/medilink/internal/http/institution"
+
 	"github.com/faisalhardin/medilink/internal/server"
 	_ "github.com/lib/pq"
-	"github.com/markbates/goth/providers/google"
 )
 
 const (
@@ -33,10 +37,6 @@ func main() {
 
 	cfg.Vault = vault.Data
 
-	authRepo := authrepo.New(&authrepo.Options{Cfg: cfg},
-		google.New(cfg.Vault.GoogleAuth.ClientID, cfg.Vault.GoogleAuth.ClientSecret, cfg.GoogleAuthConfig.CallbackURL),
-	)
-
 	db, err := xormlib.NewDBConnection(cfg)
 	if err != nil {
 		log.Fatalf("failed to init db: %v", err)
@@ -44,17 +44,33 @@ func main() {
 	}
 	defer db.CloseDBConnection()
 
-	userRepo := userrepo.New(&userrepo.Conn{
+	// repo block start
+	institutionDB := institutionrepo.NewInstitutionDB(&institutionrepo.Conn{
 		DB: db,
 	})
+	// repo block end
 
-	authHandler := authhandler.New(&authhandler.AuthHandler{
-		Cfg:      cfg,
-		AuthRepo: authRepo,
-		UserRepo: *userRepo,
+	// usecase block start
+	institutionUC := institutionUC.NewInstitutionUC(&institutionUC.InstitutionUC{
+		InstitutionRepo: institutionDB,
 	})
 
-	server := server.NewServer(server.RegisterRoutes(authHandler))
+	// usecase block end
+
+	// httphandler block start
+
+	institutionHandler := institutionHandler.New(
+		&institutionHandler.InstitutionHandler{
+			InstitutionUC: institutionUC,
+		},
+	)
+	// httphandler block end
+
+	modules := server.LoadModules(&http.Handlers{
+		InstitutionHandler: institutionHandler,
+	})
+
+	server := server.NewServer(server.RegisterRoutes(modules))
 
 	err = server.ListenAndServe()
 	if err != nil {
