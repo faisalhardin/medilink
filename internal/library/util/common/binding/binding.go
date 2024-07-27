@@ -2,9 +2,10 @@ package binding
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/url"
+
+	"github.com/pkg/errors"
 
 	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
 	"github.com/faisalhardin/medilink/internal/library/util/validation"

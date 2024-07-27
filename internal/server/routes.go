@@ -29,6 +29,7 @@ func RegisterRoutes(m *module) http.Handler {
 		v1.Group(func(authed chi.Router) {
 			authed.Post("/institution", m.httpHandler.InstitutionHandler.InsertNewInstitution)
 			authed.Get("/institution", m.httpHandler.InstitutionHandler.FindInstitutions)
+			authed.Post("/patient", m.httpHandler.PatientHandler.RegisterNewPatient)
 		})
 
 	})

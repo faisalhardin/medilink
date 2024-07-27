@@ -57,6 +57,8 @@ func generateXormEngineInstance(dsn string) (*xorm.Engine, error) {
 		return nil, fmt.Errorf("failed to create engine: %v", err)
 	}
 
+	engine.ShowSQL(true)
+
 	// Ping the database to verify the connection
 	if err := engine.Ping(); err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %v", err)
