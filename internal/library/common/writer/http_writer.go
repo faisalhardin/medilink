@@ -6,6 +6,8 @@ import (
 	"net/http"
 
 	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
+	liblog "github.com/faisalhardin/medilink/internal/library/common/log"
+	"github.com/faisalhardin/medilink/internal/library/common/log/logger"
 	"github.com/faisalhardin/medilink/internal/library/util/requestinfo"
 	"github.com/go-chi/chi/v5"
 	"github.com/pkg/errors"
@@ -95,6 +97,7 @@ func SetError(ctx context.Context, w http.ResponseWriter, errValue error) (err e
 		_, err = WriteJSON(w, http.StatusInternalServerError, &ErrorMessage{
 			ErrorMessage: commonerr.SetNewInternalError().ErrorList,
 		})
+		go postProcess(ctx, errValue)
 	}
 	return
 }
@@ -130,4 +133,15 @@ func WriteJSON(w http.ResponseWriter, status int, data interface{}) (int, error)
 
 	w.WriteHeader(status)
 	return w.Write(b)
+}
+
+func postProcess(ctx context.Context, err error) {
+
+	logData := logger.KV{}
+	if err != nil {
+
+		// Report errors
+		liblog.ErrorWithFields(err.Error(), logData)
+	}
+
 }

@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/faisalhardin/medilink/internal/entity/http"
+	ilog "github.com/faisalhardin/medilink/cmd/log"
+
+	httpHandler "github.com/faisalhardin/medilink/internal/entity/http"
 
 	"github.com/faisalhardin/medilink/internal/config"
 	xormlib "github.com/faisalhardin/medilink/internal/library/db/xorm"
@@ -22,7 +24,7 @@ import (
 )
 
 const (
-	repoName = "vessel-auth"
+	repoName = "medilink"
 )
 
 func main() {
@@ -39,6 +41,8 @@ func main() {
 	}
 
 	cfg.Vault = vault.Data
+
+	ilog.SetupLogging(cfg)
 
 	db, err := xormlib.NewDBConnection(cfg)
 	if err != nil {
@@ -81,7 +85,7 @@ func main() {
 	})
 	// httphandler block end
 
-	modules := server.LoadModules(&http.Handlers{
+	modules := server.LoadModules(&httpHandler.Handlers{
 		InstitutionHandler: institutionHandler,
 		PatientHandler:     patientHandler,
 	})
