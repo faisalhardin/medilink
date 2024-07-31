@@ -1,9 +1,13 @@
 package auth
 
 import (
+	"context"
+	"errors"
 	"net/http"
+	"time"
 
 	"github.com/faisalhardin/medilink/internal/config"
+	"github.com/go-redis/redis/v8"
 
 	"github.com/gorilla/sessions"
 	"github.com/markbates/goth"
@@ -12,6 +16,7 @@ import (
 
 type Options struct {
 	Cfg *config.Config
+	Str TokenStorage
 }
 
 func New(opt *Options, providers ...goth.Provider) *Options {
@@ -45,4 +50,29 @@ func (opt *Options) Logout(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Location", "/")
 	w.WriteHeader(http.StatusTemporaryRedirect)
 
+}
+
+func (opt *Options) CreateToken(ctx context.Context, staffDetail string, expiresIn time.Duration) (string, error) {
+	token, err := GenerateOpaqueToken()
+	if err != nil {
+		return "", err
+	}
+
+	err = opt.Str.Set(ctx, token, staffDetail, expiresIn)
+	if err != nil {
+		return "", err
+	}
+
+	return token, nil
+}
+
+func (opt *Options) ValidateToken(ctx context.Context, token string) (string, error) {
+	userID, err := opt.Str.Get(ctx, token)
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return "", errors.New("invalid token")
+		}
+		return "", err
+	}
+	return userID, nil
 }

@@ -32,3 +32,8 @@ type RoleStaffMapping struct {
 	StaffID int64 `xorm:"'id_mst_staff'"`
 	RoleID  int64 `xorm:"'id_mst_role'"`
 }
+
+type UserDetail struct {
+	Staff MstStaff  `json:"staff"`
+	Roles []MstRole `json:"roles"`
+}

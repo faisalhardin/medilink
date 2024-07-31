@@ -7,10 +7,12 @@ import (
 
 	"github.com/faisalhardin/medilink/internal/config"
 	authrepo "github.com/faisalhardin/medilink/internal/entity/repo/auth"
+	authuc "github.com/faisalhardin/medilink/internal/entity/usecase/auth"
 	"github.com/faisalhardin/medilink/internal/entity/user"
 	commonwriter "github.com/faisalhardin/medilink/internal/library/common/writer"
 	"github.com/faisalhardin/medilink/internal/library/util/common/binding"
 	userrepo "github.com/faisalhardin/medilink/internal/repo/user"
+	authmodel "github.com/faisalhardin/medilink/internal/usecase/auth"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -22,6 +24,7 @@ type AuthHandler struct {
 	Cfg      *config.Config
 	AuthRepo authrepo.AuthRepo
 	UserRepo userrepo.Conn
+	AuthUC   authuc.AuthUC
 }
 
 func New(handler *AuthHandler) *AuthHandler {
@@ -113,4 +116,44 @@ func (h *AuthHandler) TestGetUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	commonwriter.SetOKWithData(ctx, w, user)
+}
+
+func (h *AuthHandler) PseudoLogin(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	requestData := authmodel.AuthParams{}
+	err := bindingBind(r, &requestData)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	res, err := h.AuthUC.Login(w, r, requestData)
+	if err != nil {
+		fmt.Println(err)
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, res)
+}
+
+func (h *AuthHandler) GetLoginByToken(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	requestData := authmodel.AuthParams{}
+	err := bindingBind(r, &requestData)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	userDetail, err := h.AuthUC.GetUserDetail(ctx, requestData)
+	if err != nil {
+		fmt.Println(err)
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, userDetail)
 }
