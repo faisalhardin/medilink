@@ -13,6 +13,11 @@ type Config struct {
 	Server           Server           `yaml:"server"`
 	Vault            Vault            `yaml:"vault"`
 	GoogleAuthConfig GoogleAuthConfig `yaml:"google_auth_config"`
+	JWTConfig        JWTConfig        `yaml:"jwt_config"`
+}
+
+type JWTConfig struct {
+	DurationInHour int `json:"duration_in_hour"`
 }
 
 type Server struct {
@@ -26,9 +31,14 @@ type VaultData struct {
 }
 
 type Vault struct {
-	GoogleAuth GoogleAuth `json:"google_auth"`
-	DBMaster   DBConfig   `json:"db_master"`
-	DBSlave    DBConfig   `json:"db_slave"`
+	GoogleAuth    GoogleAuth    `json:"google_auth"`
+	DBMaster      DBConfig      `json:"db_master"`
+	DBSlave       DBConfig      `json:"db_slave"`
+	JWTCredential JWTCredential `json:"jwt_credential"`
+}
+
+type JWTCredential struct {
+	Secret string `json:"secret"`
 }
 
 type DBConfig struct {
