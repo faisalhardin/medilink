@@ -9,3 +9,6 @@ google_auth_config:
   http_only: true
   cookie_path: ""
   hompage_redirect: ""
+
+jwt_config:
+  duration_in_minutes: 480

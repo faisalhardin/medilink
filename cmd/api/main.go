@@ -63,10 +63,15 @@ func main() {
 		DB: db,
 	})
 
-	authRepo := auth.New(&auth.Options{
+	authRepo, err := auth.New(&auth.Options{
 		Cfg: cfg,
 		Str: auth.MockRedisClient{},
 	})
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+
 	// repo block end
 
 	// usecase block start

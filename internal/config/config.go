@@ -17,7 +17,7 @@ type Config struct {
 }
 
 type JWTConfig struct {
-	DurationInHour int `json:"duration_in_hour"`
+	DurationInMinutes int64 `yaml:"duration_in_minutes"`
 }
 
 type Server struct {
@@ -72,7 +72,6 @@ type GoogleAuthConfig struct {
 
 func New(repoName string) (*Config, error) {
 	dir, _ := os.Getwd()
-	dir = "D:/gol/medilink/medilink"
 	filename := "files/etc/medilink/medilink.development.yaml"
 
 	f, err := os.Open(fmt.Sprintf("%s/%s", dir, filename))
@@ -95,7 +94,6 @@ func New(repoName string) (*Config, error) {
 
 func NewVault() (VaultData, error) {
 	dir, _ := os.Getwd()
-	dir = "D:/gol/medilink/medilink"
 	filename := "files/etc/configuration/medilink.development.json"
 
 	f, err := os.Open(fmt.Sprintf("%s/%s", dir, filename))

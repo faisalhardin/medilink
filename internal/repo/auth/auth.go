@@ -2,10 +2,12 @@ package auth
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"time"
 
+	"github.com/pkg/errors"
+
+	"github.com/cristalhq/jwt/v5"
 	"github.com/faisalhardin/medilink/internal/config"
 	"github.com/go-redis/redis/v8"
 
@@ -17,9 +19,11 @@ import (
 type Options struct {
 	Cfg *config.Config
 	Str TokenStorage
+
+	JwtOpt JwtOpt
 }
 
-func New(opt *Options, providers ...goth.Provider) *Options {
+func New(opt *Options, providers ...goth.Provider) (*Options, error) {
 
 	store := sessions.NewCookieStore([]byte(opt.Cfg.Vault.GoogleAuth.Key))
 	store.MaxAge(opt.Cfg.GoogleAuthConfig.MaxAge)
@@ -34,7 +38,18 @@ func New(opt *Options, providers ...goth.Provider) *Options {
 		providers...,
 	)
 
-	return opt
+	opt.JwtOpt = JwtOpt{
+		JWTPrivateKey: opt.Cfg.Vault.JWTCredential.Secret,
+	}
+
+	// Create signer
+	signer, err := jwt.NewSignerHS(jwt.HS256, []byte(opt.Cfg.Vault.JWTCredential.Secret))
+	if err != nil {
+		return opt, errors.Wrap(err, "NewAuthOpt")
+	}
+	opt.JwtOpt.jwtSigner = signer
+
+	return opt, nil
 }
 
 func (opt *Options) GetAuthCallbackFunction(w http.ResponseWriter, r *http.Request) (goth.User, error) {

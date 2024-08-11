@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"time"
 
 	"github.com/faisalhardin/medilink/internal/config"
 	"github.com/faisalhardin/medilink/internal/entity/constant"
@@ -78,10 +77,7 @@ func (u *AuthUC) Login(w http.ResponseWriter, r *http.Request, params AuthParams
 		return
 	}
 
-	userDetailByte, _ := json.Marshal(userDetail)
-
-	eightHourExpirationDuration := 8 * time.Hour
-	token, err := u.AuthRepo.CreateToken(ctx, string(userDetailByte), eightHourExpirationDuration)
+	token, err := u.AuthRepo.CreateJWTToken(ctx, userDetail, u.Cfg.JWTConfig.DurationInMinutes)
 	if err != nil {
 		return
 	}
