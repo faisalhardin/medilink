@@ -3,6 +3,7 @@ module github.com/faisalhardin/medilink
 go 1.19
 
 require (
+	github.com/cristalhq/jwt/v5 v5.4.0
 	github.com/go-chi/chi/v5 v5.0.12
 	github.com/go-playground/locales v0.14.1
 	github.com/go-playground/universal-translator v0.18.1
@@ -17,6 +18,8 @@ require (
 
 require (
 	cloud.google.com/go v0.110.2 // indirect
+	github.com/cespare/xxhash/v2 v2.1.2 // indirect
+	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
@@ -36,6 +39,7 @@ require (
 
 require (
 	github.com/go-playground/validator/v10 v10.20.0
+	github.com/go-redis/redis/v8 v8.11.5
 	github.com/gorilla/securecookie v1.1.2 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect

@@ -34,6 +34,14 @@ func RegisterRoutes(m *module) http.Handler {
 
 	})
 
+	r.Route("/auth", func(auth chi.Router) {
+		auth.Group(func(authenticate chi.Router) {
+			authenticate.Post("/pseudologin", m.httpHandler.AuthHandler.PseudoLogin)
+			authenticate.Post("/get-login", m.httpHandler.AuthHandler.GetLoginByToken)
+
+		})
+	})
+
 	// r.Get("/ping", handler.PingAPI)
 	// r.Get("/redirect", handler.TestAPIRedirect)
 

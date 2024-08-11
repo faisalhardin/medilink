@@ -5,6 +5,7 @@ import (
 	"log"
 
 	ilog "github.com/faisalhardin/medilink/cmd/log"
+	"github.com/faisalhardin/medilink/internal/repo/auth"
 
 	httpHandler "github.com/faisalhardin/medilink/internal/entity/http"
 
@@ -13,9 +14,11 @@ import (
 	institutionrepo "github.com/faisalhardin/medilink/internal/repo/institution"
 	patientrepo "github.com/faisalhardin/medilink/internal/repo/patient"
 
+	authUC "github.com/faisalhardin/medilink/internal/usecase/auth"
 	institutionUC "github.com/faisalhardin/medilink/internal/usecase/institution"
 	patientUC "github.com/faisalhardin/medilink/internal/usecase/patient"
 
+	authHandler "github.com/faisalhardin/medilink/internal/http/auth"
 	institutionHandler "github.com/faisalhardin/medilink/internal/http/institution"
 	patientHandler "github.com/faisalhardin/medilink/internal/http/patient"
 
@@ -59,6 +62,11 @@ func main() {
 	patientDB := patientrepo.NewPatientDB(&patientrepo.Conn{
 		DB: db,
 	})
+
+	authRepo := auth.New(&auth.Options{
+		Cfg: cfg,
+		Str: auth.MockRedisClient{},
+	})
 	// repo block end
 
 	// usecase block start
@@ -68,6 +76,11 @@ func main() {
 
 	patientUC := patientUC.NewPatientUC(&patientUC.PatientUC{
 		PatientDB: patientDB,
+	})
+
+	authUC := authUC.New(&authUC.AuthUC{
+		Cfg:      *cfg,
+		AuthRepo: *authRepo,
 	})
 
 	// usecase block end
@@ -83,11 +96,17 @@ func main() {
 	patientHandler := patientHandler.New(&patientHandler.PatientHandler{
 		PatientUC: patientUC,
 	})
+
+	authHandler := authHandler.New(&authHandler.AuthHandler{
+		Cfg:    cfg,
+		AuthUC: authUC,
+	})
 	// httphandler block end
 
 	modules := server.LoadModules(&httpHandler.Handlers{
 		InstitutionHandler: institutionHandler,
 		PatientHandler:     patientHandler,
+		AuthHandler:        authHandler,
 	})
 
 	server := server.NewServer(server.RegisterRoutes(modules))
