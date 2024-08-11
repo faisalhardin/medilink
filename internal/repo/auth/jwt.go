@@ -7,11 +7,6 @@ import (
 	"github.com/cristalhq/jwt/v5"
 )
 
-type header struct {
-	Alg string `json:"alg"`
-	Typ string `json:"typ"`
-}
-
 type JwtOpt struct {
 	JWTPrivateKey string
 	jwtSigner     *jwt.HSAlg
