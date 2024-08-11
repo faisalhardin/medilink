@@ -19,10 +19,6 @@ type TokenStorage interface {
 
 type MockRedisClient map[string]interface{}
 
-// type MockRedisClient struct {
-// 	store map[string]interface{}
-// }
-
 func (r MockRedisClient) Set(ctx context.Context, key string, value interface{}, expireAt time.Duration) error {
 	r[key] = value
 	return nil
@@ -53,10 +49,6 @@ func (r RedisClient) Get(ctx context.Context, key string) (string, error) {
 type TokenStore struct {
 	Str TokenStorage
 }
-
-// func NewTokenStore(store *TokenStore) *TokenStore {
-// 	return store
-// }
 
 func GenerateOpaqueToken() (string, error) {
 	tokenBytes := make([]byte, 32)
