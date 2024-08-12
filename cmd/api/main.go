@@ -13,6 +13,7 @@ import (
 	xormlib "github.com/faisalhardin/medilink/internal/library/db/xorm"
 	institutionrepo "github.com/faisalhardin/medilink/internal/repo/institution"
 	patientrepo "github.com/faisalhardin/medilink/internal/repo/patient"
+	staffrepo "github.com/faisalhardin/medilink/internal/repo/staff"
 
 	authUC "github.com/faisalhardin/medilink/internal/usecase/auth"
 	institutionUC "github.com/faisalhardin/medilink/internal/usecase/institution"
@@ -63,6 +64,10 @@ func main() {
 		DB: db,
 	})
 
+	staffDB := staffrepo.New(staffrepo.Conn{
+		DB: db,
+	})
+
 	authRepo, err := auth.New(&auth.Options{
 		Cfg: cfg,
 		Str: auth.MockRedisClient{},
@@ -84,8 +89,9 @@ func main() {
 	})
 
 	authUC := authUC.New(&authUC.AuthUC{
-		Cfg:      *cfg,
-		AuthRepo: *authRepo,
+		Cfg:       *cfg,
+		AuthRepo:  *authRepo,
+		StaffRepo: staffDB,
 	})
 
 	// usecase block end

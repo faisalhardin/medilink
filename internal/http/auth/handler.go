@@ -11,7 +11,7 @@ import (
 	"github.com/faisalhardin/medilink/internal/entity/user"
 	commonwriter "github.com/faisalhardin/medilink/internal/library/common/writer"
 	"github.com/faisalhardin/medilink/internal/library/util/common/binding"
-	userrepo "github.com/faisalhardin/medilink/internal/repo/user"
+	userrepo "github.com/faisalhardin/medilink/internal/repo/staff"
 	authmodel "github.com/faisalhardin/medilink/internal/usecase/auth"
 	"github.com/go-chi/chi/v5"
 )

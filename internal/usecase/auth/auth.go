@@ -11,44 +11,13 @@ import (
 	"github.com/faisalhardin/medilink/internal/entity/model"
 	commonwriter "github.com/faisalhardin/medilink/internal/library/common/writer"
 	authRepo "github.com/faisalhardin/medilink/internal/repo/auth"
-)
-
-var (
-	MockUser = map[string]model.UserDetail{
-		"email1@gmail.com": model.UserDetail{
-			Staff: model.MstStaff{
-				ID:               1,
-				UUID:             "1245",
-				Name:             "Name 1",
-				IdMstInstitution: 1,
-			},
-			Roles: []model.MstRole{
-				model.MstRole{
-					RoleID: 1,
-					Name:   "Admin",
-				},
-			},
-		},
-		"email2@gmail.com": model.UserDetail{
-			Staff: model.MstStaff{
-				ID:               1,
-				UUID:             "13213",
-				Name:             "Name 2",
-				IdMstInstitution: 1,
-			},
-			Roles: []model.MstRole{
-				model.MstRole{
-					RoleID: 2,
-					Name:   "Doctor",
-				},
-			},
-		},
-	}
+	"github.com/faisalhardin/medilink/internal/repo/staff"
 )
 
 type AuthUC struct {
-	Cfg      config.Config
-	AuthRepo authRepo.Options
+	Cfg       config.Config
+	AuthRepo  authRepo.Options
+	StaffRepo staff.Conn
 }
 
 type AuthParams struct {
@@ -72,7 +41,7 @@ func (u *AuthUC) Login(w http.ResponseWriter, r *http.Request, params AuthParams
 		commonwriter.Redirect(ctx, w, r, u.Cfg.GoogleAuthConfig.HomepageRedirect, http.StatusFound)
 	}
 
-	userDetail, err := MockGetUserDB(ctx, params.Email)
+	userDetail, err := u.StaffRepo.GetUserDetailByEmail(ctx, params.Email)
 	if err != nil {
 		return
 	}
@@ -97,11 +66,4 @@ func (u *AuthUC) GetUserDetail(ctx context.Context, params AuthParams) (userDeta
 	}
 
 	return
-}
-
-func MockGetUserDB(ctx context.Context, email string) (model.UserDetail, error) {
-	if userDetail, found := MockUser[email]; found {
-		return userDetail, nil
-	}
-	return model.UserDetail{}, constant.ErrorNotFound
 }

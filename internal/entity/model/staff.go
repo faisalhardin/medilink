@@ -12,7 +12,8 @@ type MstStaff struct {
 	ID               int64      `xorm:"'id' pk autoincr" json:"-"`
 	UUID             string     `xorm:"'uuid'" json:"uuid"`
 	Name             string     `xorm:"'name'" json:"name"`
-	IdMstInstitution int64      `xorm:"'id_mst_institution'" json:"id_mst_institution"`
+	Email            string     `xorm:"email" json:"email"`
+	IdMstInstitution int64      `xorm:"'id_mst_institution'" json:"-"`
 	CreateTime       time.Time  `xorm:"'create_time' created" json:"-"`
 	UpdateTime       time.Time  `xorm:"'update_time' updated" json:"-"`
 	DeleteTime       *time.Time `xorm:"'delete_time' deleted" json:"-"`
@@ -34,6 +35,6 @@ type RoleStaffMapping struct {
 }
 
 type UserDetail struct {
-	Staff MstStaff  `json:"staff"`
-	Roles []MstRole `json:"roles"`
+	Staff MstStaff  `json:"staff" xorm:"extends"`
+	Roles []MstRole `json:"roles" xorm:"roles"`
 }
