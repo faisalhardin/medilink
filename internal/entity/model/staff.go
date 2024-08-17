@@ -1,6 +1,8 @@
 package model
 
-import "time"
+import (
+	"time"
+)
 
 const (
 	MST_STAFF_TABLE = "mdl_mst_staff"
@@ -10,19 +12,38 @@ const (
 
 type MstStaff struct {
 	ID               int64      `xorm:"'id' pk autoincr" json:"-"`
-	UUID             string     `xorm:"'uuid'" json:"uuid"`
-	Name             string     `xorm:"'name'" json:"name"`
-	Email            string     `xorm:"email" json:"email"`
+	UUID             string     `xorm:"'uuid'" json:"uuid,omitempty"`
+	Name             string     `xorm:"'name'" json:"name,omitempty"`
+	Email            string     `xorm:"email" json:"email,omitempty"`
 	IdMstInstitution int64      `xorm:"'id_mst_institution'" json:"-"`
 	CreateTime       time.Time  `xorm:"'create_time' created" json:"-"`
 	UpdateTime       time.Time  `xorm:"'update_time' updated" json:"-"`
 	DeleteTime       *time.Time `xorm:"'delete_time' deleted" json:"-"`
 }
 
+type UserSessionDetail struct {
+	ID               int64  `json:"id"`
+	Name             string `json:"name"`
+	IdMstInstitution int64  `json:"id_mst_institution"`
+	ExpiredAt        int64  `json:"expired_at"`
+}
+
+type UserJWTPayload struct {
+	UUID  string              `json:"uuid,omitempty"`
+	Name  string              `json:"name,omitempty"`
+	Email string              `json:"email,omitempty"`
+	Roles []UserRoleJWTDetail `json:"roles"`
+}
+
+type UserRoleJWTDetail struct {
+	RoleID int64  `xorm:"'role_id'"`
+	Name   string `json:"name,omitempty" xorm:"'name'"`
+}
+
 type MstRole struct {
 	ID         int64      `json:"-" xorm:"'id' pk autoincr"`
-	RoleID     int64      `json:"role_id" xorm:"'role_id'"`
-	Name       string     `json:"name" xorm:"'name'"`
+	RoleID     int64      `json:"role_id,omitempty" xorm:"'role_id'"`
+	Name       string     `json:"name,omitempty" xorm:"'name'"`
 	CreateTime time.Time  `json:"-" xorm:"'create_time' created"`
 	UpdateTime time.Time  `json:"-" xorm:"'update_time' updated"`
 	DeleteTime *time.Time `json:"-" xorm:"'delete_time' deleted"`
@@ -37,4 +58,31 @@ type RoleStaffMapping struct {
 type UserDetail struct {
 	Staff MstStaff  `json:"staff" xorm:"extends"`
 	Roles []MstRole `json:"roles" xorm:"roles"`
+}
+
+func GenerateUserDetailSessionInformation(u UserDetail, expiredTime time.Time) UserSessionDetail {
+
+	return UserSessionDetail{
+		ID:               u.Staff.ID,
+		Name:             u.Staff.Name,
+		IdMstInstitution: u.Staff.IdMstInstitution,
+		ExpiredAt:        expiredTime.Unix(),
+	}
+}
+
+func GenerateUserDataJWTInformation(u UserDetail) UserJWTPayload {
+	userRoles := []UserRoleJWTDetail{}
+
+	for _, role := range u.Roles {
+		userRoles = append(userRoles, UserRoleJWTDetail{
+			RoleID: role.RoleID,
+			Name:   role.Name,
+		})
+	}
+	return UserJWTPayload{
+		UUID:  u.Staff.UUID,
+		Name:  u.Staff.Name,
+		Email: u.Staff.Email,
+		Roles: userRoles,
+	}
 }

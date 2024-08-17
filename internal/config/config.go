@@ -14,10 +14,18 @@ type Config struct {
 	Vault            Vault            `yaml:"vault"`
 	GoogleAuthConfig GoogleAuthConfig `yaml:"google_auth_config"`
 	JWTConfig        JWTConfig        `yaml:"jwt_config"`
+	Redis            Redis            `yaml:"redis"`
+}
+
+type Redis struct {
+	Address         string `yaml:"address"`
+	MaxIdle         int    `yaml:"max_idle"`
+	MaxActive       int    `yaml:"max_active"`
+	TimeOutInSecond int    `yaml:"time_out_in_second"`
 }
 
 type JWTConfig struct {
-	DurationInMinutes int64 `yaml:"duration_in_minutes"`
+	DurationInMinutes int `yaml:"duration_in_minutes"`
 }
 
 type Server struct {
@@ -31,10 +39,15 @@ type VaultData struct {
 }
 
 type Vault struct {
-	GoogleAuth    GoogleAuth    `json:"google_auth"`
-	DBMaster      DBConfig      `json:"db_master"`
-	DBSlave       DBConfig      `json:"db_slave"`
-	JWTCredential JWTCredential `json:"jwt_credential"`
+	GoogleAuth    GoogleAuth       `json:"google_auth"`
+	DBMaster      DBConfig         `json:"db_master"`
+	DBSlave       DBConfig         `json:"db_slave"`
+	JWTCredential JWTCredential    `json:"jwt_credential"`
+	Redis         RedisCredentials `json:"redis_credentials"`
+}
+
+type RedisCredentials struct {
+	AuthKey string `json:"auth_key"`
 }
 
 type JWTCredential struct {

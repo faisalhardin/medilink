@@ -62,4 +62,22 @@ func SetupLogging(cfg *config.Config) {
 		log.Fatal(err)
 	}
 	// * END -- SET UP DEBUG LOG
+
+	// * START -- SET UP DEBUG LOG
+	infoLogger, _ := log.NewLogger(log.Zerolog, &logger.Config{
+		AppName: cfg.Server.Name,
+		Level:   log.DebugLevel, // please ignore
+		// LogFile:  cfg.Log.DebugPath,
+		// Caller:   cfg.Log.Caller,
+		UseColor: true,
+		UseJSON:  true,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = log.SetLogger(log.InfoLevel, infoLogger)
+	if err != nil {
+		log.Fatal(err)
+	}
+	// * END -- SET UP DEBUG LOG
 }

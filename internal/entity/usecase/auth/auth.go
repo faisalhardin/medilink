@@ -10,5 +10,5 @@ import (
 
 type AuthUC interface {
 	Login(w http.ResponseWriter, r *http.Request, params authmodel.AuthParams) (res authmodel.AuthParams, err error)
-	GetUserDetail(ctx context.Context, params authmodel.AuthParams) (userDetail model.UserDetail, err error)
+	GetUserDetail(ctx context.Context, params authmodel.AuthParams) (userDetail model.UserSessionDetail, err error)
 }

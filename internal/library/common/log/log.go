@@ -39,3 +39,19 @@ func Fatalf(format string, v ...interface{}) {
 func FatalWithFields(msg string, fields logger.KV) {
 	fatalLogger.FatalWithFields(msg, fields)
 }
+
+func Info(args ...interface{}) {
+	infoLogger.Info(args...)
+}
+
+func Infoln(args ...interface{}) {
+	infoLogger.Infoln(args...)
+}
+
+func Infof(format string, v ...interface{}) {
+	infoLogger.Infof(format, v...)
+}
+
+func InfoWithFields(msg string, fields logger.KV) {
+	infoLogger.InfoWithFields(msg, fields)
+}

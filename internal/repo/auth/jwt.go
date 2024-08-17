@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/cristalhq/jwt/v5"
+	"github.com/faisalhardin/medilink/internal/entity/model"
 )
 
 type JwtOpt struct {
@@ -17,17 +18,17 @@ type Claims struct {
 	Payload interface{} `json:"payload"`
 }
 
-func (opt *Options) CreateJWTToken(ctx context.Context, payload interface{}, expiredAfterInMinutes int64) (tokenStr string, err error) {
+func (opt *Options) CreateJWTToken(ctx context.Context, payload model.UserJWTPayload, timeNow, timeExpired time.Time) (tokenStr string, err error) {
+	return opt.generateToken(ctx, payload, timeNow, timeExpired)
+}
 
-	currTime := time.Now()
-	expireAt := time.Now().Add(time.Duration(expiredAfterInMinutes) * time.Minute)
-
+func (opt *Options) generateToken(ctx context.Context, payload interface{}, timeNow, timeExpired time.Time) (tokenStr string, err error) {
 	claims := Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    opt.Cfg.Server.Host,
 			Audience:  jwt.Audience{opt.Cfg.Server.Host},
-			ExpiresAt: jwt.NewNumericDate(expireAt),
-			IssuedAt:  jwt.NewNumericDate(currTime),
+			ExpiresAt: jwt.NewNumericDate(timeExpired),
+			IssuedAt:  jwt.NewNumericDate(timeNow),
 		},
 		Payload: payload,
 	}

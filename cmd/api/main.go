@@ -6,6 +6,7 @@ import (
 
 	ilog "github.com/faisalhardin/medilink/cmd/log"
 	"github.com/faisalhardin/medilink/internal/repo/auth"
+	"github.com/faisalhardin/medilink/internal/repo/cache"
 
 	httpHandler "github.com/faisalhardin/medilink/internal/entity/http"
 
@@ -55,6 +56,8 @@ func main() {
 	}
 	defer db.CloseDBConnection()
 
+	redis := cache.New(cfg)
+
 	// repo block start
 	institutionDB := institutionrepo.NewInstitutionDB(&institutionrepo.Conn{
 		DB: db,
@@ -69,8 +72,8 @@ func main() {
 	})
 
 	authRepo, err := auth.New(&auth.Options{
-		Cfg: cfg,
-		Str: auth.MockRedisClient{},
+		Cfg:     cfg,
+		Storage: redis,
 	})
 	if err != nil {
 		log.Fatal(err)

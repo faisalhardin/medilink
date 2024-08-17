@@ -9,16 +9,16 @@ import (
 
 	"github.com/cristalhq/jwt/v5"
 	"github.com/faisalhardin/medilink/internal/config"
-	"github.com/go-redis/redis/v8"
 
+	redisrepo "github.com/faisalhardin/medilink/internal/entity/repo/redis"
 	"github.com/gorilla/sessions"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
 )
 
 type Options struct {
-	Cfg *config.Config
-	Str TokenStorage
+	Cfg     *config.Config
+	Storage redisrepo.Redis
 
 	JwtOpt JwtOpt
 }
@@ -67,27 +67,25 @@ func (opt *Options) Logout(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func (opt *Options) CreateToken(ctx context.Context, staffDetail string, expiresIn time.Duration) (string, error) {
-	token, err := GenerateOpaqueToken()
+func (opt *Options) StoreLoginInformation(ctx context.Context, key, staffDetail string, expiresIn time.Duration) (string, error) {
+
+	if expiresIn.Hours() < 0 || expiresIn.Hours() > 8 {
+		return "", errors.New("invalid token expiration data")
+	}
+
+	_, err := opt.Storage.SetWithExpire(key, staffDetail, int(expiresIn.Abs().Seconds()))
 	if err != nil {
 		return "", err
 	}
 
-	err = opt.Str.Set(ctx, token, staffDetail, expiresIn)
-	if err != nil {
-		return "", err
-	}
-
-	return token, nil
+	return key, nil
 }
 
-func (opt *Options) ValidateToken(ctx context.Context, token string) (string, error) {
-	userID, err := opt.Str.Get(ctx, token)
+func (opt *Options) GetLoginInformation(ctx context.Context, key string) (string, error) {
+	loginInformation, err := opt.Storage.Get(key)
 	if err != nil {
-		if errors.Is(err, redis.Nil) {
-			return "", errors.New("invalid token")
-		}
 		return "", err
 	}
-	return userID, nil
+
+	return loginInformation, nil
 }
