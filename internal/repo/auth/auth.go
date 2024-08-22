@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 
 	"github.com/cristalhq/jwt/v5"
 	"github.com/faisalhardin/medilink/internal/config"
+	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
 
 	redisrepo "github.com/faisalhardin/medilink/internal/entity/repo/redis"
 	"github.com/gorilla/sessions"
@@ -49,6 +51,12 @@ func New(opt *Options, providers ...goth.Provider) (*Options, error) {
 	}
 	opt.JwtOpt.jwtSigner = signer
 
+	verifier, err := jwt.NewVerifierHS(jwt.HS256, []byte(opt.Cfg.Vault.JWTCredential.Secret))
+	if err != nil {
+		return opt, errors.Wrap(err, "NewAuthOpt")
+	}
+	opt.JwtOpt.jwtVerifier = verifier
+
 	return opt, nil
 }
 
@@ -88,4 +96,26 @@ func (opt *Options) GetLoginInformation(ctx context.Context, key string) (string
 	}
 
 	return loginInformation, nil
+}
+
+func (opt *Options) VerifyJWT(jwtToken string, claims any) (err error) {
+
+	tokenParsed, err := jwt.Parse([]byte(jwtToken), opt.JwtOpt.jwtVerifier)
+	if err != nil && errors.Is(err, jwt.ErrInvalidFormat) {
+		return commonerr.SetNewBadRequest("authorization", err.Error())
+	} else if err != nil {
+		return err
+	}
+
+	marshalledToken, err := tokenParsed.Claims().MarshalJSON()
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(marshalledToken, claims)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

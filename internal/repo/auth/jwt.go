@@ -6,23 +6,31 @@ import (
 
 	"github.com/cristalhq/jwt/v5"
 	"github.com/faisalhardin/medilink/internal/entity/model"
+	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
 )
 
 type JwtOpt struct {
 	JWTPrivateKey string
 	jwtSigner     *jwt.HSAlg
+	jwtVerifier   *jwt.HSAlg
 }
 
 type Claims struct {
 	jwt.RegisteredClaims
-	Payload interface{} `json:"payload"`
+	Payload model.UserJWTPayload `json:"payload"`
+}
+
+func (claims Claims) Verify() (err error) {
+
+	if claims.ExpiresAt != nil && time.Now().After(claims.ExpiresAt.Time) {
+		return commonerr.SetNewTokenExpiredError()
+	}
+
+	return nil
 }
 
 func (opt *Options) CreateJWTToken(ctx context.Context, payload model.UserJWTPayload, timeNow, timeExpired time.Time) (tokenStr string, err error) {
-	return opt.generateToken(ctx, payload, timeNow, timeExpired)
-}
 
-func (opt *Options) generateToken(ctx context.Context, payload interface{}, timeNow, timeExpired time.Time) (tokenStr string, err error) {
 	claims := Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    opt.Cfg.Server.Host,
@@ -32,6 +40,11 @@ func (opt *Options) generateToken(ctx context.Context, payload interface{}, time
 		},
 		Payload: payload,
 	}
+
+	return opt.generateToken(ctx, claims, timeNow, timeExpired)
+}
+
+func (opt *Options) generateToken(ctx context.Context, claims any, timeNow, timeExpired time.Time) (tokenStr string, err error) {
 
 	// Build and sign token
 	builder := jwt.NewBuilder(opt.JwtOpt.jwtSigner)

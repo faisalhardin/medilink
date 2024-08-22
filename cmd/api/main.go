@@ -24,6 +24,8 @@ import (
 	institutionHandler "github.com/faisalhardin/medilink/internal/http/institution"
 	patientHandler "github.com/faisalhardin/medilink/internal/http/patient"
 
+	authmodule "github.com/faisalhardin/medilink/internal/entity/http/middlewares/auth"
+
 	"github.com/faisalhardin/medilink/internal/server"
 	_ "github.com/lib/pq"
 )
@@ -117,11 +119,21 @@ func main() {
 	})
 	// httphandler block end
 
-	modules := server.LoadModules(&httpHandler.Handlers{
-		InstitutionHandler: institutionHandler,
-		PatientHandler:     patientHandler,
-		AuthHandler:        authHandler,
+	// module block start
+	authModule := authmodule.NewAuthModule(&authmodule.Module{
+		Cfg:    cfg,
+		AuthUC: authUC,
 	})
+	// module block end
+
+	modules := server.LoadModules(cfg,
+		&httpHandler.Handlers{
+			InstitutionHandler: institutionHandler,
+			PatientHandler:     patientHandler,
+			AuthHandler:        authHandler,
+		},
+		authModule,
+	)
 
 	server := server.NewServer(server.RegisterRoutes(modules))
 

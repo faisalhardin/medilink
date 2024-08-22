@@ -18,13 +18,13 @@ func RegisterRoutes(m *module) http.Handler {
 	r.Use(middleware.Logger)
 	r.Use(utilhandler.Handler)
 	r.Route("/v1", func(v1 chi.Router) {
-		// v1.Group(func(authed chi.Router) {
-		// 	authed.Get("/auth/{provider}/callback", handler..GetAuthCallbackFunction)
-		// 	authed.Get("/auth/{provider}", handler.BeginAuthProviderCallback)
-		// 	authed.Get("/logout/{provider}", handler.Logout)
-		// 	authed.Post("/register/user", handler.TestBinding)
-		// 	authed.Get("/user", handler.TestSchemaBinding)
-		// })
+		v1.Group(func(authed chi.Router) {
+			authed.Get("/auth/{provider}/callback", m.httpHandler.AuthHandler.GetAuthCallbackFunction)
+			authed.Get("/auth/{provider}", m.httpHandler.AuthHandler.BeginAuthProviderCallback)
+			authed.Get("/logout/{provider}", m.httpHandler.AuthHandler.Logout)
+			// authed.Post("/register/user", handler.TestBinding)
+			// authed.Get("/user", handler.TestSchemaBinding)
+		})
 
 		v1.Group(func(authed chi.Router) {
 			authed.Post("/institution", m.httpHandler.InstitutionHandler.InsertNewInstitution)
@@ -35,9 +35,11 @@ func RegisterRoutes(m *module) http.Handler {
 	})
 
 	r.Route("/auth", func(auth chi.Router) {
+		auth.Post("/pseudologin", m.httpHandler.AuthHandler.PseudoLogin)
 		auth.Group(func(authenticate chi.Router) {
-			authenticate.Post("/pseudologin", m.httpHandler.AuthHandler.PseudoLogin)
+			authenticate.Use(m.authModule.Handler)
 			authenticate.Post("/get-login", m.httpHandler.AuthHandler.GetLoginByToken)
+			authenticate.Get("/verify", m.httpHandler.AuthHandler.GetUserFromToken)
 
 		})
 	})

@@ -155,3 +155,13 @@ func SetDefaultErrBodyRequest() *ErrorMessage {
 func SetNewInternalError() *ErrorMessage {
 	return SetNewError(http.StatusInternalServerError, InternalServerName, InternalServerDescription)
 }
+
+// SetNewUnauthorizedError is function return new error message with unauthorized error code(401).
+// It support to set error name and error description
+func SetNewUnauthorizedError(errorName, errDesc string) *ErrorMessage {
+	return SetNewError(http.StatusUnauthorized, errorName, errDesc)
+}
+
+func SetNewTokenExpiredError() *ErrorMessage {
+	return SetNewUnauthorizedError("unauthorized", "expired token")
+}

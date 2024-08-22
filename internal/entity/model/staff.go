@@ -22,21 +22,26 @@ type MstStaff struct {
 }
 
 type UserSessionDetail struct {
-	ID               int64  `json:"id"`
+	UserID           int64  `json:"id"`
 	Name             string `json:"name"`
 	IdMstInstitution int64  `json:"id_mst_institution"`
 	ExpiredAt        int64  `json:"expired_at"`
 }
 
 type UserJWTPayload struct {
-	UUID  string              `json:"uuid,omitempty"`
-	Name  string              `json:"name,omitempty"`
-	Email string              `json:"email,omitempty"`
-	Roles []UserRoleJWTDetail `json:"roles"`
+	UserID          int64               `json:"id,omitempty"`
+	UUID            string              `json:"uuid,omitempty"`
+	Name            string              `json:"name,omitempty"`
+	Email           string              `json:"email,omitempty"`
+	InstitutionID   int64               `json:"institution_id,omitempty"`
+	InstitutionUUID string              `json:"institution_uuid,omitempty"`
+	InstitutionName string              `json:"institution_name,omitempty"`
+	Roles           []UserRoleJWTDetail `json:"roles"`
+	RolesIDSet      map[string]bool     `json:"-"`
 }
 
 type UserRoleJWTDetail struct {
-	RoleID int64  `xorm:"'role_id'"`
+	RoleID int64  `json:"role_id"`
 	Name   string `json:"name,omitempty" xorm:"'name'"`
 }
 
@@ -63,7 +68,7 @@ type UserDetail struct {
 func GenerateUserDetailSessionInformation(u UserDetail, expiredTime time.Time) UserSessionDetail {
 
 	return UserSessionDetail{
-		ID:               u.Staff.ID,
+		UserID:           u.Staff.ID,
 		Name:             u.Staff.Name,
 		IdMstInstitution: u.Staff.IdMstInstitution,
 		ExpiredAt:        expiredTime.Unix(),

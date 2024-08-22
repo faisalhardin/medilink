@@ -157,3 +157,8 @@ func (h *AuthHandler) GetLoginByToken(w http.ResponseWriter, r *http.Request) {
 
 	commonwriter.SetOKWithData(ctx, w, userDetail)
 }
+
+func (h *AuthHandler) GetUserFromToken(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	commonwriter.SetOKWithData(ctx, w, "userClaim")
+}
