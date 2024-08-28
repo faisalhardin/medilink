@@ -76,7 +76,7 @@ func main() {
 	authRepo, err := auth.New(&auth.Options{
 		Cfg:     cfg,
 		Storage: redis,
-	})
+	}, auth.GoogleProvider(cfg))
 	if err != nil {
 		log.Fatal(err)
 		return
@@ -114,8 +114,9 @@ func main() {
 	})
 
 	authHandler := authHandler.New(&authHandler.AuthHandler{
-		Cfg:    cfg,
-		AuthUC: authUC,
+		Cfg:      cfg,
+		AuthUC:   authUC,
+		AuthRepo: authRepo,
 	})
 	// httphandler block end
 

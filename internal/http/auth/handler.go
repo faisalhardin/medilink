@@ -9,6 +9,7 @@ import (
 	authrepo "github.com/faisalhardin/medilink/internal/entity/repo/auth"
 	authuc "github.com/faisalhardin/medilink/internal/entity/usecase/auth"
 	"github.com/faisalhardin/medilink/internal/entity/user"
+	"github.com/faisalhardin/medilink/internal/library/common/log"
 	commonwriter "github.com/faisalhardin/medilink/internal/library/common/writer"
 	"github.com/faisalhardin/medilink/internal/library/util/common/binding"
 	userrepo "github.com/faisalhardin/medilink/internal/repo/staff"
@@ -32,22 +33,31 @@ func New(handler *AuthHandler) *AuthHandler {
 }
 
 func (h *AuthHandler) GetAuthCallbackFunction(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	provider := chi.URLParam(r, "provider")
-	r = r.WithContext(context.WithValue(context.Background(), "provider", provider))
+	r = r.WithContext(context.WithValue(ctx, "provider", provider))
 
-	h.AuthRepo.GetAuthCallbackFunction(w, r)
+	user, err := h.AuthRepo.GetAuthCallbackFunction(w, r)
+
+	log.Info("@@@ ", user, user.Email, err)
+
+	// b, _ := io.ReadAll(r.Body)
+	// log.Info(string(b))
+
+	// log.Info(fmt.Printf("%+v", *r.URL))
+
 	http.Redirect(w, r, h.Cfg.GoogleAuthConfig.HomepageRedirect, http.StatusFound)
 }
 
 func (h *AuthHandler) BeginAuthProviderCallback(w http.ResponseWriter, r *http.Request) {
 
+	ctx := r.Context()
 	// try to get the user without re-authenticating
 	provider := chi.URLParam(r, "provider")
-	r = r.WithContext(context.WithValue(context.Background(), "provider", provider))
+	r = r.WithContext(context.WithValue(ctx, "provider", provider))
 	h.AuthRepo.BeginAuthProviderCallback(w, r)
 
-	ctx := context.Background()
-	commonwriter.Redirect(ctx, w, r, h.Cfg.GoogleAuthConfig.HomepageRedirect, http.StatusFound)
+	// commonwriter.Redirect(ctx, w, r, h.Cfg.GoogleAuthConfig.HomepageRedirect, http.StatusFound)
 }
 
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {

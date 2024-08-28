@@ -16,6 +16,7 @@ import (
 	"github.com/gorilla/sessions"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
+	"github.com/markbates/goth/providers/google"
 )
 
 type Options struct {
@@ -23,6 +24,10 @@ type Options struct {
 	Storage redisrepo.Redis
 
 	JwtOpt JwtOpt
+}
+
+func GoogleProvider(cfg *config.Config) goth.Provider {
+	return google.New(cfg.Vault.GoogleAuth.ClientID, cfg.Vault.GoogleAuth.ClientSecret, "http://127.0.0.1:8080/v1/auth/google/callback")
 }
 
 func New(opt *Options, providers ...goth.Provider) (*Options, error) {
@@ -33,6 +38,8 @@ func New(opt *Options, providers ...goth.Provider) (*Options, error) {
 	store.Options.Path = opt.Cfg.GoogleAuthConfig.CookiePath
 	store.Options.HttpOnly = opt.Cfg.GoogleAuthConfig.HttpOnly
 	store.Options.Secure = opt.Cfg.GoogleAuthConfig.IsProd
+
+	store.Options.SameSite = http.SameSiteLaxMode
 
 	gothic.Store = store
 

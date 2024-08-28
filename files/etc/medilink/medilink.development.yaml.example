@@ -5,10 +5,10 @@ server:
 google_auth_config:
   max_age: 5
   is_prod: false
-  callback_url: "localhost"
+  callback_url: "127.0.0.1"
   http_only: true
   cookie_path: ""
-  hompage_redirect: ""
+  homepage_redirect: "http://127.0.0.1:5173"
 
 jwt_config:
   duration_in_minutes: 480

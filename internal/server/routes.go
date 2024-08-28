@@ -79,7 +79,7 @@ func (s *Server) getAuthCallbackFunction(w http.ResponseWriter, r *http.Request)
 
 	fmt.Println(user)
 	fmt.Println("here 3")
-	http.Redirect(w, r, "http://localhost:5173", http.StatusFound)
+	http.Redirect(w, r, "http://127.0.0.1:5173", http.StatusFound)
 	fmt.Println("here 4")
 }
 
