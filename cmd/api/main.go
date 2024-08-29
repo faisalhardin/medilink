@@ -82,7 +82,7 @@ func main() {
 	authRepo, err := auth.New(&auth.Options{
 		Cfg:     cfg,
 		Storage: redis,
-	}, auth.GoogleProvider(cfg))
+	})
 	if err != nil {
 		log.Fatal(err)
 		return

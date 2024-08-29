@@ -19,8 +19,7 @@ func RegisterRoutes(m *module) http.Handler {
 	r.Use(utilhandler.Handler)
 	r.Route("/v1", func(v1 chi.Router) {
 		v1.Group(func(authed chi.Router) {
-			authed.Get("/auth/{provider}/callback", m.httpHandler.AuthHandler.GetAuthCallbackFunction)
-			authed.Get("/auth/{provider}", m.httpHandler.AuthHandler.BeginAuthProviderCallback)
+
 			authed.Get("/logout/{provider}", m.httpHandler.AuthHandler.Logout)
 			// authed.Post("/register/user", handler.TestBinding)
 			// authed.Get("/user", handler.TestSchemaBinding)
@@ -35,6 +34,8 @@ func RegisterRoutes(m *module) http.Handler {
 	})
 
 	r.Route("/auth", func(auth chi.Router) {
+		auth.Get("/{provider}/callback", m.httpHandler.AuthHandler.GetAuthCallbackFunction)
+		auth.Get("/{provider}", m.httpHandler.AuthHandler.BeginAuthProviderCallback)
 		auth.Post("/pseudologin", m.httpHandler.AuthHandler.PseudoLogin)
 		auth.Group(func(authenticate chi.Router) {
 			authenticate.Use(m.authModule.Handler)

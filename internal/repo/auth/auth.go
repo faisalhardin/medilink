@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -26,7 +27,7 @@ type Options struct {
 }
 
 func GoogleProvider(cfg *config.Config) goth.Provider {
-	return google.New(cfg.Vault.GoogleAuth.ClientID, cfg.Vault.GoogleAuth.ClientSecret, "http://127.0.0.1:8080/v1/auth/google/callback")
+	return google.New(cfg.Vault.GoogleAuth.ClientID, cfg.Vault.GoogleAuth.ClientSecret, fmt.Sprintf("%s/auth/google/callback", cfg.Server.Host))
 }
 
 func New(opt *Options, providers ...goth.Provider) (*Options, error) {
