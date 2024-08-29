@@ -27,7 +27,7 @@ type Options struct {
 }
 
 func GoogleProvider(cfg *config.Config) goth.Provider {
-	return google.New(cfg.Vault.GoogleAuth.ClientID, cfg.Vault.GoogleAuth.ClientSecret, fmt.Sprintf("%s/auth/google/callback", cfg.Server.Host))
+	return google.New(cfg.Vault.GoogleAuth.ClientID, cfg.Vault.GoogleAuth.ClientSecret, fmt.Sprintf("http://%s/auth/google/callback", cfg.Server.BaseURL))
 }
 
 func New(opt *Options, providers ...goth.Provider) (*Options, error) {

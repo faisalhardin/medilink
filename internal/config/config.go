@@ -29,9 +29,10 @@ type JWTConfig struct {
 }
 
 type Server struct {
-	Name string `yaml:"name"`
-	Host string `yaml:"host"`
-	Port string `yaml:"port"`
+	Name    string `yaml:"name"`
+	Host    string `yaml:"host"`
+	Port    string `yaml:"port"`
+	BaseURL string `yaml:"base_url"`
 }
 
 type VaultData struct {
