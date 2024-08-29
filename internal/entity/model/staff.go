@@ -2,6 +2,8 @@ package model
 
 import (
 	"time"
+
+	"github.com/markbates/goth"
 )
 
 const (
@@ -38,6 +40,8 @@ type UserJWTPayload struct {
 	InstitutionName string              `json:"institution_name,omitempty"`
 	Roles           []UserRoleJWTDetail `json:"roles"`
 	RolesIDSet      map[string]bool     `json:"-"`
+	ImageURL        string              `json:"image_url"`
+	ProviderUserID  string              `json:"provider_user_id"`
 }
 
 type UserRoleJWTDetail struct {
@@ -75,19 +79,21 @@ func GenerateUserDetailSessionInformation(u UserDetail, expiredTime time.Time) U
 	}
 }
 
-func GenerateUserDataJWTInformation(u UserDetail) UserJWTPayload {
+func GenerateUserDataJWTInformation(internalUserDetail UserDetail, externalUserDetail goth.User) UserJWTPayload {
 	userRoles := []UserRoleJWTDetail{}
 
-	for _, role := range u.Roles {
+	for _, role := range internalUserDetail.Roles {
 		userRoles = append(userRoles, UserRoleJWTDetail{
 			RoleID: role.RoleID,
 			Name:   role.Name,
 		})
 	}
 	return UserJWTPayload{
-		UUID:  u.Staff.UUID,
-		Name:  u.Staff.Name,
-		Email: u.Staff.Email,
-		Roles: userRoles,
+		UUID:           internalUserDetail.Staff.UUID,
+		Name:           internalUserDetail.Staff.Name,
+		Email:          internalUserDetail.Staff.Email,
+		Roles:          userRoles,
+		ImageURL:       externalUserDetail.AvatarURL,
+		ProviderUserID: externalUserDetail.UserID,
 	}
 }

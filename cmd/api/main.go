@@ -3,10 +3,13 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/http"
 
 	ilog "github.com/faisalhardin/medilink/cmd/log"
 	"github.com/faisalhardin/medilink/internal/repo/auth"
 	"github.com/faisalhardin/medilink/internal/repo/cache"
+	"github.com/markbates/goth"
+	"github.com/markbates/goth/gothic"
 
 	httpHandler "github.com/faisalhardin/medilink/internal/entity/http"
 
@@ -27,6 +30,7 @@ import (
 	authmodule "github.com/faisalhardin/medilink/internal/entity/http/middlewares/auth"
 
 	"github.com/faisalhardin/medilink/internal/server"
+	"github.com/gorilla/sessions"
 	_ "github.com/lib/pq"
 )
 
@@ -57,6 +61,8 @@ func main() {
 		return
 	}
 	defer db.CloseDBConnection()
+
+	setGothRepo(cfg)
 
 	redis := cache.New(cfg)
 
@@ -142,4 +148,21 @@ func main() {
 	if err != nil {
 		panic(fmt.Sprintf("cannot start server: %s", err))
 	}
+}
+
+func setGothRepo(cfg *config.Config) {
+
+	store := sessions.NewCookieStore([]byte(cfg.Vault.GoogleAuth.Key))
+	store.MaxAge(cfg.GoogleAuthConfig.MaxAge * 30)
+
+	store.Options.Path = cfg.GoogleAuthConfig.CookiePath
+	store.Options.HttpOnly = cfg.GoogleAuthConfig.HttpOnly
+	store.Options.Secure = cfg.GoogleAuthConfig.IsProd
+	store.Options.SameSite = http.SameSiteLaxMode
+
+	gothic.Store = store
+
+	goth.UseProviders(
+		auth.GoogleProvider(cfg),
+	)
 }

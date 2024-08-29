@@ -9,7 +9,6 @@ import (
 	authrepo "github.com/faisalhardin/medilink/internal/entity/repo/auth"
 	authuc "github.com/faisalhardin/medilink/internal/entity/usecase/auth"
 	"github.com/faisalhardin/medilink/internal/entity/user"
-	"github.com/faisalhardin/medilink/internal/library/common/log"
 	commonwriter "github.com/faisalhardin/medilink/internal/library/common/writer"
 	"github.com/faisalhardin/medilink/internal/library/util/common/binding"
 	userrepo "github.com/faisalhardin/medilink/internal/repo/staff"
@@ -37,16 +36,14 @@ func (h *AuthHandler) GetAuthCallbackFunction(w http.ResponseWriter, r *http.Req
 	provider := chi.URLParam(r, "provider")
 	r = r.WithContext(context.WithValue(ctx, "provider", provider))
 
-	user, err := h.AuthRepo.GetAuthCallbackFunction(w, r)
+	authParams, err := h.AuthUC.Login(w, r, authmodel.AuthParams{})
+	if err != nil {
+		fmt.Println(err)
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
 
-	log.Info("@@@ ", user, user.Email, err)
-
-	// b, _ := io.ReadAll(r.Body)
-	// log.Info(string(b))
-
-	// log.Info(fmt.Printf("%+v", *r.URL))
-
-	http.Redirect(w, r, h.Cfg.GoogleAuthConfig.HomepageRedirect, http.StatusFound)
+	commonwriter.SetOKWithData(ctx, w, authParams)
 }
 
 func (h *AuthHandler) BeginAuthProviderCallback(w http.ResponseWriter, r *http.Request) {
@@ -130,13 +127,12 @@ func (h *AuthHandler) TestGetUser(w http.ResponseWriter, r *http.Request) {
 
 func (h *AuthHandler) PseudoLogin(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	provider := chi.URLParam(r, "provider")
+	r = r.WithContext(context.WithValue(ctx, "provider", provider))
+
+	// user, err := h.AuthRepo.GetAuthCallbackFunction(w, r)
 
 	requestData := authmodel.AuthParams{}
-	err := bindingBind(r, &requestData)
-	if err != nil {
-		commonwriter.SetError(ctx, w, err)
-		return
-	}
 
 	res, err := h.AuthUC.Login(w, r, requestData)
 	if err != nil {

@@ -13,7 +13,6 @@ import (
 	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
 
 	redisrepo "github.com/faisalhardin/medilink/internal/entity/repo/redis"
-	"github.com/gorilla/sessions"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
 	"github.com/markbates/goth/providers/google"
@@ -31,21 +30,6 @@ func GoogleProvider(cfg *config.Config) goth.Provider {
 }
 
 func New(opt *Options, providers ...goth.Provider) (*Options, error) {
-
-	store := sessions.NewCookieStore([]byte(opt.Cfg.Vault.GoogleAuth.Key))
-	store.MaxAge(opt.Cfg.GoogleAuthConfig.MaxAge)
-
-	store.Options.Path = opt.Cfg.GoogleAuthConfig.CookiePath
-	store.Options.HttpOnly = opt.Cfg.GoogleAuthConfig.HttpOnly
-	store.Options.Secure = opt.Cfg.GoogleAuthConfig.IsProd
-
-	store.Options.SameSite = http.SameSiteLaxMode
-
-	gothic.Store = store
-
-	goth.UseProviders(
-		providers...,
-	)
 
 	opt.JwtOpt = JwtOpt{
 		JWTPrivateKey: opt.Cfg.Vault.JWTCredential.Secret,

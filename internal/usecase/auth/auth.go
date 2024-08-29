@@ -37,7 +37,12 @@ func New(u *AuthUC) *AuthUC {
 func (u *AuthUC) Login(w http.ResponseWriter, r *http.Request, params AuthParams) (res AuthParams, err error) {
 	ctx := r.Context()
 
-	userDetail, err := u.StaffRepo.GetUserDetailByEmail(ctx, params.Email)
+	authedUser, err := u.AuthRepo.GetAuthCallbackFunction(w, r)
+	if err != nil {
+		return
+	}
+
+	userDetail, err := u.StaffRepo.GetUserDetailByEmail(ctx, authedUser.Email)
 	if err != nil {
 		return
 	}
@@ -45,7 +50,7 @@ func (u *AuthUC) Login(w http.ResponseWriter, r *http.Request, params AuthParams
 	currTime := time.Now()
 	expireDuration := time.Duration(u.Cfg.JWTConfig.DurationInMinutes) * time.Minute
 	expiredTime := currTime.Add(expireDuration)
-	token, err := u.AuthRepo.CreateJWTToken(ctx, model.GenerateUserDataJWTInformation(userDetail), currTime, expiredTime)
+	token, err := u.AuthRepo.CreateJWTToken(ctx, model.GenerateUserDataJWTInformation(userDetail, authedUser), currTime, expiredTime)
 	if err != nil {
 		return
 	}
