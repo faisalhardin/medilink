@@ -3,7 +3,7 @@ package server
 import (
 	"github.com/faisalhardin/medilink/internal/config"
 	"github.com/faisalhardin/medilink/internal/entity/http"
-	authmodule "github.com/faisalhardin/medilink/internal/entity/http/middlewares/auth"
+	authmodule "github.com/faisalhardin/medilink/internal/library/middlewares/auth"
 )
 
 type module struct {

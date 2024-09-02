@@ -27,8 +27,7 @@ import (
 	institutionHandler "github.com/faisalhardin/medilink/internal/http/institution"
 	patientHandler "github.com/faisalhardin/medilink/internal/http/patient"
 
-	authmodule "github.com/faisalhardin/medilink/internal/entity/http/middlewares/auth"
-
+	authmodule "github.com/faisalhardin/medilink/internal/library/middlewares/auth"
 	"github.com/faisalhardin/medilink/internal/server"
 	"github.com/gorilla/sessions"
 	_ "github.com/lib/pq"

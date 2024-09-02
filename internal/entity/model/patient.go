@@ -44,3 +44,19 @@ type RegisterNewPatientRequest struct {
 	Address      string    `json:"address"`
 	Religion     string    `json:"religion"`
 }
+
+type GetPatientParams struct {
+	PatientUUIDs  []string  `scheme:"patient_ids"`
+	DateOfBirth   time.Time `scheme:"date_of_birth"`
+	InstitutionID int64     `scheme:"institution_id"`
+}
+
+type GetPatientResponse struct {
+	UUID         string    `json:"uuid" xorm:"'uuid' <-"`
+	NIK          string    `json:"nik" xorm:"'nik'"`
+	Name         string    `json:"name" xorm:"'name'"`
+	PlaceOfBirth string    `json:"place_of_birth" xorm:"'place_of_birth'"`
+	DateOfBirth  time.Time `json:"date_of_birth" xorm:"'date_of_birth'"`
+	Address      string    `json:"address" xorm:"'address'"`
+	Religion     string    `json:"religion" xorm:"'religion'"`
+}

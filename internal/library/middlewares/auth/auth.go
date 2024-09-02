@@ -35,11 +35,13 @@ func (m *Module) Handler(next http.Handler) http.Handler {
 		token, err := GetBearerToken(bearerToken)
 		if err != nil {
 			handleError(ctx, w, r, err)
+			return
 		}
 
 		userDetail, err := m.AuthUC.HandleAuthMiddleware(ctx, token)
 		if err != nil {
 			handleError(ctx, w, r, err)
+			return
 		}
 
 		ctx = SetUserDetailToCtx(ctx, userDetail)

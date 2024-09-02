@@ -165,3 +165,7 @@ func SetNewUnauthorizedError(errorName, errDesc string) *ErrorMessage {
 func SetNewTokenExpiredError() *ErrorMessage {
 	return SetNewUnauthorizedError("unauthorized", "expired token")
 }
+
+func SetNewUnauthorizedAPICall() *ErrorMessage {
+	return SetNewUnauthorizedError("api call is unauthorized", "api is unauthorized for user")
+}

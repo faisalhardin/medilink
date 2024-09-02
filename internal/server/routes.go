@@ -26,6 +26,7 @@ func RegisterRoutes(m *module) http.Handler {
 			})
 			authed.Route("/patient", func(institution chi.Router) {
 				institution.Post("/", m.httpHandler.PatientHandler.RegisterNewPatient)
+				institution.Get("/", m.httpHandler.PatientHandler.GetPatient)
 			})
 		})
 

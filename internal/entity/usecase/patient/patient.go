@@ -8,4 +8,5 @@ import (
 
 type PatientUC interface {
 	RegisterNewPatient(ctx context.Context, req model.RegisterNewPatientRequest) (err error)
+	GetPatients(ctx context.Context, req model.GetPatientParams) (patients model.GetPatientResponse, err error)
 }

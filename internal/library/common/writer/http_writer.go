@@ -69,7 +69,6 @@ func IsError(r *http.Request) bool {
 }
 
 func SetOKWithData(ctx context.Context, w http.ResponseWriter, data interface{}) (err error) {
-
 	_, err = WriteJSONAPIData(w, nil, http.StatusOK, data)
 	return err
 }
