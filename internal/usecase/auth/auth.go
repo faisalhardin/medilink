@@ -60,7 +60,7 @@ func (u *AuthUC) Login(w http.ResponseWriter, r *http.Request, params AuthParams
 		return
 	}
 
-	_, err = u.AuthRepo.StoreLoginInformation(ctx, getSessionKey(params.Email, token), string(sessionPayloadInBytes), expireDuration)
+	_, err = u.AuthRepo.StoreLoginInformation(ctx, getSessionKey(authedUser.Email, token), string(sessionPayloadInBytes), expireDuration)
 	if err != nil {
 		return
 	}

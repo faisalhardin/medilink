@@ -18,6 +18,7 @@ import (
 
 var (
 	bindingBind = binding.Bind
+	providerKey = "provider"
 )
 
 type AuthHandler struct {
@@ -34,11 +35,10 @@ func New(handler *AuthHandler) *AuthHandler {
 func (h *AuthHandler) GetAuthCallbackFunction(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	provider := chi.URLParam(r, "provider")
-	r = r.WithContext(context.WithValue(ctx, "provider", provider))
+	r = r.WithContext(context.WithValue(ctx, providerKey, provider))
 
 	authParams, err := h.AuthUC.Login(w, r, authmodel.AuthParams{})
 	if err != nil {
-		fmt.Println(err)
 		commonwriter.SetError(ctx, w, err)
 		return
 	}
@@ -50,8 +50,8 @@ func (h *AuthHandler) BeginAuthProviderCallback(w http.ResponseWriter, r *http.R
 
 	ctx := r.Context()
 	// try to get the user without re-authenticating
-	provider := chi.URLParam(r, "provider")
-	r = r.WithContext(context.WithValue(ctx, "provider", provider))
+	provider := chi.URLParam(r, providerKey)
+	r = r.WithContext(context.WithValue(ctx, providerKey, provider))
 	h.AuthRepo.BeginAuthProviderCallback(w, r)
 
 	// commonwriter.Redirect(ctx, w, r, h.Cfg.GoogleAuthConfig.HomepageRedirect, http.StatusFound)
@@ -128,7 +128,7 @@ func (h *AuthHandler) TestGetUser(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) PseudoLogin(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	provider := chi.URLParam(r, "provider")
-	r = r.WithContext(context.WithValue(ctx, "provider", provider))
+	r = r.WithContext(context.WithValue(ctx, providerKey, provider))
 
 	// user, err := h.AuthRepo.GetAuthCallbackFunction(w, r)
 

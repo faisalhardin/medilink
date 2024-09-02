@@ -62,7 +62,19 @@ func main() {
 	}
 	defer db.CloseDBConnection()
 
-	setGothRepo(cfg)
+	store := sessions.NewCookieStore([]byte(cfg.Vault.GoogleAuth.Key))
+	store.MaxAge(cfg.GoogleAuthConfig.MaxAge * 30)
+
+	store.Options.Path = cfg.GoogleAuthConfig.CookiePath
+	store.Options.HttpOnly = cfg.GoogleAuthConfig.HttpOnly
+	store.Options.Secure = cfg.GoogleAuthConfig.IsProd
+	store.Options.SameSite = http.SameSiteLaxMode
+
+	gothic.Store = store
+
+	goth.UseProviders(
+		auth.GoogleProvider(cfg),
+	)
 
 	redis := cache.New(cfg)
 
