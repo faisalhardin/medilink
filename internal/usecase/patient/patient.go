@@ -35,6 +35,7 @@ func (u *PatientUC) RegisterNewPatient(ctx context.Context, req model.RegisterNe
 	err = u.PatientDB.RegisterNewPatient(ctx, &model.MstPatientInstitution{
 		NIK:           req.NIK,
 		Name:          req.Name,
+		Sex:           req.Sex,
 		DateOfBirth:   req.DateOfBirth,
 		PlaceOfBirth:  req.PlaceOfBirth,
 		Address:       req.Address,

@@ -14,6 +14,7 @@ type MstPatientInstitution struct {
 	UUID          string     `json:"uuid" xorm:"'uuid' <-"`
 	NIK           string     `json:"nik" xorm:"'nik'"`
 	Name          string     `json:"name" xorm:"'name'"`
+	Sex           string     `json:"sex" xorm:"'sex'"`
 	PlaceOfBirth  string     `json:"place_of_birth" xorm:"'place_of_birth'"`
 	DateOfBirth   time.Time  `json:"date_of_birth" xorm:"'date_of_birth'"`
 	Address       string     `json:"address" xorm:"'address'"`
@@ -39,8 +40,9 @@ type MstPatientVisit struct {
 type RegisterNewPatientRequest struct {
 	NIK          string    `json:"nik"`
 	Name         string    `json:"name" validate:"required"`
+	Sex          string    `json:"sex" validate:"required,oneof=male female"`
 	PlaceOfBirth string    `json:"place_of_birth"`
-	DateOfBirth  time.Time `json:"date_of_birth"`
+	DateOfBirth  time.Time `json:"date_of_birth" validate:"required"`
 	Address      string    `json:"address"`
 	Religion     string    `json:"religion"`
 }
