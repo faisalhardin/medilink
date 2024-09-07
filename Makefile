@@ -12,6 +12,9 @@ build:
 run:
 	@go run cmd/api/main.go
 
+app:
+	@ISLOCAL=1 GO111MODULE=auto realize start -name=medilink
+
 # Create DB container
 docker-run:
 	@if docker compose up 2>/dev/null; then \

@@ -1,0 +1,24 @@
+settings:
+  legacy:
+    force: false
+    interval: 0s
+schema:
+- name: medilink
+  path: cmd/api
+  commands: 
+    install:
+      status: true
+    run:
+      status: true
+  watcher:
+    extensions:
+    - go
+    - yaml
+    - json
+    paths:
+    - ../
+    ignore:
+      paths:
+      - .git
+      - .realize
+      - vendor
