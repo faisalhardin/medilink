@@ -2,23 +2,30 @@ settings:
   legacy:
     force: false
     interval: 0s
+server:
+  status: true
+  open: false
+  port: 8080
+  host: localhost
 schema:
-- name: medilink
-  path: cmd/api
-  commands: 
-    install:
-      status: true
-    run:
-      status: true
-  watcher:
-    extensions:
-    - go
-    - yaml
-    - json
-    paths:
-    - ../
-    ignore:
+  - name: medilink
+    path: cmd/api/
+    args:
+      - --mode=
+    commands: 
+      install:
+        status: true
+      run:
+        status: true
+    watcher:
+      extensions:
+        - go
+        - yaml
+        - json
       paths:
-      - .git
-      - .realize
-      - vendor
+        - ../../
+      ignore:
+        paths:
+          - .git
+          - .realize
+          - vendor
