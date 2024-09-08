@@ -48,9 +48,11 @@ type RegisterNewPatientRequest struct {
 }
 
 type GetPatientParams struct {
-	PatientUUIDs  []string  `scheme:"patient_ids"`
-	DateOfBirth   time.Time `scheme:"date_of_birth"`
-	InstitutionID int64     `scheme:"institution_id"`
+	PatientUUIDs  []string `schema:"patient_ids"`
+	DateOfBirth   Time     `schema:"date_of_birth"`
+	Name          string   `schema:"name"`
+	InstitutionID int64    `schema:"institution_id"`
+	NIK           string   `schema:"nik"`
 }
 
 type GetPatientResponse struct {
@@ -61,4 +63,15 @@ type GetPatientResponse struct {
 	DateOfBirth  time.Time `json:"date_of_birth" xorm:"'date_of_birth'"`
 	Address      string    `json:"address" xorm:"'address'"`
 	Religion     string    `json:"religion" xorm:"'religion'"`
+}
+
+type UpdatePatientRequest struct {
+	UUID         string `json:"uuid" xorm:"'uuid' <-"`
+	NIK          string `json:"nik" xorm:"'nik'"`
+	Name         string `json:"name" xorm:"'name'"`
+	Sex          string `json:"sex" xorm:"'sex'"`
+	PlaceOfBirth string `json:"place_of_birth" xorm:"'place_of_birth'"`
+	DateOfBirth  Time   `json:"date_of_birth" xorm:"'date_of_birth'"`
+	Address      string `json:"address" xorm:"'address'"`
+	Religion     string `json:"religion" xorm:"'religion'"`
 }

@@ -58,3 +58,22 @@ func (h *PatientHandler) GetPatient(w http.ResponseWriter, r *http.Request) {
 
 	commonwriter.SetOKWithData(ctx, w, patients)
 }
+
+func (h *PatientHandler) UpdatePatient(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	request := model.UpdatePatientRequest{}
+	err := bindingBind(r, &request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	err = h.PatientUC.UpdatePatient(ctx, request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, "ok")
+}

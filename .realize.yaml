@@ -5,13 +5,11 @@ settings:
 server:
   status: true
   open: false
-  port: 8080
+  port: 50001
   host: localhost
 schema:
   - name: medilink
     path: cmd/api/
-    args:
-      - --mode=
     commands: 
       install:
         status: true

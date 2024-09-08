@@ -27,6 +27,7 @@ func RegisterRoutes(m *module) http.Handler {
 			authed.Route("/patient", func(institution chi.Router) {
 				institution.Post("/", m.httpHandler.PatientHandler.RegisterNewPatient)
 				institution.Get("/", m.httpHandler.PatientHandler.GetPatient)
+				institution.Patch("/", m.httpHandler.PatientHandler.UpdatePatient)
 			})
 		})
 
@@ -42,6 +43,7 @@ func RegisterRoutes(m *module) http.Handler {
 			})
 		})
 	})
+	r.Get("/ping", m.httpHandler.AuthHandler.PingAPI)
 
 	return r
 }

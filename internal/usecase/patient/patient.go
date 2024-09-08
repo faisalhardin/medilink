@@ -50,7 +50,7 @@ func (u *PatientUC) RegisterNewPatient(ctx context.Context, req model.RegisterNe
 	return
 }
 
-func (u *PatientUC) GetPatients(ctx context.Context, req model.GetPatientParams) (patients model.GetPatientResponse, err error) {
+func (u *PatientUC) GetPatients(ctx context.Context, req model.GetPatientParams) (patients []model.GetPatientResponse, err error) {
 
 	userDetail, found := auth.GetUserDetailFromCtx(ctx)
 	if !found {
@@ -60,6 +60,17 @@ func (u *PatientUC) GetPatients(ctx context.Context, req model.GetPatientParams)
 
 	req.InstitutionID = userDetail.InstitutionID
 	patients, err = u.PatientDB.GetPatients(ctx, req)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgRegisterNewPatient)
+		return
+	}
+
+	return
+}
+
+func (u *PatientUC) UpdatePatient(ctx context.Context, req model.UpdatePatientRequest) (err error) {
+
+	err = u.PatientDB.UpdatePatient(ctx, &req)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgRegisterNewPatient)
 		return

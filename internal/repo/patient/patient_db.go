@@ -2,11 +2,14 @@ package patient
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/faisalhardin/medilink/internal/entity/constant"
 	"github.com/faisalhardin/medilink/internal/entity/model"
 	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
 	xormlib "github.com/faisalhardin/medilink/internal/library/db/xorm"
+	"github.com/lib/pq"
 	"github.com/pkg/errors"
 )
 
@@ -15,6 +18,7 @@ const (
 	WrapMsgRegisterNewPatient               = WrapErrMsgPrefix + "RegisterNewPatient"
 	WrapMsgRecordPatientVisit               = WrapErrMsgPrefix + "RecordPatientVisit"
 	WrapMsgGetPatientVisitRecordByPatientID = WrapErrMsgPrefix + "GetPatientVisitRecordByPatientID"
+	WrapMsgUpdatePatient                    = WrapErrMsgPrefix + "UpdatePatient"
 )
 
 type Conn struct {
@@ -42,23 +46,33 @@ func (c *Conn) RegisterNewPatient(ctx context.Context, patient *model.MstPatient
 	return
 }
 
-func (c *Conn) GetPatients(ctx context.Context, params model.GetPatientParams) (patients model.GetPatientResponse, err error) {
+func (c *Conn) GetPatients(ctx context.Context, params model.GetPatientParams) (patients []model.GetPatientResponse, err error) {
 
+	if params.InstitutionID == 0 {
+		err = commonerr.SetNewUnauthorizedAPICall()
+		return
+	}
 	session := c.DB.MasterDB.Table(model.MST_PATIENT_INSTITUTION)
 
-	if !params.DateOfBirth.IsZero() {
-		session.Where("mmpi.date_of_birth = ?", params.DateOfBirth.Format(constant.DateFormatYYYYMMDDDashed))
+	if !params.DateOfBirth.Time().IsZero() {
+		session.Where("mmpi.date_of_birth::date = ?", params.DateOfBirth.Time().Format(constant.DateFormatYYYYMMDDDashed))
 	}
 	if len(params.PatientUUIDs) > 0 {
-		session.Where("mmpi.uuid = any(?)", params.PatientUUIDs)
+		session.Where("mmpi.uuid = any(?)", pq.Array(params.PatientUUIDs))
 	}
-	if params.InstitutionID > 0 {
-		session.Where("mmpi.institution_id = ?", params)
+	if len(params.Name) > 0 {
+		splitNames := strings.Split(params.Name, " ")
+		nameQuery := []string{}
+		for _, name := range splitNames {
+			nameQuery = append(nameQuery, fmt.Sprintf("%%%s%%", name))
+		}
+		session.Where("mmpi.name ILIKE ANY(?)", pq.Array(nameQuery))
 	}
 
 	_, err = session.
 		Alias("mmpi").
-		FindAndCount(params)
+		Where("mmpi.id_mst_institution = ?", params.InstitutionID).
+		FindAndCount(&patients)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgRegisterNewPatient)
 		return
@@ -88,6 +102,21 @@ func (c *Conn) GetPatientVisitsRecordByPatientID(ctx context.Context, patientID 
 		Find(&mstPatientVisits)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgGetPatientVisitRecordByPatientID)
+		return
+	}
+
+	return
+}
+
+func (c *Conn) UpdatePatient(ctx context.Context, request *model.UpdatePatientRequest) (err error) {
+
+	session := c.DB.MasterDB.Table(model.MST_PATIENT_INSTITUTION)
+
+	_, err = session.
+		Where("uuid = ?", request.UUID).
+		Update(request)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgUpdatePatient)
 		return
 	}
 

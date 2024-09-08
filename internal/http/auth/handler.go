@@ -61,12 +61,6 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	h.AuthRepo.Logout(w, r)
 }
 
-func (h *AuthHandler) PingAPI(w http.ResponseWriter, r *http.Request) {
-
-	ctx := context.Background()
-	commonwriter.SetOKWithData(ctx, w, "OK")
-}
-
 func (h *AuthHandler) TestAPIRedirect(w http.ResponseWriter, r *http.Request) {
 
 	ctx := context.Background()
@@ -167,4 +161,10 @@ func (h *AuthHandler) GetLoginByToken(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) GetUserFromToken(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	commonwriter.SetOKWithData(ctx, w, "userClaim")
+}
+
+func (h *AuthHandler) PingAPI(w http.ResponseWriter, r *http.Request) {
+
+	ctx := context.Background()
+	commonwriter.SetOKWithData(ctx, w, "OK")
 }

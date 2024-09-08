@@ -11,12 +11,14 @@ import (
 	"github.com/faisalhardin/medilink/internal/library/util/validation"
 	"github.com/go-playground/locales/en"
 
+	"github.com/faisalhardin/medilink/internal/entity/model"
 	"github.com/gorilla/schema"
 )
 
 var (
 	validatorURL  *validation.Validator
 	validatorJSON *validation.Validator
+	schemaDecoder = schema.NewDecoder()
 
 	ErrInvalidContentType = errors.New("unrecognized content type")
 )
@@ -50,6 +52,9 @@ func init() {
 		validation.SetCustomEmailMessage(),
 		validation.SetCustomMaxNumberCharacterMessage(),
 	)
+
+	schemaDecoder.RegisterConverter(model.Time{}, model.TimeConverter)
+	schemaDecoder.IgnoreUnknownKeys(true)
 
 }
 
@@ -115,9 +120,8 @@ func decodeSchemaRequest(r *http.Request, val interface{}) error {
 }
 
 func BindQuery(value url.Values, targetDecode interface{}) error {
-	decoder := schema.NewDecoder()
 
-	if err := decoder.Decode(targetDecode, value); err != nil {
+	if err := schemaDecoder.Decode(targetDecode, value); err != nil {
 		return err
 	}
 	if err := validatorURL.Struct(targetDecode); err != nil {
