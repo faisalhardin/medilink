@@ -59,10 +59,22 @@ func (u *PatientUC) GetPatients(ctx context.Context, req model.GetPatientParams)
 	}
 
 	req.InstitutionID = userDetail.InstitutionID
-	patients, err = u.PatientDB.GetPatients(ctx, req)
+	mstPatients, err := u.PatientDB.GetPatients(ctx, req)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgRegisterNewPatient)
 		return
+	}
+
+	for _, patient := range mstPatients {
+		patients = append(patients, model.GetPatientResponse{
+			UUID:         patient.UUID,
+			NIK:          patient.NIK,
+			Name:         patient.Name,
+			PlaceOfBirth: patient.PlaceOfBirth,
+			DateOfBirth:  patient.DateOfBirth,
+			Address:      patient.Address,
+			Religion:     patient.Religion,
+		})
 	}
 
 	return

@@ -5,6 +5,7 @@ import (
 
 	"github.com/faisalhardin/medilink/internal/entity/model"
 	"github.com/faisalhardin/medilink/internal/entity/usecase/patient"
+	"github.com/faisalhardin/medilink/internal/entity/usecase/visit"
 	commonwriter "github.com/faisalhardin/medilink/internal/library/common/writer"
 	"github.com/faisalhardin/medilink/internal/library/util/common/binding"
 )
@@ -15,6 +16,7 @@ var (
 
 type PatientHandler struct {
 	PatientUC patient.PatientUC
+	VisitUC   visit.VisitUC
 }
 
 func New(handler *PatientHandler) *PatientHandler {

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/faisalhardin/medilink/internal/entity/constant"
+	"github.com/faisalhardin/medilink/internal/entity/constant/database"
 	"github.com/faisalhardin/medilink/internal/entity/model"
 	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
 	xormlib "github.com/faisalhardin/medilink/internal/library/db/xorm"
@@ -18,7 +19,9 @@ const (
 	WrapMsgRegisterNewPatient               = WrapErrMsgPrefix + "RegisterNewPatient"
 	WrapMsgRecordPatientVisit               = WrapErrMsgPrefix + "RecordPatientVisit"
 	WrapMsgGetPatientVisitRecordByPatientID = WrapErrMsgPrefix + "GetPatientVisitRecordByPatientID"
+	WrapMsgUpdatePatientVisit               = WrapErrMsgPrefix + "UpdatePatientVisit"
 	WrapMsgUpdatePatient                    = WrapErrMsgPrefix + "UpdatePatient"
+	WrapMsgGetPatientVisits                 = WrapErrMsgPrefix + "GetPatientVisits"
 )
 
 type Conn struct {
@@ -46,7 +49,7 @@ func (c *Conn) RegisterNewPatient(ctx context.Context, patient *model.MstPatient
 	return
 }
 
-func (c *Conn) GetPatients(ctx context.Context, params model.GetPatientParams) (patients []model.GetPatientResponse, err error) {
+func (c *Conn) GetPatients(ctx context.Context, params model.GetPatientParams) (patients []model.MstPatientInstitution, err error) {
 
 	if params.InstitutionID == 0 {
 		err = commonerr.SetNewUnauthorizedAPICall()
@@ -81,11 +84,11 @@ func (c *Conn) GetPatients(ctx context.Context, params model.GetPatientParams) (
 	return
 }
 
-func (c *Conn) RecordPatientVisit(ctx context.Context, request *model.MstPatientVisit) (err error) {
+func (c *Conn) RecordPatientVisit(ctx context.Context, request *model.TrxPatientVisit) (err error) {
 	session := c.DB.MasterDB
 
 	_, err = session.
-		Table(model.MST_PATIENT_VISIT).
+		Table(model.TRX_PATIENT_VISIT).
 		InsertOne(request)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgRecordPatientVisit)
@@ -95,13 +98,50 @@ func (c *Conn) RecordPatientVisit(ctx context.Context, request *model.MstPatient
 	return
 }
 
-func (c *Conn) GetPatientVisitsRecordByPatientID(ctx context.Context, patientID int64) (mstPatientVisits []model.MstPatientVisit, err error) {
-	session := c.DB.SlaveDB.Table(model.MST_PATIENT_VISIT).Alias("mmpv")
+func (c *Conn) GetPatientVisitsRecordByPatientID(ctx context.Context, patientID int64) (mstPatientVisits []model.TrxPatientVisit, err error) {
+	session := c.DB.SlaveDB.Table(model.TRX_PATIENT_VISIT).Alias("mtpv")
 
-	err = session.Where("mmpv.patient_id = ?", patientID).
+	err = session.Where("mtpv.patient_id = ?", patientID).
 		Find(&mstPatientVisits)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgGetPatientVisitRecordByPatientID)
+		return
+	}
+
+	return
+}
+
+func (c *Conn) GetPatientVisits(ctx context.Context, params model.GetPatientVisitParams) (trxPatientVisit []model.TrxPatientVisit, err error) {
+	session := c.DB.MasterDB.Table(model.TRX_PATIENT_VISIT)
+
+	if len(params.PatientUUID) > 0 {
+		session.Join(database.SQLInner, "mdl_mst_patient_institution mmpi", "mmpi.id = mtpv.id_mst_patient and mmpi.delete_time is null").
+			Where("mmpi.uuid = ?", params.PatientUUID)
+	}
+	if params.PatientID > 0 {
+		session.Where("mtpv.id_mst_patient = ?", params.PatientID)
+	}
+
+	err = session.Alias("mtpv").
+		Find(&trxPatientVisit)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgGetPatientVisits)
+		return
+	}
+
+	return
+}
+
+func (c *Conn) UpdatePatientVisit(ctx context.Context, trxVisit model.TrxPatientVisit) (err error) {
+
+	session := c.DB.MasterDB.Table(model.TRX_PATIENT_VISIT)
+
+	_, err = session.
+		ID(trxVisit.ID).
+		Cols("action", "status", "notes").
+		Update(trxVisit)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgUpdatePatientVisit)
 		return
 	}
 

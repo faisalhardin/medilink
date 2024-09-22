@@ -6,7 +6,7 @@ import (
 
 const (
 	MST_PATIENT_INSTITUTION = "mdl_mst_patient_institution"
-	MST_PATIENT_VISIT       = "mdl_mst_patient_visit"
+	TRX_PATIENT_VISIT       = "mdl_trx_patient_visit"
 )
 
 type MstPatientInstitution struct {
@@ -25,17 +25,17 @@ type MstPatientInstitution struct {
 	DeleteTime    *time.Time `json:"-" xorm:"'delete_time' deleted"`
 }
 
-type MstPatientVisit struct {
-	ID         int64      `json:"-" xorm:"'id' pk autoincr"`
-	UUID       string     `json:"uuid" xorm:"'uuid' uuid_generate_v4()"`
-	PatientID  int64      `json:"patient_id" xorm:"'id_mst_patient'"`
-	Action     string     `json:"action" xorm:"'action'"`
-	Status     string     `json:"status" xorm:"'status'"`
-	Notes      string     `json:"notes" xorm:"'notes'"`
-	CreateTime time.Time  `json:"-" xorm:"'create_time' created"`
-	UpdateTime time.Time  `json:"-" xorm:"'update_time' updated"`
-	DeleteTime *time.Time `json:"-" xorm:"'delete_time' deleted"`
-}
+// type MstPatientVisit struct {
+// 	ID         int64      `json:"-" xorm:"'id' pk autoincr"`
+// 	UUID       string     `json:"uuid" xorm:"'uuid' uuid_generate_v4()"`
+// 	PatientID  int64      `json:"patient_id" xorm:"'id_mst_patient'"`
+// 	Action     string     `json:"action" xorm:"'action'"`
+// 	Status     string     `json:"status" xorm:"'status'"`
+// 	Notes      string     `json:"notes" xorm:"'notes'"`
+// 	CreateTime time.Time  `json:"-" xorm:"'create_time' created"`
+// 	UpdateTime time.Time  `json:"-" xorm:"'update_time' updated"`
+// 	DeleteTime *time.Time `json:"-" xorm:"'delete_time' deleted"`
+// }
 
 type RegisterNewPatientRequest struct {
 	NIK          string    `json:"nik"`
