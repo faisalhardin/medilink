@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	MST_INSTITUTION = "mdl_mst_institution"
+	MstInstitution = "mdl_mst_institution"
 )
 
 const (
@@ -30,7 +30,7 @@ func NewInstitutionDB(conn *Conn) *Conn {
 func (c *Conn) InsertNewInstitution(ctx context.Context, institution *model.Institution) (err error) {
 	session := c.DB.MasterDB
 
-	_, err = session.Table(MST_INSTITUTION).InsertOne(institution)
+	_, err = session.Table(MstInstitution).InsertOne(institution)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgInsertNewInstitution)
 		return
@@ -40,7 +40,7 @@ func (c *Conn) InsertNewInstitution(ctx context.Context, institution *model.Inst
 }
 
 func (c *Conn) FindInstitutionByParams(ctx context.Context, request model.FindInstitutionParams) (institutions []model.Institution, err error) {
-	session := c.DB.SlaveDB.Table(MST_INSTITUTION).Alias("mmi")
+	session := c.DB.SlaveDB.Table(MstInstitution).Alias("mmi")
 
 	if request.ID > 0 {
 		session.Where("mmi.id = ?", request.ID)
