@@ -49,7 +49,7 @@ type DtlInstitutionProductStock struct {
 	ID                      int64      `xorm:"'id' pk autoincr" json:"id"`
 	Quantity                int64      `xorm:"'quantity'" json:"quantity"`
 	UnitType                string     `xorm:"'unit_type'" json:"unit_type"`
-	IDMstInstitutionProduct int64      `xorm:"id_mst_institution_product" json:"id_mst_institution_product"`
+	IDTrxInstitutionProduct int64      `xorm:"id_trx_institution_product" json:"id_trx_institution_product"`
 	CreateTime              time.Time  `json:"-" xorm:"'create_time' created"`
 	UpdateTime              time.Time  `json:"-" xorm:"'update_time' updated"`
 	DeleteTime              *time.Time `json:"-" xorm:"'delete_time' deleted"`
@@ -58,4 +58,36 @@ type DtlInstitutionProductStock struct {
 type TrxInstitutionProductJoinStock struct {
 	TrxInstitutionProduct      TrxInstitutionProduct      `xorm:"extends"`
 	DtlInstitutionProductStock DtlInstitutionProductStock `xorm:"extends"`
+}
+
+type InsertInstitutionProductRequest struct {
+	Name         string     `json:"name"`
+	IDMstProduct null.Int64 `json:"id_mst_product"`
+	Price        float64    `json:"price"`
+	IsItem       bool       `json:"is_item"`
+	IsTreatment  bool       `json:"is_treatment"`
+	Quantity     int64      `json:"quantity"`
+	UnitType     string     `json:"unit_type"`
+}
+
+type UpdateInstitutionProductRequest struct {
+	ID           int64       `json:"id"`
+	Name         string      `json:"name"`
+	IDMstProduct null.Int64  `json:"id_mst_product"`
+	Price        float64     `json:"price"`
+	IsItem       bool        `json:"is_item"`
+	IsTreatment  bool        `json:"is_treatment"`
+	Quantity     null.Int64  `json:"quantity"`
+	UnitType     null.String `json:"unit_type"`
+}
+
+type GetInstitutionProductResponse struct {
+	ID           int64      `xorm:"'id'" json:"id"`
+	Name         string     `xorm:"'name'" json:"name"`
+	IDMstProduct null.Int64 `xorm:"id_mst_product" json:"id_mst_product"`
+	Price        float64    `xorm:"'price'" json:"price"`
+	IsItem       bool       `xorm:"'is_item'" json:"is_item"`
+	IsTreatment  bool       `xorm:"'is_treatment'" json:"is_treatment"`
+	Quantity     int64      `xorm:"'quantity'" json:"quantity"`
+	UnitType     string     `xorm:"'unit_type'" json:"unit_type"`
 }

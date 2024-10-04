@@ -25,7 +25,7 @@ CREATE TABLE mdl_dtl_institution_product_stock (
   id serial PRIMARY KEY,
   quantity BIGINT NOT NULL,
   unit_type VARCHAR NOT NULL,
-  id_mst_institution_product BIGINT NOT NULL,
+  id_trx_institution_product BIGINT NOT NULL,
   create_time TIMESTAMPTZ NOT NULL,
   update_time TIMESTAMPTZ NOT NULL,
   delete_time TIMESTAMPTZ

@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/faisalhardin/medilink/internal/entity/model"
-	"github.com/faisalhardin/medilink/internal/entity/usecase"
+	"github.com/faisalhardin/medilink/internal/entity/usecase/institution"
 	commonwriter "github.com/faisalhardin/medilink/internal/library/common/writer"
 	"github.com/faisalhardin/medilink/internal/library/util/common/binding"
 )
@@ -14,7 +14,7 @@ var (
 )
 
 type InstitutionHandler struct {
-	InstitutionUC usecase.InstitutionUC
+	InstitutionUC institution.InstitutionUC
 }
 
 func New(handler *InstitutionHandler) *InstitutionHandler {

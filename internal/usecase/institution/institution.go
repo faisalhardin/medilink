@@ -10,9 +10,11 @@ import (
 )
 
 var (
-	WrapErrMsgPrefix               = "InstitutionUC."
-	WrapMsgInsertInstitution       = WrapErrMsgPrefix + "InsertInstitution"
-	WrapMsgFindInstitutionByParams = WrapErrMsgPrefix + "FindInstitutionByParams"
+	WrapErrMsgPrefix                = "InstitutionUC."
+	WrapMsgInsertInstitution        = WrapErrMsgPrefix + "InsertInstitution"
+	WrapMsgFindInstitutionByParams  = WrapErrMsgPrefix + "FindInstitutionByParams"
+	WrapMsgInserInstitutionProduct  = WrapErrMsgPrefix + "InserInstitutionProduct"
+	WrapMsgUpdateInstitutionProduct = WrapErrMsgPrefix + "UpdateInstitutionProduct"
 )
 
 type InstitutionUC struct {
