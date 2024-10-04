@@ -21,7 +21,7 @@ CREATE TABLE mdl_trx_institution_product (
   delete_time TIMESTAMPTZ
 );
 
-CREATE TABLE mdl_trx_institution_product_stock (
+CREATE TABLE mdl_dtl_institution_product_stock (
   id serial PRIMARY KEY,
   quantity BIGINT NOT NULL,
   unit_type VARCHAR NOT NULL,

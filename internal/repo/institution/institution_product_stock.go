@@ -11,14 +11,14 @@ import (
 )
 
 const (
-	TrxInstitutionProductStock = "mdl_trx_institution_product_stock"
+	DtlInstitutionProductStock = "mdl_dtl_institution_product_stock"
 
 	WrapMsgFindTrxInstitutionProductJoinStockByParams = "FindTrxInstitutionProductJoinStockByParams"
-	WrapMsgUpdateTrxInstitutionProductStock           = "UpdateTrxInstitutionProductStock"
+	WrapMsgUpdateDtlInstitutionProductStock           = "UpdateDtlInstitutionProductStock"
 )
 
-func (c *Conn) InsertInstitutionProductStock(ctx context.Context, product *model.TrxInstitutionProductStock) (err error) {
-	session := c.DB.MasterDB.Table(TrxInstitutionProductStock)
+func (c *Conn) InsertInstitutionProductStock(ctx context.Context, product *model.DtlInstitutionProductStock) (err error) {
+	session := c.DB.MasterDB.Table(DtlInstitutionProductStock)
 
 	_, err = session.InsertOne(product)
 	if err != nil {
@@ -29,9 +29,9 @@ func (c *Conn) InsertInstitutionProductStock(ctx context.Context, product *model
 	return
 }
 
-func (c *Conn) FindTrxInstitutionProductStockByParams(ctx context.Context, request model.TrxInstitutionProductStock) (stock []model.TrxInstitutionProductStock, err error) {
+func (c *Conn) FindTrxInstitutionProductStockByParams(ctx context.Context, request model.DtlInstitutionProductStock) (stock []model.DtlInstitutionProductStock, err error) {
 
-	session := c.DB.SlaveDB.Table(TrxInstitutionProductStock).Alias("mtips")
+	session := c.DB.SlaveDB.Table(DtlInstitutionProductStock).Alias("mdips")
 
 	err = session.
 		Where("id_mst_institution_product = ?", request.IDMstInstitutionProduct).
@@ -53,7 +53,7 @@ func (c *Conn) FindTrxInstitutionProductJoinStockByParams(ctx context.Context, r
 	session := c.DB.SlaveDB.
 		Table(TrxInstitutionProduct).
 		Alias("mtip").
-		Join(database.SQLInner, "mdl_trx_institution_product_stock mtips", "mtip.id = mtips.id_mst_institution_product and mtip.delete_time is null and and mtips.delete_time is null")
+		Join(database.SQLInner, "mdl_dtl_institution_product_stock mdips", "mtip.id = mdips.id_mst_institution_product and mtip.delete_time is null and and mdips.delete_time is null")
 
 	if request.ID > 0 {
 		session.Where("mtip.id = ?", request.ID)
@@ -78,14 +78,14 @@ func (c *Conn) FindTrxInstitutionProductJoinStockByParams(ctx context.Context, r
 	return
 }
 
-func (c *Conn) UpdateTrxInstitutionProductStock(ctx context.Context, request *model.TrxInstitutionProductStock) (err error) {
-	session := c.DB.MasterDB.Table(TrxInstitutionProductStock)
+func (c *Conn) UpdateDtlInstitutionProductStock(ctx context.Context, request *model.DtlInstitutionProductStock) (err error) {
+	session := c.DB.MasterDB.Table(DtlInstitutionProductStock)
 
 	_, err = session.
 		Where("id_mst_institution_product = ? and delete_time is null", request.IDMstInstitutionProduct).
 		Update(request)
 	if err != nil {
-		err = errors.Wrap(err, WrapMsgUpdateTrxInstitutionProduct)
+		err = errors.Wrap(err, WrapMsgUpdateDtlInstitutionProductStock)
 		return
 	}
 

@@ -45,7 +45,7 @@ type TrxVisitProduct struct {
 	DeleteTime              *time.Time `json:"-" xorm:"'delete_time' deleted"`
 }
 
-type TrxInstitutionProductStock struct {
+type DtlInstitutionProductStock struct {
 	ID                      int64      `xorm:"'id' pk autoincr" json:"id"`
 	Quantity                int64      `xorm:"'quantity'" json:"quantity"`
 	UnitType                string     `xorm:"'unit_type'" json:"unit_type"`
@@ -57,5 +57,5 @@ type TrxInstitutionProductStock struct {
 
 type TrxInstitutionProductJoinStock struct {
 	TrxInstitutionProduct      TrxInstitutionProduct      `xorm:"extends"`
-	TrxInstitutionProductStock TrxInstitutionProductStock `xorm:"extends"`
+	DtlInstitutionProductStock DtlInstitutionProductStock `xorm:"extends"`
 }
