@@ -65,7 +65,6 @@ func (c *Conn) UpdateTrxInstitutionProduct(ctx context.Context, request *model.T
 
 	_, err = session.
 		ID(request.ID).
-		Cols("name", "id_mst_product", "price").
 		Update(request)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgUpdateTrxInstitutionProduct)
