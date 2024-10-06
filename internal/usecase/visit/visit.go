@@ -6,6 +6,7 @@ import (
 	"github.com/faisalhardin/medilink/internal/entity/model"
 	patientRepo "github.com/faisalhardin/medilink/internal/entity/repo/patient"
 	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
+	"github.com/faisalhardin/medilink/internal/library/middlewares/auth"
 	"github.com/pkg/errors"
 )
 
@@ -26,8 +27,15 @@ func NewVisitUC(u *VisitUC) *VisitUC {
 
 func (u *VisitUC) InsertNewVisit(ctx context.Context, req model.InsertNewVisitRequest) (err error) {
 
+	userDetail, found := auth.GetUserDetailFromCtx(ctx)
+	if !found {
+		err = commonerr.SetNewUnauthorizedAPICall()
+		return
+	}
+
 	mstPatient, err := u.PatientDB.GetPatients(ctx, model.GetPatientParams{
-		PatientUUIDs: []string{req.PatientUUID},
+		PatientUUIDs:  []string{req.PatientUUID},
+		InstitutionID: userDetail.InstitutionID,
 	})
 	if err != nil {
 		return errors.Wrap(err, WrapMsgInsertNewVisit)

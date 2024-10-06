@@ -22,6 +22,7 @@ import (
 	authUC "github.com/faisalhardin/medilink/internal/usecase/auth"
 	institutionUC "github.com/faisalhardin/medilink/internal/usecase/institution"
 	patientUC "github.com/faisalhardin/medilink/internal/usecase/patient"
+	visituc "github.com/faisalhardin/medilink/internal/usecase/visit"
 
 	authHandler "github.com/faisalhardin/medilink/internal/http/auth"
 	institutionHandler "github.com/faisalhardin/medilink/internal/http/institution"
@@ -110,6 +111,10 @@ func main() {
 		PatientDB: patientDB,
 	})
 
+	visitUC := visituc.NewVisitUC(&visituc.VisitUC{
+		PatientDB: patientDB,
+	})
+
 	authUC := authUC.New(&authUC.AuthUC{
 		Cfg:       *cfg,
 		AuthRepo:  *authRepo,
@@ -128,6 +133,7 @@ func main() {
 
 	patientHandler := patientHandler.New(&patientHandler.PatientHandler{
 		PatientUC: patientUC,
+		VisitUC:   visitUC,
 	})
 
 	authHandler := authHandler.New(&authHandler.AuthHandler{
