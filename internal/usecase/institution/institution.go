@@ -5,6 +5,7 @@ import (
 
 	"github.com/faisalhardin/medilink/internal/entity/model"
 	institutionRepo "github.com/faisalhardin/medilink/internal/entity/repo/institution"
+	"github.com/faisalhardin/medilink/internal/library/db/xorm"
 
 	"github.com/pkg/errors"
 )
@@ -19,6 +20,7 @@ var (
 
 type InstitutionUC struct {
 	InstitutionRepo institutionRepo.InstitutionDB
+	Transaction     xorm.DBTransactionInterface
 }
 
 func NewInstitutionUC(uc *InstitutionUC) *InstitutionUC {

@@ -84,10 +84,10 @@ type UpdateInstitutionProductRequest struct {
 type GetInstitutionProductResponse struct {
 	ID           int64      `xorm:"'id'" json:"id"`
 	Name         string     `xorm:"'name'" json:"name"`
-	IDMstProduct null.Int64 `xorm:"id_mst_product" json:"id_mst_product"`
-	Price        float64    `xorm:"'price'" json:"price"`
-	IsItem       bool       `xorm:"'is_item'" json:"is_item"`
+	IDMstProduct null.Int64 `xorm:"id_mst_product" json:"id_mst_product,omitempty"`
+	Price        float64    `xorm:"'price'" json:"price,omitempty"`
+	IsItem       bool       `xorm:"'is_item'" json:"is_item,omitempty"`
 	IsTreatment  bool       `xorm:"'is_treatment'" json:"is_treatment"`
 	Quantity     int64      `xorm:"'quantity'" json:"quantity"`
-	UnitType     string     `xorm:"'unit_type'" json:"unit_type"`
+	UnitType     string     `xorm:"'unit_type'" json:"unit_type,omitempty"`
 }

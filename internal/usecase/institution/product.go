@@ -16,6 +16,9 @@ func (uc *InstitutionUC) InserInstitutionProduct(ctx context.Context, request mo
 		return
 	}
 
+	session, err := uc.Transaction.Begin(ctx)
+	defer uc.Transaction.Finish(session, &err)
+
 	product := model.TrxInstitutionProduct{
 		Name:             request.Name,
 		IDMstProduct:     request.IDMstProduct,
@@ -56,6 +59,9 @@ func (uc *InstitutionUC) FindInstitutionProductByParams(ctx context.Context, par
 }
 
 func (uc *InstitutionUC) UpdateInstitutionProduct(ctx context.Context, request model.UpdateInstitutionProductRequest) (err error) {
+
+	session, err := uc.Transaction.Begin(ctx)
+	defer uc.Transaction.Finish(session, &err)
 
 	product := model.TrxInstitutionProduct{
 		ID:           request.ID,

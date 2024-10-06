@@ -6,6 +6,7 @@ import (
 
 	"github.com/faisalhardin/medilink/internal/entity/model"
 	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
+	"github.com/faisalhardin/medilink/internal/library/db/xorm"
 	"github.com/pkg/errors"
 )
 
@@ -18,9 +19,14 @@ const (
 )
 
 func (c *Conn) InsertInstitutionProduct(ctx context.Context, product *model.TrxInstitutionProduct) (err error) {
-	session := c.DB.MasterDB.Table(TrxInstitutionProduct)
+	session := xorm.GetDBSession(ctx)
+	if session == nil {
+		session = c.DB.MasterDB.Context(ctx)
+	}
 
-	_, err = session.InsertOne(product)
+	_, err = session.
+		Table(TrxInstitutionProduct).
+		InsertOne(product)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgInsertInstitutionProduct)
 		return
@@ -35,7 +41,9 @@ func (c *Conn) FindTrxInstitutionProductByParams(ctx context.Context, request mo
 		return
 	}
 
-	session := c.DB.SlaveDB.Table(TrxInstitutionProduct).Alias("mtip")
+	session := c.DB.SlaveDB.
+		Context(ctx).
+		Table(TrxInstitutionProduct)
 
 	if request.ID > 0 {
 		session.Where("mtip.id = ?", request.ID)
@@ -50,6 +58,7 @@ func (c *Conn) FindTrxInstitutionProductByParams(ctx context.Context, request mo
 	}
 
 	err = session.
+		Alias("mtip").
 		Where("id_mst_institution = ?", request.IDMstInstitution).
 		Find(&products)
 	if err != nil {
@@ -61,9 +70,13 @@ func (c *Conn) FindTrxInstitutionProductByParams(ctx context.Context, request mo
 }
 
 func (c *Conn) UpdateTrxInstitutionProduct(ctx context.Context, request *model.TrxInstitutionProduct) (err error) {
-	session := c.DB.MasterDB.Table(TrxInstitutionProduct)
+	session := xorm.GetDBSession(ctx)
+	if session == nil {
+		session = c.DB.MasterDB.Context(ctx)
+	}
 
 	_, err = session.
+		Table(TrxInstitutionProduct).
 		ID(request.ID).
 		Update(request)
 	if err != nil {
