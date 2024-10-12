@@ -40,6 +40,12 @@ func RegisterRoutes(m *module) http.Handler {
 					visit.Patch("/", m.httpHandler.PatientHandler.UpdatePatientVisit)
 				})
 			})
+
+			authed.Route("/visit/{id}", func(visit chi.Router) {
+				visit.Get("/", m.httpHandler.PatientHandler.GetVisitTouchpoint)
+				visit.Post("/", m.httpHandler.PatientHandler.InsertVisitTouchpoint)
+				visit.Patch("/", m.httpHandler.PatientHandler.UpdateVisitTouchpoint)
+			})
 		})
 
 		v1.Route("/auth", func(auth chi.Router) {

@@ -65,3 +65,60 @@ func (h *PatientHandler) UpdatePatientVisit(w http.ResponseWriter, r *http.Reque
 
 	commonwriter.SetOKWithData(ctx, w, "ok")
 }
+
+func (h *PatientHandler) GetVisitTouchpoint(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	request := model.DtlPatientVisitRequest{}
+	err := bindingBind(r, &request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	touchpoint, err := h.VisitUC.GetVisitTouchpoint(ctx, request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, touchpoint)
+}
+
+func (h *PatientHandler) InsertVisitTouchpoint(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	request := model.DtlPatientVisitRequest{}
+	err := bindingBind(r, &request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	err = h.VisitUC.InsertVisitTouchpoint(ctx, request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, "ok")
+}
+
+func (h *PatientHandler) UpdateVisitTouchpoint(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	request := model.DtlPatientVisitRequest{}
+	err := bindingBind(r, &request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	err = h.VisitUC.UpdateVisitTouchpoint(ctx, request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, "ok")
+}

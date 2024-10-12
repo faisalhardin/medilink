@@ -5,8 +5,9 @@ import (
 )
 
 const (
-	MST_PATIENT_INSTITUTION = "mdl_mst_patient_institution"
-	TRX_PATIENT_VISIT       = "mdl_trx_patient_visit"
+	MstPatientInstitutionTableName = "mdl_mst_patient_institution"
+	TrxPatientVisitTableName       = "mdl_trx_patient_visit"
+	DtlPatientVisitTableName       = "mdl_dtl_patient_visit"
 )
 
 type MstPatientInstitution struct {
