@@ -8,7 +8,8 @@ import (
 
 type VisitUC interface {
 	InsertNewVisit(ctx context.Context, req model.InsertNewVisitRequest) (err error)
-	GetPatientVisits(ctx context.Context, req model.GetPatientVisitParams) (visits []model.TrxPatientVisit, err error)
+	GetPatientVisitDetail(ctx context.Context, req model.GetPatientVisitParams) (visitDetail model.GetPatientVisitDetailResponse, err error)
+	ListPatientVisits(ctx context.Context, req model.GetPatientVisitParams) (visits []model.TrxPatientVisit, err error)
 	UpdatePatientVisit(ctx context.Context, req model.UpdatePatientVisitRequest) (err error)
 
 	InsertVisitTouchpoint(ctx context.Context, req model.DtlPatientVisitRequest) (err error)

@@ -92,7 +92,7 @@ func Bind(r *http.Request, targetDecode interface{}) error {
 		if err != nil {
 			return commonerr.SetNewBadRequest("invalid body", err.Error())
 		}
-		if err := validatorJSON.Struct(targetDecode); err != nil {
+		if err = validatorJSON.Struct(targetDecode); err != nil {
 			return commonerr.NewErrorMessage().SetTranslator(validatorJSON).SetBadRequest().SetErrorValidator(err)
 		}
 	case ContentFormData:

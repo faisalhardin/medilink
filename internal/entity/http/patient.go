@@ -7,7 +7,9 @@ type PatientHandler interface {
 	GetPatient(w http.ResponseWriter, r *http.Request)
 	UpdatePatient(w http.ResponseWriter, r *http.Request)
 	InsertNewVisit(w http.ResponseWriter, r *http.Request)
+	ListVisitTouchpoints(w http.ResponseWriter, r *http.Request)
 	GetPatientVisits(w http.ResponseWriter, r *http.Request)
+	ListPatientVisits(w http.ResponseWriter, r *http.Request)
 	UpdatePatientVisit(w http.ResponseWriter, r *http.Request)
 
 	GetVisitTouchpoint(w http.ResponseWriter, r *http.Request)

@@ -8,6 +8,7 @@ const (
 	MstPatientInstitutionTableName = "mdl_mst_patient_institution"
 	TrxPatientVisitTableName       = "mdl_trx_patient_visit"
 	DtlPatientVisitTableName       = "mdl_dtl_patient_visit"
+	TrxVisitProductTableName       = "mdl_trx_visit_product"
 )
 
 type MstPatientInstitution struct {

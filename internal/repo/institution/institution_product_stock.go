@@ -7,6 +7,7 @@ import (
 	"github.com/faisalhardin/medilink/internal/entity/constant/database"
 	"github.com/faisalhardin/medilink/internal/entity/model"
 	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
+	"github.com/lib/pq"
 	"github.com/pkg/errors"
 )
 
@@ -44,7 +45,7 @@ func (c *Conn) FindTrxInstitutionProductStockByParams(ctx context.Context, reque
 	return
 }
 
-func (c *Conn) FindTrxInstitutionProductJoinStockByParams(ctx context.Context, request model.TrxInstitutionProduct) (products []model.GetInstitutionProductResponse, err error) {
+func (c *Conn) FindTrxInstitutionProductJoinStockByParams(ctx context.Context, request model.FindTrxInstitutionProductDBParams) (products []model.GetInstitutionProductResponse, err error) {
 	if request.IDMstInstitution == 0 {
 		err = errors.Wrap(commonerr.SetNewNoInstitutionError(), WrapMsgFindTrxInstitutionProductJoinStockByParams)
 		return
@@ -55,16 +56,16 @@ func (c *Conn) FindTrxInstitutionProductJoinStockByParams(ctx context.Context, r
 		Alias("mtip").
 		Join(database.SQLInner, "mdl_dtl_institution_product_stock mdips", "(mtip.id = mdips.id_trx_institution_product and mtip.delete_time is null and mdips.delete_time is null)")
 
-	if request.ID > 0 {
-		session.Where("mtip.id = ?", request.ID)
+	if len(request.ID) > 0 {
+		session.Where("mtip.id = ANY(?)", pq.Array(request.ID))
 	}
 
 	if len(request.Name) > 0 {
 		session.Where(fmt.Sprintf("mtip.name ilike '%%%s%%'", request.Name))
 	}
 
-	if request.IDMstProduct.Valid {
-		session.Where("mtip.id_mst_product = ?", request.IDMstProduct.Int64)
+	if len(request.IDMstProduct) > 0 {
+		session.Where("mtip.id_mst_product = ANY(?)", pq.Array(request.IDMstProduct))
 	}
 
 	err = session.

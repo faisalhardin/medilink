@@ -2,8 +2,10 @@ package patient
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/faisalhardin/medilink/internal/entity/model"
+	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
 	commonwriter "github.com/faisalhardin/medilink/internal/library/common/writer"
 	"github.com/go-chi/chi/v5"
 )
@@ -28,9 +30,10 @@ func (h *PatientHandler) InsertNewVisit(w http.ResponseWriter, r *http.Request) 
 	commonwriter.SetOKWithData(ctx, w, "ok")
 }
 
-func (h *PatientHandler) GetPatientVisits(w http.ResponseWriter, r *http.Request) {
+func (h *PatientHandler) ListPatientVisits(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	patientUUID := chi.URLParam(r, "id")
 	request := model.GetPatientVisitParams{}
 	err := bindingBind(r, &request)
 	if err != nil {
@@ -38,7 +41,38 @@ func (h *PatientHandler) GetPatientVisits(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	visits, err := h.VisitUC.GetPatientVisits(ctx, request)
+	request.PatientUUID = patientUUID
+
+	visits, err := h.VisitUC.ListPatientVisits(ctx, request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, visits)
+}
+
+func (h *PatientHandler) GetPatientVisits(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	visitID := chi.URLParam(r, "id")
+	parsedVisitID, err := strconv.ParseInt(visitID, 10, 64)
+	if err != nil {
+		errMsg := commonerr.SetNewBadRequest("invalid", "Invalid Visit ID")
+		commonwriter.SetError(ctx, w, errMsg)
+		return
+	}
+
+	request := model.GetPatientVisitParams{}
+	err = bindingBind(r, &request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	request.IDPatientVisit = parsedVisitID
+
+	visits, err := h.VisitUC.GetPatientVisitDetail(ctx, request)
 	if err != nil {
 		commonwriter.SetError(ctx, w, err)
 		return
@@ -66,15 +100,54 @@ func (h *PatientHandler) UpdatePatientVisit(w http.ResponseWriter, r *http.Reque
 	commonwriter.SetOKWithData(ctx, w, "ok")
 }
 
-func (h *PatientHandler) GetVisitTouchpoint(w http.ResponseWriter, r *http.Request) {
+func (h *PatientHandler) ListVisitTouchpoints(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	visitID := chi.URLParam(r, "id")
+	parsedVisitID, err := strconv.ParseInt(visitID, 10, 64)
+	if err != nil {
+		errMsg := commonerr.SetNewBadRequest("invalid", "Invalid Visit ID")
+		commonwriter.SetError(ctx, w, errMsg)
+		return
+	}
+
 	request := model.DtlPatientVisitRequest{}
-	err := bindingBind(r, &request)
+	err = bindingBind(r, &request)
 	if err != nil {
 		commonwriter.SetError(ctx, w, err)
 		return
 	}
+
+	request.IDTrxPatientVisit = parsedVisitID
+
+	touchpoint, err := h.VisitUC.GetVisitTouchpoint(ctx, request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, touchpoint)
+}
+
+func (h *PatientHandler) GetVisitTouchpoint(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	visitDetailID := chi.URLParam(r, "id")
+	parsedVisitDetailID, err := strconv.ParseInt(visitDetailID, 10, 64)
+	if err != nil {
+		errMsg := commonerr.SetNewBadRequest("invalid", "Invalid Visit ID")
+		commonwriter.SetError(ctx, w, errMsg)
+		return
+	}
+
+	request := model.DtlPatientVisitRequest{}
+	err = bindingBind(r, &request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	request.ID = parsedVisitDetailID
 
 	touchpoint, err := h.VisitUC.GetVisitTouchpoint(ctx, request)
 	if err != nil {
@@ -88,14 +161,14 @@ func (h *PatientHandler) GetVisitTouchpoint(w http.ResponseWriter, r *http.Reque
 func (h *PatientHandler) InsertVisitTouchpoint(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	request := model.DtlPatientVisitRequest{}
+	request := model.InsertPatientVisitRequest{}
 	err := bindingBind(r, &request)
 	if err != nil {
 		commonwriter.SetError(ctx, w, err)
 		return
 	}
 
-	err = h.VisitUC.InsertVisitTouchpoint(ctx, request)
+	err = h.VisitUC.InsertVisitTouchpoint(ctx, model.DtlPatientVisitRequest(request))
 	if err != nil {
 		commonwriter.SetError(ctx, w, err)
 		return

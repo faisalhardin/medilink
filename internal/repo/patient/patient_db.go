@@ -25,6 +25,9 @@ const (
 	WrapMsgInsertDtlPatientVisit            = WrapErrMsgPrefix + "InsertDtlPatientVisit"
 	WrapMsgUpdateDtlPatientVisit            = WrapErrMsgPrefix + "UpdateDtlPatientVisit"
 	WrapMsgGetDtlPatientVisit               = WrapErrMsgPrefix + "GetDtlPatientVisit"
+	WrapMsgInsertTrxVisitProduct            = WrapErrMsgPrefix + "InsertTrxVisitProduct"
+	WrapMsgUpdateTrxVisitProduct            = WrapErrMsgPrefix + "UpdateTrxVisitProduct"
+	WrapMsgDeleteTrxVisitProduct            = WrapErrMsgPrefix + "DeleteTrxVisitProduct"
 )
 
 type Conn struct {
@@ -135,7 +138,7 @@ func (c *Conn) GetPatientVisits(ctx context.Context, params model.GetPatientVisi
 	}
 
 	err = session.Alias("mtpv").
-		Where("id_mst_institution = ?", params.IDMstInstitution).
+		Where("mtpv.id_mst_institution = ?", params.IDMstInstitution).
 		Find(&trxPatientVisit)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgGetPatientVisits)
@@ -201,6 +204,7 @@ func (c *Conn) UpdateDtlPatientVisit(ctx context.Context, request *model.DtlPati
 	}
 
 	_, err = session.
+		ID(request.ID).
 		Table(model.DtlPatientVisitTableName).
 		Update(request)
 	if err != nil {
@@ -215,7 +219,7 @@ func (c *Conn) GetDtlPatientVisit(ctx context.Context, params model.DtlPatientVi
 	session := c.DB.SlaveDB.Table(model.DtlPatientVisitTableName)
 
 	if params.IDTrxPatientVisit > 0 {
-		session.Where("mdpv.id_dtl_patient_visit = ?", params.IDTrxPatientVisit)
+		session.Where("mdpv.id_trx_patient_visit = ?", params.IDTrxPatientVisit)
 	}
 
 	if params.ID > 0 {
@@ -224,6 +228,83 @@ func (c *Conn) GetDtlPatientVisit(ctx context.Context, params model.DtlPatientVi
 
 	err = session.Alias("mdpv").
 		Find(&dtlPatientVisit)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgGetDtlPatientVisit)
+		return
+	}
+
+	return
+}
+
+func (c *Conn) InsertTrxVisitProduct(ctx context.Context, request *model.TrxVisitProduct) (err error) {
+	session := xormlib.GetDBSession(ctx)
+	if session == nil {
+		session = c.DB.MasterDB.Context(ctx)
+	}
+
+	_, err = session.
+		Table(model.TrxVisitProductTableName).
+		Update(request)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgInsertTrxVisitProduct)
+		return
+	}
+
+	return nil
+}
+
+func (c *Conn) UpdateTrxVisitProduct(ctx context.Context, request *model.TrxVisitProduct) (err error) {
+	session := xormlib.GetDBSession(ctx)
+	if session == nil {
+		session = c.DB.MasterDB.Context(ctx)
+	}
+
+	_, err = session.
+		Table(model.TrxVisitProductTableName).
+		ID(request.ID).
+		Where("id_mst_institution = ?", request.IDMstInstitution).
+		Update(request)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgUpdateTrxVisitProduct)
+		return
+	}
+
+	return
+}
+
+func (c *Conn) DeleteTrxVisitProduct(ctx context.Context, request *model.TrxVisitProduct) (err error) {
+	session := xormlib.GetDBSession(ctx)
+	if session == nil {
+		session = c.DB.MasterDB.Context(ctx)
+	}
+
+	_, err = session.
+		Table(model.TrxVisitProductTableName).
+		ID(request.ID).
+		Where("id_mst_institution = ?", request.IDMstInstitution).
+		Delete(request)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgDeleteTrxVisitProduct)
+		return
+	}
+
+	return
+}
+
+func (c *Conn) GetTrxVisitProduct(ctx context.Context, params model.TrxVisitProduct) (trxVisitProduct []model.TrxVisitProduct, err error) {
+	session := c.DB.SlaveDB.Table(model.TrxVisitProductTableName)
+
+	if params.IDTrxPatientVisit > 0 {
+		session.Where("mtvp.id_trx_patient_visit = ?", params.IDTrxPatientVisit)
+	}
+
+	if params.ID > 0 {
+		session.Where("mtvp.id = ?", params.ID)
+	}
+
+	err = session.Alias("mtvp").
+		Where("id_mst_institution = ?", params.IDMstInstitution).
+		Find(&trxVisitProduct)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgGetDtlPatientVisit)
 		return

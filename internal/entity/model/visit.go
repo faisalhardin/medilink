@@ -16,7 +16,7 @@ type TrxPatientVisit struct {
 
 type DtlPatientVisit struct {
 	ID                 int64      `xorm:"'id' pk autoincr" json:"id"`
-	IDTrxPatientVisit  int64      `xorm:"'id_trx_patient_visit'" json:"id_dtl_patient_visit"`
+	IDTrxPatientVisit  int64      `xorm:"'id_trx_patient_visit'" json:"id_trx_patient_visit"`
 	TouchpointName     string     `xorm:"'touchpoint_name'" json:"touchpoint_name"`
 	TouchpointCategory string     `xorm:"'touchpoint_category'" json:"touchpoint_category"`
 	Notes              string     `xorm:"'notes'" json:"notes"`
@@ -37,14 +37,27 @@ type UpdatePatientVisitRequest struct {
 type GetPatientVisitParams struct {
 	PatientID        int64  `xorm:"id"`
 	PatientUUID      string `xorm:"uuid"`
-	IDPatientVisit   int64  `xorm:"id_trx_patient_visit"`
+	IDPatientVisit   int64  `xorm:"id_trx_patient_visit" schema:"visit_id"`
 	IDMstInstitution int64  `xorm:"id_mst_institution"`
 }
 
 type DtlPatientVisitRequest struct {
 	ID                 int64  `json:"id" schema:"id"`
-	IDTrxPatientVisit  int64  `json:"id_dtl_patient_visit" schema:"id_dtl_patient_visit"`
+	IDTrxPatientVisit  int64  `json:"id_trx_patient_visit" schema:"id_trx_patient_visit"`
 	TouchpointName     string `json:"touchpoint_name"`
 	TouchpointCategory string `json:"touchpoint_category"`
 	Notes              string `json:"notes"`
+}
+
+type InsertPatientVisitRequest struct {
+	ID                 int64  `json:"id" validation:"required"`
+	IDTrxPatientVisit  int64  `json:"id_trx_patient_visit" validation:"required"`
+	TouchpointName     string `json:"touchpoint_name"`
+	TouchpointCategory string `json:"touchpoint_category"`
+	Notes              string `json:"notes"`
+}
+
+type GetPatientVisitDetailResponse struct {
+	TrxPatientVisit
+	DtlPatientVisit []DtlPatientVisit `json:"patient_checkpoints"`
 }

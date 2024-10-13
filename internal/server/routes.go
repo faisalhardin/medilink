@@ -35,14 +35,21 @@ func RegisterRoutes(m *module) http.Handler {
 				patient.Get("/", m.httpHandler.PatientHandler.GetPatient)
 				patient.Patch("/", m.httpHandler.PatientHandler.UpdatePatient)
 				patient.Route("/{id}/visit", func(visit chi.Router) {
-					visit.Post("/", m.httpHandler.PatientHandler.InsertNewVisit)
-					visit.Get("/", m.httpHandler.PatientHandler.GetPatientVisits)
-					visit.Patch("/", m.httpHandler.PatientHandler.UpdatePatientVisit)
+					visit.Get("/", m.httpHandler.PatientHandler.ListPatientVisits)
 				})
 			})
 
-			authed.Route("/visit/{id}", func(visit chi.Router) {
-				visit.Get("/", m.httpHandler.PatientHandler.GetVisitTouchpoint)
+			authed.Route("/visit", func(visit chi.Router) {
+				visit.Post("/", m.httpHandler.PatientHandler.InsertNewVisit)
+				visit.Patch("/", m.httpHandler.PatientHandler.UpdatePatientVisit)
+				visit.Route("/{id}", func(visit chi.Router) {
+					visit.Get("/", m.httpHandler.PatientHandler.GetPatientVisits)
+					visit.Get("/detail", m.httpHandler.PatientHandler.ListVisitTouchpoints)
+				})
+			})
+
+			authed.Route("/visit-detail", func(visit chi.Router) {
+				visit.Get("/{id}", m.httpHandler.PatientHandler.GetVisitTouchpoint)
 				visit.Post("/", m.httpHandler.PatientHandler.InsertVisitTouchpoint)
 				visit.Patch("/", m.httpHandler.PatientHandler.UpdateVisitTouchpoint)
 			})

@@ -48,7 +48,7 @@ func (uc *InstitutionUC) InserInstitutionProduct(ctx context.Context, request mo
 
 }
 
-func (uc *InstitutionUC) FindInstitutionProductByParams(ctx context.Context, params model.TrxInstitutionProduct) (products []model.GetInstitutionProductResponse, err error) {
+func (uc *InstitutionUC) FindInstitutionProductByParams(ctx context.Context, params model.FindTrxInstitutionProductDBParams) (products []model.GetInstitutionProductResponse, err error) {
 	userDetail, found := auth.GetUserDetailFromCtx(ctx)
 	if !found {
 		err = commonerr.SetNewUnauthorizedAPICall()
