@@ -2,6 +2,7 @@ package visit
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/faisalhardin/medilink/internal/entity/model"
@@ -273,18 +274,34 @@ func (u *VisitUC) InsertVisitProduct(ctx context.Context, req model.InsertTrxVis
 	defer u.Transaction.Finish(session, &err)
 
 	for _, productItem := range productItems {
+
+		quantity := mapRequestedProductIDToTrxInstitutionProducts[productItem.ID].Quantity
+		discountRate := mapRequestedProductIDToTrxInstitutionProducts[productItem.ID].DiscountRate
+		discountPrice := mapRequestedProductIDToTrxInstitutionProducts[productItem.ID].DiscountPrice
+
+		sumPrice := productItem.Price * float64(quantity)
+		if discountPrice > 0 {
+			sumPrice = sumPrice - discountPrice
+		} else if discountRate > 0 {
+			sumPrice = sumPrice * (1 - discountRate)
+		}
+		adjustedPrice := mapRequestedProductIDToTrxInstitutionProducts[productItem.ID].AdjustedPrice
+		if adjustedPrice > sumPrice {
+			err = commonerr.SetNewBadRequest("invalid price", fmt.Sprintf("adjusted price must not exceed total price %v", sumPrice))
+			return
+		}
 		err = u.PatientDB.InsertTrxVisitProduct(ctx, &model.TrxVisitProduct{
 			IDTrxInstitutionProduct: productItem.ID,
 			IDMstInstitution:        userDetail.InstitutionID,
 			IDTrxPatientVisit:       dtlPatientVisit[0].IDTrxPatientVisit,
 			IDDtlPatientVisit:       req.IDDtlPatientVisit,
-			Quantity:                mapRequestedProductIDToTrxInstitutionProducts[productItem.ID].Quantity, //int(productItem.Quantity),
+			Quantity:                quantity,
 			UnitType:                productItem.UnitType,
 			Price:                   productItem.Price,
-			DiscountRate:            mapRequestedProductIDToTrxInstitutionProducts[productItem.ID].DiscountRate,
-			DiscountPrice:           mapRequestedProductIDToTrxInstitutionProducts[productItem.ID].DiscountPrice,
-			TotalPrice:              productItem.Price * float64(mapRequestedProductIDToTrxInstitutionProducts[productItem.ID].Quantity),
-			AdjustedPrice:           mapRequestedProductIDToTrxInstitutionProducts[productItem.ID].AdjustedPrice,
+			DiscountRate:            discountRate,
+			DiscountPrice:           discountPrice,
+			TotalPrice:              sumPrice,
+			AdjustedPrice:           adjustedPrice,
 		})
 		if err != nil {
 			err = errors.Wrap(err, WrapMsgInsertVisitProduct)
