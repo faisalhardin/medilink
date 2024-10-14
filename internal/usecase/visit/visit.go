@@ -24,6 +24,7 @@ const (
 	WrapMsgUpdateVisitTouchpoint = WrapErrMsgPrefix + "UpdateVisitTouchpoint"
 	WrapMsgGetVisitTouchpoint    = WrapErrMsgPrefix + "GetVisitTouchpoint"
 	WrapMsgInsertVisitProduct    = WrapErrMsgPrefix + "InsertVisitProduct"
+	WrapMsgReduceProductStock    = WrapErrMsgPrefix + "ReduceProductStock"
 )
 
 type VisitUC struct {
@@ -307,6 +308,44 @@ func (u *VisitUC) InsertVisitProduct(ctx context.Context, req model.InsertTrxVis
 			err = errors.Wrap(err, WrapMsgInsertVisitProduct)
 			return
 		}
+
+		err = u.ReduceProductStock(ctx, ProductStockReducerRequest{
+			ProductID: productItem.ID,
+			Quantity:  int64(quantity),
+		})
+		if err != nil {
+			err = errors.Wrap(err, WrapMsgInsertVisitProduct)
+			return
+		}
+
+	}
+
+	return nil
+}
+
+type ProductStockReducerRequest struct {
+	ProductID int64
+	Quantity  int64
+}
+
+func (u *VisitUC) ReduceProductStock(ctx context.Context, params ProductStockReducerRequest) (err error) {
+	productStocks, err := u.InstitutionRepo.FindTrxInstitutionProductStockByParams(ctx, model.DtlInstitutionProductStock{
+		IDTrxInstitutionProduct: params.ProductID,
+	})
+	if err != nil {
+		return errors.Wrap(err, WrapMsgReduceProductStock)
+	}
+
+	if len(productStocks) == 0 {
+		return commonerr.SetNewBadRequest("not found", "product not found")
+	}
+
+	productStock := productStocks[0]
+	productStock.Quantity -= params.Quantity
+
+	err = u.InstitutionRepo.UpdateDtlInstitutionProductStock(ctx, &productStock)
+	if err != nil {
+		return errors.Wrap(err, WrapMsgReduceProductStock)
 	}
 
 	return nil
