@@ -225,18 +225,29 @@ func (u *VisitUC) GetVisitTouchpoint(ctx context.Context, req model.DtlPatientVi
 
 func (u *VisitUC) InsertVisitProduct(ctx context.Context, req model.InsertTrxVisitProductRequest) (err error) {
 
-	session, _ := u.Transaction.Begin(ctx)
-	defer u.Transaction.Finish(session, &err)
-
 	userDetail, found := auth.GetUserDetailFromCtx(ctx)
 	if !found {
 		err = commonerr.SetNewUnauthorizedAPICall()
 		return
 	}
 
-	requestedTrxInstitutionProducts := model.FindTrxInstitutionProductDBParams{}
+	dtlPatientVisit, err := u.PatientDB.GetDtlPatientVisit(ctx, model.DtlPatientVisit{
+		ID: req.IDDtlPatientVisit,
+	})
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgInsertVisitProduct)
+		return
+	}
+	if len(dtlPatientVisit) == 0 {
+		err = commonerr.SetNoVisitDetailError()
+		return
+	}
+
+	requestedTrxInstitutionProducts := model.FindTrxInstitutionProductDBParams{
+		IDMstInstitution: userDetail.InstitutionID,
+	}
 	mapRequestedProductIDToTrxInstitutionProducts := map[int64]model.PurchasedProduct{}
-	for _, requestProduct := range req.PurchasedProduct {
+	for _, requestProduct := range req.Products {
 		requestedTrxInstitutionProducts.ID = append(requestedTrxInstitutionProducts.ID, requestProduct.IDTrxInstitutionProduct)
 		mapRequestedProductIDToTrxInstitutionProducts[requestProduct.IDTrxInstitutionProduct] = requestProduct
 	}
@@ -253,17 +264,21 @@ func (u *VisitUC) InsertVisitProduct(ctx context.Context, req model.InsertTrxVis
 		err = commonerr.SetNewBadRequest("invalid", "item not found")
 		return
 	}
-	if len(productItems) != len(req.PurchasedProduct) {
+	if len(productItems) != len(req.Products) {
 		err = commonerr.SetNewBadRequest("item not found", "at least one item is not found")
 		return
 	}
+
+	session, _ := u.Transaction.Begin(ctx)
+	defer u.Transaction.Finish(session, &err)
 
 	for _, productItem := range productItems {
 		err = u.PatientDB.InsertTrxVisitProduct(ctx, &model.TrxVisitProduct{
 			IDTrxInstitutionProduct: productItem.ID,
 			IDMstInstitution:        userDetail.InstitutionID,
-			IDTrxPatientVisit:       req.IDTrxPatientVisit,
-			Quantity:                int(productItem.Quantity),
+			IDTrxPatientVisit:       dtlPatientVisit[0].IDTrxPatientVisit,
+			IDDtlPatientVisit:       req.IDDtlPatientVisit,
+			Quantity:                mapRequestedProductIDToTrxInstitutionProducts[productItem.ID].Quantity, //int(productItem.Quantity),
 			UnitType:                productItem.UnitType,
 			Price:                   productItem.Price,
 			DiscountRate:            mapRequestedProductIDToTrxInstitutionProducts[productItem.ID].DiscountRate,

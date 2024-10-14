@@ -15,4 +15,6 @@ type VisitUC interface {
 	InsertVisitTouchpoint(ctx context.Context, req model.DtlPatientVisitRequest) (err error)
 	UpdateVisitTouchpoint(ctx context.Context, req model.DtlPatientVisitRequest) (err error)
 	GetVisitTouchpoint(ctx context.Context, req model.DtlPatientVisitRequest) (dtlVisit []model.DtlPatientVisit, err error)
+
+	InsertVisitProduct(ctx context.Context, req model.InsertTrxVisitProductRequest) (err error)
 }

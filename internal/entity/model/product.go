@@ -42,6 +42,7 @@ type TrxVisitProduct struct {
 	IDTrxInstitutionProduct int64      `xorm:"'id_trx_institution_product'" json:"id_trx_institution_product"`
 	IDMstInstitution        int64      `xorm:"'id_mst_institution'" json:"-"`
 	IDTrxPatientVisit       int64      `xorm:"'id_trx_patient_visit'" json:"id_trx_patient_visit"`
+	IDDtlPatientVisit       int64      `xorm:"'id_dtl_patient_visit'" json:"id_dtl_patient_visit"`
 	Quantity                int        `xorm:"'quantity'" json:"quantity"`
 	UnitType                string     `xorm:"'unit_type'" json:"unit_type"`
 	Price                   float64    `xorm:"'price'" json:"price"`
@@ -102,16 +103,16 @@ type GetInstitutionProductResponse struct {
 }
 
 type InsertTrxVisitProductRequest struct {
-	PurchasedProduct  []PurchasedProduct `json:"purchased_product"`
-	IDTrxPatientVisit int64              `json:"id_trx_patient_visit"`
+	Products          []PurchasedProduct `json:"products"`
+	IDDtlPatientVisit int64              `json:"id_dtl_patient_visit"`
 }
 
 type PurchasedProduct struct {
 	IDTrxInstitutionProduct int64   `json:"id_trx_institution_product"`
 	Quantity                int     `json:"quantity"`
-	DiscountRate            float64 `json:"discount_rate"`
-	DiscountPrice           float64 `json:"discount_price"`
-	AdjustedPrice           float64 `json:"adjusted_price"`
+	DiscountRate            float64 `json:"discount_rate,omitempty"`
+	DiscountPrice           float64 `json:"discount_price,omitempty"`
+	AdjustedPrice           float64 `json:"adjusted_price,omitempty"`
 }
 
 type UpdateTrxVisitProductRequest struct {

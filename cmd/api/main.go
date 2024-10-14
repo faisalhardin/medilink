@@ -79,6 +79,8 @@ func main() {
 	redis := cache.New(cfg)
 
 	// repo block start
+	transaction := xormlib.NewTransaction(db)
+
 	institutionDB := institutionrepo.NewInstitutionDB(&institutionrepo.Conn{
 		DB: db,
 	})
@@ -105,6 +107,7 @@ func main() {
 	// usecase block start
 	institutionUC := institutionUC.NewInstitutionUC(&institutionUC.InstitutionUC{
 		InstitutionRepo: institutionDB,
+		Transaction:     transaction,
 	})
 
 	patientUC := patientUC.NewPatientUC(&patientUC.PatientUC{
@@ -112,7 +115,9 @@ func main() {
 	})
 
 	visitUC := visituc.NewVisitUC(&visituc.VisitUC{
-		PatientDB: patientDB,
+		PatientDB:       patientDB,
+		InstitutionRepo: institutionDB,
+		Transaction:     transaction,
 	})
 
 	authUC := authUC.New(&authUC.AuthUC{

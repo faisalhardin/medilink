@@ -244,7 +244,7 @@ func (c *Conn) InsertTrxVisitProduct(ctx context.Context, request *model.TrxVisi
 
 	_, err = session.
 		Table(model.TrxVisitProductTableName).
-		Update(request)
+		InsertOne(request)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgInsertTrxVisitProduct)
 		return

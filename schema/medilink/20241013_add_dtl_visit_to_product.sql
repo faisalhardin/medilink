@@ -1,0 +1,1 @@
+alter table mdl_trx_visit_product add column id_dtl_patient_visit bigint not null default 0;

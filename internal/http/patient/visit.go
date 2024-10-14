@@ -195,3 +195,32 @@ func (h *PatientHandler) UpdateVisitTouchpoint(w http.ResponseWriter, r *http.Re
 
 	commonwriter.SetOKWithData(ctx, w, "ok")
 }
+
+func (h *PatientHandler) InsertVisitProduct(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	visitDetailID := chi.URLParam(r, "id")
+	parsedVisitDetailID, err := strconv.ParseInt(visitDetailID, 10, 64)
+	if err != nil {
+		errMsg := commonerr.SetNewBadRequest("invalid", "Invalid Visit ID")
+		commonwriter.SetError(ctx, w, errMsg)
+		return
+	}
+
+	request := model.InsertTrxVisitProductRequest{}
+	err = bindingBind(r, &request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	request.IDDtlPatientVisit = parsedVisitDetailID
+
+	err = h.VisitUC.InsertVisitProduct(ctx, request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, "ok")
+}
