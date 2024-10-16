@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	MST_PRODUCT = "mdl_mst_product"
+	MstProduct = "mdl_mst_product"
 )
 
 const (
@@ -25,14 +25,14 @@ type Conn struct {
 	DB *xormlib.DBConnect
 }
 
-func NewInstitutionDB(conn *Conn) *Conn {
+func NewProductDB(conn *Conn) *Conn {
 	return conn
 }
 
 func (c *Conn) InsertMstProduct(ctx context.Context, institution *model.MstProduct) (err error) {
 	session := c.DB.MasterDB
 
-	_, err = session.Table(MST_PRODUCT).InsertOne(institution)
+	_, err = session.Table(MstProduct).InsertOne(institution)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgInsertMstProduct)
 		return
@@ -42,7 +42,7 @@ func (c *Conn) InsertMstProduct(ctx context.Context, institution *model.MstProdu
 }
 
 func (c *Conn) FindMstProductByParams(ctx context.Context, request model.MstProduct) (products []model.MstProduct, err error) {
-	session := c.DB.SlaveDB.Table(MST_PRODUCT).Alias("mmp")
+	session := c.DB.SlaveDB.Table(MstProduct).Alias("mmp")
 
 	if request.ID > 0 {
 		session.Where("mmp.id = ?", request.ID)
@@ -63,7 +63,7 @@ func (c *Conn) FindMstProductByParams(ctx context.Context, request model.MstProd
 
 func (c *Conn) UpdateMstProduct(ctx context.Context, mstProduct *model.MstProduct) (err error) {
 
-	session := c.DB.MasterDB.Table(MST_PRODUCT)
+	session := c.DB.MasterDB.Table(MstProduct)
 
 	_, err = session.
 		ID(mstProduct.ID).
@@ -79,7 +79,7 @@ func (c *Conn) UpdateMstProduct(ctx context.Context, mstProduct *model.MstProduc
 
 func (c *Conn) DeleteMstProduct(ctx context.Context, mstProduct *model.MstProduct) (err error) {
 
-	session := c.DB.MasterDB.Table(MST_PRODUCT)
+	session := c.DB.MasterDB.Table(MstProduct)
 
 	_, err = session.
 		ID(mstProduct.ID).

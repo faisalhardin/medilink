@@ -8,9 +8,9 @@ import (
 
 type MstProduct struct {
 	ID          int64      `xorm:"'id' pk autoincr" json:"id"`
-	Name        string     `xorm:"'name'" json:"name"`
-	Description string     `xorm:"'description'" json:"description"`
-	AddedBy     string     `xorm:"'added_by'" json:"added_by"`
+	Name        string     `xorm:"'name'" json:"name" schema:"name"`
+	Description string     `xorm:"'description'" json:"description" schema:"description"`
+	AddedBy     string     `xorm:"'added_by'" json:"added_by" schema:"added_by"`
 	CreateTime  time.Time  `json:"-" xorm:"'create_time' created"`
 	UpdateTime  time.Time  `json:"-" xorm:"'update_time' updated"`
 	DeleteTime  *time.Time `json:"-" xorm:"'delete_time' deleted"`

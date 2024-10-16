@@ -4,4 +4,5 @@ type Handlers struct {
 	InstitutionHandler InstitutionHandler
 	PatientHandler     PatientHandler
 	AuthHandler        AuthHandler
+	ProductHandler     ProductHandler
 }

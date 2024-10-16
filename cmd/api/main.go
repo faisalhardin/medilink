@@ -17,16 +17,19 @@ import (
 	xormlib "github.com/faisalhardin/medilink/internal/library/db/xorm"
 	institutionrepo "github.com/faisalhardin/medilink/internal/repo/institution"
 	patientrepo "github.com/faisalhardin/medilink/internal/repo/patient"
+	productrepo "github.com/faisalhardin/medilink/internal/repo/product"
 	staffrepo "github.com/faisalhardin/medilink/internal/repo/staff"
 
 	authUC "github.com/faisalhardin/medilink/internal/usecase/auth"
 	institutionUC "github.com/faisalhardin/medilink/internal/usecase/institution"
 	patientUC "github.com/faisalhardin/medilink/internal/usecase/patient"
+	productuc "github.com/faisalhardin/medilink/internal/usecase/product"
 	visituc "github.com/faisalhardin/medilink/internal/usecase/visit"
 
 	authHandler "github.com/faisalhardin/medilink/internal/http/auth"
 	institutionHandler "github.com/faisalhardin/medilink/internal/http/institution"
 	patientHandler "github.com/faisalhardin/medilink/internal/http/patient"
+	producthandler "github.com/faisalhardin/medilink/internal/http/product"
 
 	authmodule "github.com/faisalhardin/medilink/internal/library/middlewares/auth"
 	"github.com/faisalhardin/medilink/internal/server"
@@ -102,6 +105,10 @@ func main() {
 		return
 	}
 
+	productDB := productrepo.NewProductDB(&productrepo.Conn{
+		DB: db,
+	})
+
 	// repo block end
 
 	// usecase block start
@@ -126,6 +133,10 @@ func main() {
 		StaffRepo: staffDB,
 	})
 
+	productUC := productuc.NewProductUC(&productuc.ProductUC{
+		ProductDB: productDB,
+	})
+
 	// usecase block end
 
 	// httphandler block start
@@ -146,6 +157,10 @@ func main() {
 		AuthUC:   authUC,
 		AuthRepo: authRepo,
 	})
+
+	productHandler := producthandler.New(&producthandler.ProductHandler{
+		ProductUC: productUC,
+	})
 	// httphandler block end
 
 	// module block start
@@ -160,6 +175,7 @@ func main() {
 			InstitutionHandler: institutionHandler,
 			PatientHandler:     patientHandler,
 			AuthHandler:        authHandler,
+			ProductHandler:     productHandler,
 		},
 		authModule,
 	)

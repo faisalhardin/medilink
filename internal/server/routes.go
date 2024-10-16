@@ -70,6 +70,16 @@ func RegisterRoutes(m *module) http.Handler {
 
 			})
 		})
+
+		v1.Route("/admin", func(auth chi.Router) {
+			auth.Use(m.authModule.Handler)
+			auth.Route("/product", func(product chi.Router) {
+				product.Get("/", m.httpHandler.ProductHandler.ListMstProduct)
+				product.Post("/", m.httpHandler.ProductHandler.InsertMstProduct)
+				product.Patch("/", m.httpHandler.ProductHandler.UpdateMstProduct)
+				product.Delete("/", m.httpHandler.ProductHandler.DeleteMstProduct)
+			})
+		})
 	})
 	r.Get("/ping", m.httpHandler.AuthHandler.PingAPI)
 
