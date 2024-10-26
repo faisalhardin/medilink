@@ -18,7 +18,7 @@ func RegisterRoutes(m *module) http.Handler {
 	r.Route("/v1", func(v1 chi.Router) {
 		v1.Group(func(authed chi.Router) {
 
-			authed.Use(m.authModule.Handler)
+			authed.Use(m.middlewareModule.AuthHandler)
 			authed.Get("/logout/{provider}", m.httpHandler.AuthHandler.Logout)
 			authed.Route("/institution", func(institution chi.Router) {
 				institution.Post("/", m.httpHandler.InstitutionHandler.InsertNewInstitution)
@@ -72,7 +72,7 @@ func RegisterRoutes(m *module) http.Handler {
 		})
 
 		v1.Route("/admin", func(auth chi.Router) {
-			auth.Use(m.authModule.Handler)
+			auth.Use(m.middlewareModule.AuthHandler)
 			auth.Route("/product", func(product chi.Router) {
 				product.Get("/", m.httpHandler.ProductHandler.ListMstProduct)
 				product.Post("/", m.httpHandler.ProductHandler.InsertMstProduct)

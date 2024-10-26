@@ -7,15 +7,15 @@ import (
 )
 
 type module struct {
-	httpHandler *http.Handlers
-	authModule  *authmodule.Module
+	httpHandler      *http.Handlers
+	middlewareModule *authmodule.Module
 }
 
 func LoadModules(cfg *config.Config, handlers *http.Handlers, authModule *authmodule.Module) *module {
 
 	modules := &module{
-		httpHandler: handlers,
-		authModule:  authModule,
+		httpHandler:      handlers,
+		middlewareModule: authModule,
 	}
 
 	return modules

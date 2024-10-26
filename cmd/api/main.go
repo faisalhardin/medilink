@@ -31,7 +31,7 @@ import (
 	patientHandler "github.com/faisalhardin/medilink/internal/http/patient"
 	producthandler "github.com/faisalhardin/medilink/internal/http/product"
 
-	authmodule "github.com/faisalhardin/medilink/internal/library/middlewares/auth"
+	mwmodule "github.com/faisalhardin/medilink/internal/library/middlewares/auth"
 	"github.com/faisalhardin/medilink/internal/server"
 	"github.com/gorilla/sessions"
 	_ "github.com/lib/pq"
@@ -164,7 +164,7 @@ func main() {
 	// httphandler block end
 
 	// module block start
-	authModule := authmodule.NewAuthModule(&authmodule.Module{
+	middlewareModule := mwmodule.NewMiddlewareModule(&mwmodule.Module{
 		Cfg:    cfg,
 		AuthUC: authUC,
 	})
@@ -177,7 +177,7 @@ func main() {
 			AuthHandler:        authHandler,
 			ProductHandler:     productHandler,
 		},
-		authModule,
+		middlewareModule,
 	)
 
 	server := server.NewServer(server.RegisterRoutes(modules))

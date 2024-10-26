@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/faisalhardin/medilink/internal/config"
 	authrepo "github.com/faisalhardin/medilink/internal/entity/repo/auth"
@@ -43,7 +44,17 @@ func (h *AuthHandler) GetAuthCallbackFunction(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	commonwriter.SetOKWithData(ctx, w, authParams)
+	http.SetCookie(w, &http.Cookie{
+		Name:     h.Cfg.AuthSessionConfig.SessionKey,
+		Value:    authParams.Token,
+		Expires:  time.Now().Add(time.Duration(h.Cfg.JWTConfig.DurationInMinutes) * time.Minute),
+		HttpOnly: true, // Securely store the cookie
+		// Secure:   true, // Only send over HTTPS
+		Path:   h.Cfg.AuthSessionConfig.Path,
+		Domain: h.Cfg.AuthSessionConfig.Domain,
+	})
+
+	http.Redirect(w, r, h.Cfg.WebConfig.Host, http.StatusFound)
 }
 
 func (h *AuthHandler) BeginAuthProviderCallback(w http.ResponseWriter, r *http.Request) {

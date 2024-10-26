@@ -10,11 +10,24 @@ import (
 )
 
 type Config struct {
-	Server           Server           `yaml:"server"`
-	Vault            Vault            `yaml:"vault"`
-	GoogleAuthConfig GoogleAuthConfig `yaml:"google_auth_config"`
-	JWTConfig        JWTConfig        `yaml:"jwt_config"`
-	Redis            Redis            `yaml:"redis"`
+	Server            Server            `yaml:"server"`
+	Vault             Vault             `yaml:"vault"`
+	GoogleAuthConfig  GoogleAuthConfig  `yaml:"google_auth_config"`
+	JWTConfig         JWTConfig         `yaml:"jwt_config"`
+	Redis             Redis             `yaml:"redis"`
+	AuthSessionConfig AuthSessionConfig `yaml:"auth_session_config"`
+	WebConfig         WebConfig         `yaml:"web_config"`
+}
+
+type WebConfig struct {
+	Host string `yaml:"host"`
+}
+
+type AuthSessionConfig struct {
+	SessionKey string `yaml:"session_key"`
+	Path       string `yaml:"path"`
+	Domain     string `yaml:"domain"`
+	WebUrl     string `yaml:"web_url"`
 }
 
 type Redis struct {

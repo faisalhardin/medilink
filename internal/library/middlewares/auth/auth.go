@@ -23,11 +23,11 @@ var (
 	userContextKey = userAuth{}
 )
 
-func NewAuthModule(module *Module) *Module {
+func NewMiddlewareModule(module *Module) *Module {
 	return module
 }
 
-func (m *Module) Handler(next http.Handler) http.Handler {
+func (m *Module) AuthHandler(next http.Handler) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
@@ -48,6 +48,13 @@ func (m *Module) Handler(next http.Handler) http.Handler {
 		r = r.WithContext(ctx)
 		next.ServeHTTP(w, r)
 
+	})
+}
+
+func (m *Module) CorsHandler(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", m.Cfg.WebConfig.Host)
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
 	})
 }
 

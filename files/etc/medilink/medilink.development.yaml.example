@@ -1,6 +1,8 @@
 server:
+  name: "medilink"
   host: "127.0.0.1"
   port: "8080"
+  base_url: ""
 
 google_auth_config:
   max_age: 5
@@ -11,4 +13,19 @@ google_auth_config:
   homepage_redirect: "http://127.0.0.1:5173"
 
 jwt_config:
-  duration_in_minutes: 480
+  duration_in_minutes: 480 #set 480 in prod
+
+redis:
+  address: "127.0.0.1:6379"
+  max_idle: 8
+  max_active: 8
+  time_out_in_second: 28800
+
+auth_session_config:
+  session_key: "medilink_auth_token"
+  path: "/"
+  domain: "127.0.0.1"
+  web_url: "http://127.0.0.1:5173"
+
+web_config:
+  host: "http://127.0.0.1:5173"
