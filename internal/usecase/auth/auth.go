@@ -26,8 +26,9 @@ type AuthUC struct {
 type userAuth struct{}
 
 type AuthParams struct {
-	Token string `json:"token,omitempty"`
-	Email string `json:"email,omitempty"`
+	Token    string `json:"token,omitempty"`
+	Email    string `json:"email,omitempty"`
+	TokenKey string `json:"auth_token_key,omitempty"`
 }
 
 func New(u *AuthUC) *AuthUC {
@@ -36,8 +37,14 @@ func New(u *AuthUC) *AuthUC {
 
 func (u *AuthUC) Login(w http.ResponseWriter, r *http.Request, params AuthParams) (res AuthParams, err error) {
 	ctx := r.Context()
+	code := r.URL.Query().Get("code")
 
-	authedUser, err := u.AuthRepo.GetAuthCallbackFunction(w, r)
+	tokens, err := u.AuthRepo.GetGoogleAuthCallback(ctx, code)
+	if err != nil {
+		return
+	}
+
+	authedUser, err := u.AuthRepo.GetUserInfo(ctx, tokens.AccessToken)
 	if err != nil {
 		return
 	}
@@ -55,17 +62,16 @@ func (u *AuthUC) Login(w http.ResponseWriter, r *http.Request, params AuthParams
 		return
 	}
 
-	sessionPayloadInBytes, err := json.Marshal(model.GenerateUserDetailSessionInformation(userDetail, expiredTime))
-	if err != nil {
-		return
-	}
-
-	_, err = u.AuthRepo.StoreLoginInformation(ctx, getSessionKey(authedUser.Email, token), string(sessionPayloadInBytes), expireDuration)
-	if err != nil {
-		return
-	}
-
 	return AuthParams{Token: token}, nil
+}
+
+func (u *AuthUC) GetToken(ctx context.Context, params AuthParams) (tokenResponse AuthParams, err error) {
+	tokenKey, err := u.AuthRepo.GetTokenFromKeyToken(ctx, params.TokenKey)
+	if err != nil {
+		return
+	}
+
+	return AuthParams{Token: tokenKey}, nil
 }
 
 func (u *AuthUC) GetUserDetail(ctx context.Context, params AuthParams) (userDetail model.UserSessionDetail, err error) {

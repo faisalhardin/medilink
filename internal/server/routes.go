@@ -15,6 +15,7 @@ func RegisterRoutes(m *module) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(utilhandler.Handler)
+	r.Use(m.middlewareModule.CorsHandler)
 	r.Route("/v1", func(v1 chi.Router) {
 		v1.Group(func(authed chi.Router) {
 
@@ -63,6 +64,7 @@ func RegisterRoutes(m *module) http.Handler {
 
 			auth.Get("/{provider}/callback", m.httpHandler.AuthHandler.GetAuthCallbackFunction)
 			auth.Get("/{provider}", m.httpHandler.AuthHandler.BeginAuthProviderCallback)
+			auth.Get("/jwt", m.httpHandler.AuthHandler.GetTokenFromTokenKey)
 			auth.Post("/pseudologin", m.httpHandler.AuthHandler.PseudoLogin)
 			auth.Group(func(authenticate chi.Router) {
 				authenticate.Post("/get-login", m.httpHandler.AuthHandler.GetLoginByToken)

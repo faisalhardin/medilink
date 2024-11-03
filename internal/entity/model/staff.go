@@ -2,8 +2,6 @@ package model
 
 import (
 	"time"
-
-	"github.com/markbates/goth"
 )
 
 const (
@@ -79,7 +77,7 @@ func GenerateUserDetailSessionInformation(u UserDetail, expiredTime time.Time) U
 	}
 }
 
-func GenerateUserDataJWTInformation(internalUserDetail UserDetail, externalUserDetail goth.User) UserJWTPayload {
+func GenerateUserDataJWTInformation(internalUserDetail UserDetail, externalUserDetail GoogleUser) UserJWTPayload {
 	userRoles := []UserRoleJWTDetail{}
 
 	for _, role := range internalUserDetail.Roles {
@@ -93,7 +91,7 @@ func GenerateUserDataJWTInformation(internalUserDetail UserDetail, externalUserD
 		Name:           internalUserDetail.Staff.Name,
 		Email:          internalUserDetail.Staff.Email,
 		Roles:          userRoles,
-		ImageURL:       externalUserDetail.AvatarURL,
-		ProviderUserID: externalUserDetail.UserID,
+		ImageURL:       externalUserDetail.Picture,
+		ProviderUserID: externalUserDetail.ID,
 	}
 }

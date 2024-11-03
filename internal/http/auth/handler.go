@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/faisalhardin/medilink/internal/config"
 	authrepo "github.com/faisalhardin/medilink/internal/entity/repo/auth"
@@ -35,8 +34,6 @@ func New(handler *AuthHandler) *AuthHandler {
 
 func (h *AuthHandler) GetAuthCallbackFunction(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	provider := chi.URLParam(r, "provider")
-	r = r.WithContext(context.WithValue(ctx, providerKey, provider))
 
 	authParams, err := h.AuthUC.Login(w, r, authmodel.AuthParams{})
 	if err != nil {
@@ -44,28 +41,33 @@ func (h *AuthHandler) GetAuthCallbackFunction(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     h.Cfg.AuthSessionConfig.SessionKey,
-		Value:    authParams.Token,
-		Expires:  time.Now().Add(time.Duration(h.Cfg.JWTConfig.DurationInMinutes) * time.Minute),
-		HttpOnly: true, // Securely store the cookie
-		// Secure:   true, // Only send over HTTPS
-		Path:   h.Cfg.AuthSessionConfig.Path,
-		Domain: h.Cfg.AuthSessionConfig.Domain,
-	})
+	commonwriter.SetOKWithData(ctx, w, authParams)
+}
 
-	http.Redirect(w, r, h.Cfg.WebConfig.Host, http.StatusFound)
+func (h *AuthHandler) GetTokenFromTokenKey(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	tokenCookie, err := r.Cookie(h.Cfg.AuthSessionConfig.SessionKey)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	resp, err := h.AuthUC.GetToken(ctx, authmodel.AuthParams{TokenKey: tokenCookie.Value})
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, resp)
 }
 
 func (h *AuthHandler) BeginAuthProviderCallback(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
-	// try to get the user without re-authenticating
 	provider := chi.URLParam(r, providerKey)
 	r = r.WithContext(context.WithValue(ctx, providerKey, provider))
 	h.AuthRepo.BeginAuthProviderCallback(w, r)
 
-	// commonwriter.Redirect(ctx, w, r, h.Cfg.GoogleAuthConfig.HomepageRedirect, http.StatusFound)
 }
 
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
