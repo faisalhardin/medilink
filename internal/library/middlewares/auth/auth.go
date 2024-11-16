@@ -3,7 +3,6 @@ package auth
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -89,12 +88,9 @@ func (m *Module) AuthHandler(next http.Handler) http.Handler {
 
 func (m *Module) CorsHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		bearerToken := r.Header.Get("Authorization")
-		fmt.Println(bearerToken, r.Method)
 		w.Header().Set("Access-Control-Allow-Methods", strings.Join(AllowedMethodRequest, ", "))
 		w.Header().Set("Access-Control-Allow-Headers", strings.Join(AllowedHeaders, ", "))
 		w.Header().Set("Access-Control-Allow-Origin", m.Cfg.WebConfig.Host)
-		// w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
 
 		// handle preflight
