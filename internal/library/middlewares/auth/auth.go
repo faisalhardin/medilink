@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -11,6 +12,41 @@ import (
 	authuc "github.com/faisalhardin/medilink/internal/entity/usecase/auth"
 	commonwriter "github.com/faisalhardin/medilink/internal/library/common/writer"
 )
+
+const (
+	ContentLength         = "Content-Length"
+	ContentType           = "Content-Type"
+	Authorization         = "Authorization"
+	AccountsAuthorization = "accounts-authorization"
+	Bearer                = "Bearer %s"
+	Key                   = "key=%s"
+	Basic                 = "Basic %s"
+	XAppKey               = "X-App-Key"
+)
+
+var AllowedHeaders = []string{
+	"Accept",
+	ContentType,
+	ContentLength,
+	"Authorization",
+	"Accept-Encoding",
+	"accounts-authorization",
+	"X-CSRF-Token",
+	"API-KEY",
+	"X-Device",
+	"X-Element-ID",
+	"x-requested-with",
+	XAppKey,
+}
+
+var AllowedMethodRequest = []string{
+	"OPTIONS",
+	"GET",
+	"POST",
+	"PUT",
+	"DELETE",
+	"PATCH",
+}
 
 type Module struct {
 	Cfg    *config.Config
@@ -53,9 +89,19 @@ func (m *Module) AuthHandler(next http.Handler) http.Handler {
 
 func (m *Module) CorsHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		bearerToken := r.Header.Get("Authorization")
+		fmt.Println(bearerToken, r.Method)
+		w.Header().Set("Access-Control-Allow-Methods", strings.Join(AllowedMethodRequest, ", "))
+		w.Header().Set("Access-Control-Allow-Headers", strings.Join(AllowedHeaders, ", "))
 		w.Header().Set("Access-Control-Allow-Origin", m.Cfg.WebConfig.Host)
+		// w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
 
+		// handle preflight
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
 		next.ServeHTTP(w, r)
 	})
 }

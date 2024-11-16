@@ -62,6 +62,16 @@ func (u *AuthUC) Login(w http.ResponseWriter, r *http.Request, params AuthParams
 		return
 	}
 
+	sessionPayloadInBytes, err := json.Marshal(model.GenerateUserDetailSessionInformation(userDetail, expiredTime))
+	if err != nil {
+		return
+	}
+
+	_, err = u.AuthRepo.StoreLoginInformation(ctx, getSessionKey(authedUser.Email, token), string(sessionPayloadInBytes), expireDuration)
+	if err != nil {
+		return
+	}
+
 	return AuthParams{Token: token}, nil
 }
 
