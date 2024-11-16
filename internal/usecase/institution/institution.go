@@ -5,7 +5,9 @@ import (
 
 	"github.com/faisalhardin/medilink/internal/entity/model"
 	institutionRepo "github.com/faisalhardin/medilink/internal/entity/repo/institution"
+	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
 	"github.com/faisalhardin/medilink/internal/library/db/xorm"
+	"github.com/faisalhardin/medilink/internal/library/middlewares/auth"
 
 	"github.com/pkg/errors"
 )
@@ -41,6 +43,15 @@ func (uc *InstitutionUC) InsertInstitution(ctx context.Context, request model.Cr
 }
 
 func (uc *InstitutionUC) FindInstitutionByParams(ctx context.Context, params model.FindInstitutionParams) (result []model.Institution, err error) {
+
+	userDetail, found := auth.GetUserDetailFromCtx(ctx)
+	if !found {
+		err = commonerr.SetNewUnauthorizedAPICall()
+		return
+	}
+
+	params.ID = userDetail.InstitutionID
+
 	result, err = uc.InstitutionRepo.FindInstitutionByParams(ctx, params)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgFindInstitutionByParams)
