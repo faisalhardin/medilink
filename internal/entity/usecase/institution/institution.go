@@ -9,6 +9,7 @@ import (
 type InstitutionUC interface {
 	InsertInstitution(ctx context.Context, request model.CreateInstitutionRequest) (err error)
 	FindInstitutionByParams(ctx context.Context, params model.FindInstitutionParams) (result []model.Institution, err error)
+	GetInstitutionByUserContext(ctx context.Context) (result model.Institution, err error)
 
 	InserInstitutionProduct(ctx context.Context, product model.InsertInstitutionProductRequest) (err error)
 	FindInstitutionProductByParams(ctx context.Context, params model.FindTrxInstitutionProductDBParams) (products []model.GetInstitutionProductResponse, err error)

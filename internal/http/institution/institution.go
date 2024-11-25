@@ -40,6 +40,25 @@ func (h *InstitutionHandler) InsertNewInstitution(w http.ResponseWriter, r *http
 	commonwriter.SetOKWithData(ctx, w, "ok")
 }
 
+func (h *InstitutionHandler) GetUserInstitution(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	request := model.FindInstitutionParams{}
+	err := bindingBind(r, &request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	institutions, err := h.InstitutionUC.GetInstitutionByUserContext(ctx)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, institutions)
+}
+
 func (h *InstitutionHandler) FindInstitutions(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 

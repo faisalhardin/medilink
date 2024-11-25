@@ -78,6 +78,10 @@ func (c *Conn) GetPatients(ctx context.Context, params model.GetPatientParams) (
 		session.Where("mmpi.name ILIKE ANY(?)", pq.Array(nameQuery))
 	}
 
+	if len(params.NIK) > 0 {
+		session.Where("mmpi.nik = ?", params.NIK)
+	}
+
 	_, err = session.
 		Alias("mmpi").
 		Where("mmpi.id_mst_institution = ?", params.InstitutionID).

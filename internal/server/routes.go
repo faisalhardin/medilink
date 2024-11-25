@@ -23,7 +23,7 @@ func RegisterRoutes(m *module) http.Handler {
 			authed.Get("/logout/{provider}", m.httpHandler.AuthHandler.Logout)
 			authed.Route("/institution", func(institution chi.Router) {
 				institution.Post("/", m.httpHandler.InstitutionHandler.InsertNewInstitution)
-				institution.Get("/", m.httpHandler.InstitutionHandler.FindInstitutions)
+				institution.Get("/", m.httpHandler.InstitutionHandler.GetUserInstitution)
 				institution.Route("/product", func(product chi.Router) {
 					product.Get("/", m.httpHandler.InstitutionHandler.FindInstitutionProducts)
 					product.Post("/", m.httpHandler.InstitutionHandler.InsertInstitutionProduct)

@@ -42,15 +42,32 @@ func (uc *InstitutionUC) InsertInstitution(ctx context.Context, request model.Cr
 	return
 }
 
-func (uc *InstitutionUC) FindInstitutionByParams(ctx context.Context, params model.FindInstitutionParams) (result []model.Institution, err error) {
-
+func (uc *InstitutionUC) GetInstitutionByUserContext(ctx context.Context) (result model.Institution, err error) {
 	userDetail, found := auth.GetUserDetailFromCtx(ctx)
 	if !found {
 		err = commonerr.SetNewUnauthorizedAPICall()
 		return
 	}
 
-	params.ID = userDetail.InstitutionID
+	results, err := uc.InstitutionRepo.FindInstitutionByParams(ctx, model.FindInstitutionParams{
+		ID: userDetail.InstitutionID,
+	})
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgFindInstitutionByParams)
+		return
+	}
+
+	if len(results) == 0 {
+		err = commonerr.SetNewBadRequest("invalid user", "user is not part of any organization")
+		return
+	}
+
+	result = results[0]
+
+	return
+}
+
+func (uc *InstitutionUC) FindInstitutionByParams(ctx context.Context, params model.FindInstitutionParams) (result []model.Institution, err error) {
 
 	result, err = uc.InstitutionRepo.FindInstitutionByParams(ctx, params)
 	if err != nil {
