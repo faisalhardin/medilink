@@ -2,6 +2,7 @@ package patient
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/pkg/errors"
 
@@ -36,7 +37,7 @@ func (u *PatientUC) RegisterNewPatient(ctx context.Context, req model.RegisterNe
 		NIK:           req.NIK,
 		Name:          req.Name,
 		Sex:           req.Sex,
-		DateOfBirth:   req.DateOfBirth,
+		DateOfBirth:   req.DateOfBirth.Time(),
 		PlaceOfBirth:  req.PlaceOfBirth,
 		Address:       req.Address,
 		Religion:      req.Religion,
@@ -50,7 +51,42 @@ func (u *PatientUC) RegisterNewPatient(ctx context.Context, req model.RegisterNe
 	return
 }
 
-func (u *PatientUC) GetPatients(ctx context.Context, req model.GetPatientParams) (patients []model.GetPatientResponse, err error) {
+func (u *PatientUC) GetPatients(ctx context.Context, patientUUID string) (patient model.GetPatientResponse, err error) {
+
+	userDetail, found := auth.GetUserDetailFromCtx(ctx)
+	if !found {
+		err = commonerr.SetNewUnauthorizedAPICall()
+		return
+	}
+
+	mstPatients, err := u.PatientDB.GetPatients(ctx, model.GetPatientParams{
+		PatientUUIDs:  []string{patientUUID},
+		InstitutionID: userDetail.InstitutionID,
+	})
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgRegisterNewPatient)
+		return
+	}
+
+	if len(mstPatients) == 0 {
+		err = commonerr.SetNewBadRequest("patient not found", fmt.Sprintf("there is no patient with registered with uuid = %v", patientUUID))
+		return
+	}
+
+	patient = model.GetPatientResponse{
+		UUID:         mstPatients[0].UUID,
+		NIK:          mstPatients[0].NIK,
+		Name:         mstPatients[0].Name,
+		PlaceOfBirth: mstPatients[0].PlaceOfBirth,
+		DateOfBirth:  mstPatients[0].DateOfBirth,
+		Address:      mstPatients[0].Address,
+		Religion:     mstPatients[0].Religion,
+	}
+
+	return
+}
+
+func (u *PatientUC) ListPatients(ctx context.Context, req model.GetPatientParams) (patients []model.GetPatientResponse, err error) {
 
 	userDetail, found := auth.GetUserDetailFromCtx(ctx)
 	if !found {

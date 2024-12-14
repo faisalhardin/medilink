@@ -8,6 +8,7 @@ import (
 	"github.com/faisalhardin/medilink/internal/entity/usecase/visit"
 	commonwriter "github.com/faisalhardin/medilink/internal/library/common/writer"
 	"github.com/faisalhardin/medilink/internal/library/util/common/binding"
+	"github.com/go-chi/chi/v5"
 )
 
 var (
@@ -42,7 +43,7 @@ func (h *PatientHandler) RegisterNewPatient(w http.ResponseWriter, r *http.Reque
 	commonwriter.SetOKWithData(ctx, w, "ok")
 }
 
-func (h *PatientHandler) GetPatient(w http.ResponseWriter, r *http.Request) {
+func (h *PatientHandler) ListPatient(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	request := model.GetPatientParams{}
@@ -52,7 +53,20 @@ func (h *PatientHandler) GetPatient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	patients, err := h.PatientUC.GetPatients(ctx, request)
+	patients, err := h.PatientUC.ListPatients(ctx, request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, patients)
+}
+
+func (h *PatientHandler) GetPatient(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	patientUUID := chi.URLParam(r, "uuid")
+	patients, err := h.PatientUC.GetPatients(ctx, patientUUID)
 	if err != nil {
 		commonwriter.SetError(ctx, w, err)
 		return

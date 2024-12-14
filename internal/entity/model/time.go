@@ -28,3 +28,18 @@ func TimeConverter(value string) reflect.Value {
 
 	return reflect.Value{} // this is the same as the private const invalidType
 }
+
+func (t *Time) UnmarshalJSON(b []byte) (err error) {
+	date, err := time.Parse(`"2006-01-02T15:04:05.000-0700"`, string(b))
+	if err == nil {
+		*t = Time(date)
+		return
+	}
+
+	date, err = time.Parse(`"2006-01-02"`, string(b))
+	if err == nil {
+		*t = Time(date)
+		return
+	}
+	return err
+}

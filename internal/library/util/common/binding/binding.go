@@ -1,9 +1,10 @@
 package binding
 
 import (
-	"encoding/json"
 	"net/http"
 	"net/url"
+
+	jsoniter "github.com/json-iterator/go"
 
 	"github.com/pkg/errors"
 
@@ -19,6 +20,7 @@ var (
 	validatorURL  *validation.Validator
 	validatorJSON *validation.Validator
 	schemaDecoder = schema.NewDecoder()
+	json          = jsoniter.ConfigCompatibleWithStandardLibrary
 
 	ErrInvalidContentType = errors.New("unrecognized content type")
 )

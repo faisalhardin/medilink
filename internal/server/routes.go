@@ -33,10 +33,11 @@ func RegisterRoutes(m *module) http.Handler {
 			})
 			authed.Route("/patient", func(patient chi.Router) {
 				patient.Post("/", m.httpHandler.PatientHandler.RegisterNewPatient)
-				patient.Get("/", m.httpHandler.PatientHandler.GetPatient)
 				patient.Patch("/", m.httpHandler.PatientHandler.UpdatePatient)
-				patient.Route("/{id}/visit", func(visit chi.Router) {
-					visit.Get("/", m.httpHandler.PatientHandler.ListPatientVisits)
+				patient.Get("/", m.httpHandler.PatientHandler.ListPatient)
+				patient.Route("/{uuid}", func(patient chi.Router) {
+					patient.Get("/", m.httpHandler.PatientHandler.GetPatient)
+					patient.Get("/visit", m.httpHandler.PatientHandler.ListPatientVisits)
 				})
 			})
 

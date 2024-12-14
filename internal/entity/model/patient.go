@@ -40,13 +40,13 @@ type MstPatientInstitution struct {
 // }
 
 type RegisterNewPatientRequest struct {
-	NIK          string    `json:"nik"`
-	Name         string    `json:"name" validate:"required"`
-	Sex          string    `json:"sex" validate:"required,oneof=male female"`
-	PlaceOfBirth string    `json:"place_of_birth"`
-	DateOfBirth  time.Time `json:"date_of_birth" validate:"required"`
-	Address      string    `json:"address"`
-	Religion     string    `json:"religion"`
+	NIK          string `json:"nik"`
+	Name         string `json:"name" validate:"required"`
+	Sex          string `json:"sex" validate:"required,oneof=male female"`
+	PlaceOfBirth string `json:"place_of_birth"`
+	DateOfBirth  Time   `json:"date_of_birth" validate:"required"`
+	Address      string `json:"address"`
+	Religion     string `json:"religion"`
 }
 
 type GetPatientParams struct {
