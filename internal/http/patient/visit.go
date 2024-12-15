@@ -33,7 +33,7 @@ func (h *PatientHandler) InsertNewVisit(w http.ResponseWriter, r *http.Request) 
 func (h *PatientHandler) ListPatientVisits(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	patientUUID := chi.URLParam(r, "id")
+	patientUUID := chi.URLParam(r, "uuid")
 	request := model.GetPatientVisitParams{}
 	err := bindingBind(r, &request)
 	if err != nil {
