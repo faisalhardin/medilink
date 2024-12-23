@@ -52,6 +52,10 @@ func (u *JourneyUC) GetJourneyBoardDetail(ctx context.Context, params model.GetJ
 		return
 	}
 
+	if len(journeyBoard.JourneyPoints) > 0 && journeyBoard.JourneyPoints[0].ID == 0 {
+		journeyBoard.JourneyPoints = []model.MstJourneyPoint{}
+	}
+
 	return
 }
 
