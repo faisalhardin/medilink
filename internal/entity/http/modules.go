@@ -5,4 +5,5 @@ type Handlers struct {
 	PatientHandler     PatientHandler
 	AuthHandler        AuthHandler
 	ProductHandler     ProductHandler
+	JourneyHandler     JourneyHandler
 }

@@ -59,6 +59,16 @@ func RegisterRoutes(m *module) http.Handler {
 				visit.Post("/", m.httpHandler.PatientHandler.InsertVisitTouchpoint)
 				visit.Patch("/", m.httpHandler.PatientHandler.UpdateVisitTouchpoint)
 			})
+
+			authed.Route("/journey", func(journey chi.Router) {
+				journey.Route("/board", func(board chi.Router) {
+					board.Get("/{id}", m.httpHandler.JourneyHandler.GetJourneyBoard)
+					board.Get("/", m.httpHandler.JourneyHandler.ListJourneyBoard)
+					board.Post("/", m.httpHandler.JourneyHandler.InsertNewJourneyBoard)
+					board.Patch("/", m.httpHandler.JourneyHandler.UpdateJourneyBoard)
+					board.Delete("/", m.httpHandler.JourneyHandler.DeleteJourneyBoard)
+				})
+			})
 		})
 
 		v1.Route("/auth", func(auth chi.Router) {

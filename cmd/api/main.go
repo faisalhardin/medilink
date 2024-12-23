@@ -16,18 +16,22 @@ import (
 	"github.com/faisalhardin/medilink/internal/config"
 	xormlib "github.com/faisalhardin/medilink/internal/library/db/xorm"
 	institutionrepo "github.com/faisalhardin/medilink/internal/repo/institution"
+	journeyrepo "github.com/faisalhardin/medilink/internal/repo/journey"
+	custjourneyrepo "github.com/faisalhardin/medilink/internal/repo/journey/customerjourney"
 	patientrepo "github.com/faisalhardin/medilink/internal/repo/patient"
 	productrepo "github.com/faisalhardin/medilink/internal/repo/product"
 	staffrepo "github.com/faisalhardin/medilink/internal/repo/staff"
 
 	authUC "github.com/faisalhardin/medilink/internal/usecase/auth"
 	institutionUC "github.com/faisalhardin/medilink/internal/usecase/institution"
+	journeyuc "github.com/faisalhardin/medilink/internal/usecase/journey"
 	patientUC "github.com/faisalhardin/medilink/internal/usecase/patient"
 	productuc "github.com/faisalhardin/medilink/internal/usecase/product"
 	visituc "github.com/faisalhardin/medilink/internal/usecase/visit"
 
 	authHandler "github.com/faisalhardin/medilink/internal/http/auth"
 	institutionHandler "github.com/faisalhardin/medilink/internal/http/institution"
+	journeyhandler "github.com/faisalhardin/medilink/internal/http/journey"
 	patientHandler "github.com/faisalhardin/medilink/internal/http/patient"
 	producthandler "github.com/faisalhardin/medilink/internal/http/product"
 
@@ -109,6 +113,14 @@ func main() {
 		DB: db,
 	})
 
+	journeyDB := journeyrepo.NewJourneyDB(&journeyrepo.JourneyDB{
+		DB: db,
+	})
+
+	customerJourneyDB := custjourneyrepo.NewUserJourneyDB(&custjourneyrepo.UserJourneyDB{
+		JourneyDB: journeyDB,
+	})
+
 	// repo block end
 
 	// usecase block start
@@ -137,6 +149,10 @@ func main() {
 		ProductDB: productDB,
 	})
 
+	journeyUC := journeyuc.NewJourneyUC(&journeyuc.JourneyUC{
+		JourneyDB: customerJourneyDB,
+	})
+
 	// usecase block end
 
 	// httphandler block start
@@ -161,6 +177,10 @@ func main() {
 	productHandler := producthandler.New(&producthandler.ProductHandler{
 		ProductUC: productUC,
 	})
+
+	journeyHandler := journeyhandler.New(&journeyhandler.JourneyHandler{
+		JourneyUC: journeyUC,
+	})
 	// httphandler block end
 
 	// module block start
@@ -176,6 +196,7 @@ func main() {
 			PatientHandler:     patientHandler,
 			AuthHandler:        authHandler,
 			ProductHandler:     productHandler,
+			JourneyHandler:     journeyHandler,
 		},
 		middlewareModule,
 	)
