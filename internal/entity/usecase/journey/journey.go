@@ -12,4 +12,8 @@ type JourneyUC interface {
 	GetJourneyBoardDetail(ctx context.Context, params model.GetJourneyBoardParams) (resp model.JourneyBoardJoinJourneyPoint, err error)
 	UpdateJourneyBoard(ctx context.Context, journeyBoard *model.MstJourneyBoard) (err error)
 	DeleteJourneyBoard(ctx context.Context, journeyBoard *model.MstJourneyBoard) (err error)
+
+	InsertNewJourneyPoint(ctx context.Context, journeyPoint *model.MstJourneyPoint) (err error)
+	UpdateJourneyPoint(ctx context.Context, journeyPoint *model.MstJourneyPoint) (err error)
+	ArchiveJourneyPoint(ctx context.Context, journeyPoint *model.MstJourneyPoint) (err error)
 }

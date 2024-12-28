@@ -121,3 +121,73 @@ func (h *JourneyHandler) DeleteJourneyBoard(w http.ResponseWriter, r *http.Reque
 
 	commonwriter.SetOKWithData(ctx, w, "ok")
 }
+
+func (h *JourneyHandler) InsertNewJourneyPoint(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	request := &model.MstJourneyPoint{}
+	err := bindingBind(r, request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	err = h.JourneyUC.InsertNewJourneyPoint(ctx, request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, request)
+}
+
+func (h *JourneyHandler) UpdateJourneyPoint(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	journeyIDStr := chi.URLParam(r, "id")
+	journeyID, err := strconv.ParseInt(journeyIDStr, 10, 64)
+	if err != nil {
+		errMsg := commonerr.SetNewBadRequest("Journey ID", "Invalid Journey ID")
+		commonwriter.SetError(ctx, w, errMsg)
+		return
+	}
+
+	request := &model.MstJourneyPoint{}
+	err = bindingBind(r, request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	request.ID = journeyID
+
+	err = h.JourneyUC.UpdateJourneyPoint(ctx, request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, request)
+}
+
+func (h *JourneyHandler) ArchiveJourneyPoint(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	journeyIDStr := chi.URLParam(r, "id")
+	journeyID, err := strconv.ParseInt(journeyIDStr, 10, 64)
+	if err != nil {
+		errMsg := commonerr.SetNewBadRequest("Journey ID", "Invalid Journey ID")
+		commonwriter.SetError(ctx, w, errMsg)
+		return
+	}
+
+	err = h.JourneyUC.ArchiveJourneyPoint(ctx, &model.MstJourneyPoint{
+		ID: journeyID,
+	})
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, "ok")
+}

@@ -3,8 +3,11 @@ package journey
 import (
 	"context"
 
+	"github.com/faisalhardin/medilink/internal/entity/constant"
 	"github.com/faisalhardin/medilink/internal/entity/model"
 	journeyRepo "github.com/faisalhardin/medilink/internal/entity/repo/journey"
+	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
+	"github.com/faisalhardin/medilink/internal/library/middlewares/auth"
 	"github.com/pkg/errors"
 )
 
@@ -15,6 +18,10 @@ const (
 	WrapMsgGetJourneyBoardDetail = WrapMsgPrefix + "GetJourneyBoardDetail"
 	WrapMsgUpdateJourneyBoard    = WrapMsgPrefix + "UpdateJourneyBoard"
 	WrapMsgDeleteJourneyBoard    = WrapMsgPrefix + "DeleteJourneyBoard"
+
+	WrapMsgInsertNewJourneyPoint = WrapMsgPrefix + "InsertNewJourneyPoint"
+	WrapMsgUpdateJourneyPoint    = WrapMsgPrefix + "UpdateJourneyPoint"
+	WrapMsgArchiveJourneyPoint   = WrapMsgPrefix + "ArchiveJourneyPoint"
 )
 
 type JourneyUC struct {
@@ -75,5 +82,101 @@ func (u *JourneyUC) DeleteJourneyBoard(ctx context.Context, journeyBoard *model.
 		err = errors.Wrap(err, WrapMsgDeleteJourneyBoard)
 		return
 	}
+	return
+}
+
+func (u *JourneyUC) validateJourneyBoardOwnership(ctx context.Context, boardID int64) (err error) {
+	userDetail, found := auth.GetUserDetailFromCtx(ctx)
+	if !found {
+		err = commonerr.SetNewUnauthorizedAPICall()
+		return
+	}
+
+	mstJourneyBoard, err := u.JourneyDB.GetJourneyBoardByID(ctx, boardID)
+	if err != nil {
+		return
+	}
+
+	if mstJourneyBoard.IDMstInstitution != userDetail.InstitutionID {
+		return commonerr.SetNewUnauthorizedAPICall()
+	}
+
+	return nil
+}
+
+func (u *JourneyUC) validateJourneyPointOwnership(ctx context.Context, journeyPointID int64) (err error) {
+	userDetail, found := auth.GetUserDetailFromCtx(ctx)
+	if !found {
+		err = errors.Wrap(commonerr.SetNewUnauthorizedAPICall(), WrapMsgUpdateJourneyPoint)
+		return
+	}
+
+	journeyBoard, err := u.JourneyDB.GetJourneyBoardByJourneyPoint(ctx, journeyPointID)
+	if err != nil && errors.Is(err, constant.ErrorRowNotFound) {
+		err = errors.Wrap(commonerr.SetNewUnauthorizedAPICall(), WrapMsgUpdateJourneyPoint)
+		return
+	} else if err != nil {
+		return
+	}
+
+	if journeyBoard.IDMstInstitution != userDetail.InstitutionID {
+		err = commonerr.SetNewUnauthorizedAPICall()
+		return
+	}
+
+	return nil
+}
+
+func (u *JourneyUC) InsertNewJourneyPoint(ctx context.Context, journeyPoint *model.MstJourneyPoint) (err error) {
+
+	err = u.validateJourneyBoardOwnership(ctx, journeyPoint.IDMstJourneyBoard)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgInsertNewJourneyPoint)
+		return
+	}
+
+	insertJourneyPointRequest := &model.InsertMstJourneyPoint{
+		MstJourneyPoint: journeyPoint,
+	}
+
+	err = u.JourneyDB.InsertNewJourneyPoint(ctx, insertJourneyPointRequest)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgInsertNewJourneyPoint)
+		return
+	}
+
+	return
+}
+
+func (u *JourneyUC) UpdateJourneyPoint(ctx context.Context, journeyPoint *model.MstJourneyPoint) (err error) {
+
+	err = u.validateJourneyPointOwnership(ctx, journeyPoint.ID)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgUpdateJourneyPoint)
+		return
+	}
+
+	err = u.JourneyDB.UpdateJourneyPoint(ctx, journeyPoint)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgUpdateJourneyPoint)
+		return
+	}
+
+	return
+}
+
+func (u *JourneyUC) ArchiveJourneyPoint(ctx context.Context, journeyPoint *model.MstJourneyPoint) (err error) {
+	err = u.validateJourneyPointOwnership(ctx, journeyPoint.ID)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgArchiveJourneyPoint)
+		return
+	}
+
+	err = u.JourneyDB.DeleteJourneyPoint(ctx, journeyPoint.ID)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgArchiveJourneyPoint)
+		return
+	}
+
 	return
 }

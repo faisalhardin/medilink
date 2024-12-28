@@ -68,6 +68,12 @@ func RegisterRoutes(m *module) http.Handler {
 					board.Patch("/", m.httpHandler.JourneyHandler.UpdateJourneyBoard)
 					board.Delete("/", m.httpHandler.JourneyHandler.DeleteJourneyBoard)
 				})
+
+				journey.Route("/point", func(board chi.Router) {
+					board.Post("/", m.httpHandler.JourneyHandler.InsertNewJourneyPoint)
+					board.Patch("/{id}", m.httpHandler.JourneyHandler.UpdateJourneyPoint)
+					board.Delete("/{id}", m.httpHandler.JourneyHandler.ArchiveJourneyPoint)
+				})
 			})
 		})
 

@@ -30,11 +30,16 @@ type MstJourneyPoint struct {
 	DeleteTime *time.Time `xorm:"'delete_time' deleted" json:"-" `
 }
 
+type InsertMstJourneyPoint struct {
+	MstJourneyPoint  *MstJourneyPoint
+	IDMstInstitution int64
+}
+
 // model for mdl_mst_service_point
 type MstServicePoint struct {
 	ID         int64  `xorm:"'id' pk autoincr" json:"id"`
 	Name       string `xorm:"'name'" json:"name"`
-	IDMstBoard int64  `xorm:"'id_mst_board'" json:"id_mst_board"`
+	IDMstBoard int64  `xorm:"'id_mst_journey_board'" json:"board_id"`
 
 	CreateTime time.Time  `xorm:"'create_time' created" json:"create_time"`
 	UpdateTime time.Time  `xorm:"'update_time' updated" json:"update_time"`
@@ -49,7 +54,8 @@ type MapServicePointJourneyPoint struct {
 
 // model for mdl_mst_journey_point
 type GetJourneyPointParams struct {
-	IDs        []int64  `json:"id"`
+	IDs        []int64 `json:"ids"`
+	ID         int64
 	Name       []string `json:"name"`
 	IDMstBoard int64    `json:"board_id"`
 }

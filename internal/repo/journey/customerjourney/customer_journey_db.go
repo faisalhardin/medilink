@@ -2,16 +2,12 @@ package customerjourney
 
 import (
 	"context"
-	// "fmt"
 
-	// "github.com/faisalhardin/medilink/internal/entity/constant"
 	"github.com/faisalhardin/medilink/internal/entity/model"
 	journeyIface "github.com/faisalhardin/medilink/internal/entity/repo/journey"
 	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
-	"github.com/faisalhardin/medilink/internal/library/common/log"
 	"github.com/faisalhardin/medilink/internal/library/middlewares/auth"
 
-	// "github.com/lib/pq"
 	"github.com/pkg/errors"
 )
 
@@ -25,7 +21,7 @@ const (
 
 	WrapMsgInserNewJourneyPoint = PrefixUserJourneyDB + ".InsertNewJourneyPoint"
 	WrapMsgListJourneyPoints    = PrefixUserJourneyDB + ".ListJourneyPoints"
-	WrapMsgGetJourneyPoints     = PrefixUserJourneyDB + ".GetJourneyPoints"
+	WrapMsgGetJourneyPoint      = PrefixUserJourneyDB + ".GetJourneyPoints"
 	WrapMsgUpdateJourneyPoint   = PrefixUserJourneyDB + ".UpdateJourneyPoint"
 	WrapMsgDeleteJourneyPoint   = PrefixUserJourneyDB + ".DeleteJourneyPoint"
 
@@ -60,6 +56,14 @@ func (c *UserJourneyDB) InsertNewJourneyBoard(ctx context.Context, journeyBoard 
 
 	return
 
+}
+
+func (c *UserJourneyDB) GetJourneyBoardByID(ctx context.Context, id int64) (resp model.MstJourneyBoard, err error) {
+	return c.JourneyDB.GetJourneyBoardByID(ctx, id)
+}
+
+func (c *UserJourneyDB) GetJourneyBoardByJourneyPoint(ctx context.Context, journeyPointID int64) (resp model.MstJourneyBoard, err error) {
+	return c.JourneyDB.GetJourneyBoardByJourneyPoint(ctx, journeyPointID)
 }
 
 func (c *UserJourneyDB) ListJourneyBoard(ctx context.Context, params model.GetJourneyBoardParams) (journeyBoards []model.MstJourneyBoard, err error) {
@@ -126,7 +130,6 @@ func (c *UserJourneyDB) DeleteJourneyBoard(ctx context.Context, journeyBoard *mo
 
 	userDetail, found := auth.GetUserDetailFromCtx(ctx)
 	if !found {
-		log.Info(userDetail)
 		err = commonerr.SetNewUnauthorizedAPICall()
 		return
 	}
@@ -136,7 +139,7 @@ func (c *UserJourneyDB) DeleteJourneyBoard(ctx context.Context, journeyBoard *mo
 	return c.JourneyDB.DeleteJourneyBoard(ctx, journeyBoard)
 }
 
-func (c *UserJourneyDB) InsertNewJourneyPoint(ctx context.Context, journeyPoint *model.MstJourneyPoint) (err error) {
+func (c *UserJourneyDB) InsertNewJourneyPoint(ctx context.Context, journeyPoint *model.InsertMstJourneyPoint) (err error) {
 	defer func() {
 		if err != nil {
 			err = errors.Wrap(err, WrapMsgListJourneyBoard)
@@ -148,22 +151,45 @@ func (c *UserJourneyDB) InsertNewJourneyPoint(ctx context.Context, journeyPoint 
 
 func (c *UserJourneyDB) ListJourneyPoints(ctx context.Context, params model.GetJourneyPointParams) (resp []model.MstJourneyPoint, count int64, err error) {
 
-	return
+	defer func() {
+		if err != nil {
+			err = errors.Wrap(err, WrapMsgListJourneyPoints)
+		}
+	}()
+
+	return c.JourneyDB.ListJourneyPoints(ctx, params)
 }
 
 func (c *UserJourneyDB) GetJourneyPoint(ctx context.Context, id int64) (resp model.MstJourneyPoint, err error) {
+	defer func() {
+		if err != nil {
+			err = errors.Wrap(err, WrapMsgGetJourneyPoint)
+		}
+	}()
 
-	return
+	return c.JourneyDB.GetJourneyPoint(ctx, id)
 }
 
 func (c *UserJourneyDB) UpdateJourneyPoint(ctx context.Context, journeyPoint *model.MstJourneyPoint) (err error) {
 
-	return
+	defer func() {
+		if err != nil {
+			err = errors.Wrap(err, WrapMsgUpdateJourneyPoint)
+		}
+	}()
+
+	return c.JourneyDB.UpdateJourneyPoint(ctx, journeyPoint)
 }
 
 func (c *UserJourneyDB) DeleteJourneyPoint(ctx context.Context, id int64) (err error) {
 
-	return
+	defer func() {
+		if err != nil {
+			err = errors.Wrap(err, WrapMsgDeleteJourneyPoint)
+		}
+	}()
+
+	return c.JourneyDB.DeleteJourneyPoint(ctx, id)
 }
 
 func (c *UserJourneyDB) InserNewServicePoint(ctx context.Context, mstServicePoint *model.MstServicePoint) (err error) {
