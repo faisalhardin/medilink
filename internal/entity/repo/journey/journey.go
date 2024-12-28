@@ -17,13 +17,13 @@ type JourneyDB interface {
 
 	InsertNewJourneyPoint(ctx context.Context, journeyPoint *model.InsertMstJourneyPoint) (err error)
 	ListJourneyPoints(ctx context.Context, params model.GetJourneyPointParams) (resp []model.MstJourneyPoint, count int64, err error)
-	GetJourneyPoint(ctx context.Context, id int64) (resp model.MstJourneyPoint, err error)
+	GetJourneyPoint(ctx context.Context, param model.MstJourneyPoint) (resp model.MstJourneyPoint, err error)
 	UpdateJourneyPoint(ctx context.Context, journeyPoint *model.MstJourneyPoint) (err error)
-	DeleteJourneyPoint(ctx context.Context, id int64) (err error)
+	DeleteJourneyPoint(ctx context.Context, journeyPoint *model.MstJourneyPoint) (err error)
 
 	InserNewServicePoint(ctx context.Context, mstServicePoint *model.MstServicePoint) (err error)
 	ListServicePoints(ctx context.Context, params model.GetServicePointParams) (resp []model.MstServicePoint, err error)
-	GetServicePoint(ctx context.Context, id int64) (resp model.MstServicePoint, err error)
+	GetServicePoint(ctx context.Context, servicePoint model.MstServicePoint) (resp model.MstServicePoint, err error)
 	UpdateServicePoint(ctx context.Context, mstServicePoint *model.MstServicePoint) (err error)
-	DeleteServicePoint(ctx context.Context, id int64) (err error)
+	DeleteServicePoint(ctx context.Context, mstServicePoint *model.MstServicePoint) (err error)
 }

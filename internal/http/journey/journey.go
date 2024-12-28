@@ -276,7 +276,7 @@ func (h *JourneyHandler) UpdateServicePoint(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	commonwriter.SetOKWithData(ctx, w, request)
+	commonwriter.SetOKWithData(ctx, w, "ok")
 }
 
 func (h *JourneyHandler) ArchiveServicePoint(w http.ResponseWriter, r *http.Request) {

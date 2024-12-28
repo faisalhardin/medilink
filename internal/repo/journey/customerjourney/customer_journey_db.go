@@ -146,6 +146,14 @@ func (c *UserJourneyDB) InsertNewJourneyPoint(ctx context.Context, journeyPoint 
 		}
 	}()
 
+	userDetail, found := auth.GetUserDetailFromCtx(ctx)
+	if !found {
+		err = commonerr.SetNewUnauthorizedAPICall()
+		return
+	}
+
+	journeyPoint.IDMstInstitution = userDetail.InstitutionID
+
 	return c.JourneyDB.InsertNewJourneyPoint(ctx, journeyPoint)
 }
 
@@ -157,17 +165,33 @@ func (c *UserJourneyDB) ListJourneyPoints(ctx context.Context, params model.GetJ
 		}
 	}()
 
+	userDetail, found := auth.GetUserDetailFromCtx(ctx)
+	if !found {
+		err = commonerr.SetNewUnauthorizedAPICall()
+		return
+	}
+
+	params.IDMstInstitution = userDetail.InstitutionID
+
 	return c.JourneyDB.ListJourneyPoints(ctx, params)
 }
 
-func (c *UserJourneyDB) GetJourneyPoint(ctx context.Context, id int64) (resp model.MstJourneyPoint, err error) {
+func (c *UserJourneyDB) GetJourneyPoint(ctx context.Context, param model.MstJourneyPoint) (resp model.MstJourneyPoint, err error) {
 	defer func() {
 		if err != nil {
 			err = errors.Wrap(err, WrapMsgGetJourneyPoint)
 		}
 	}()
 
-	return c.JourneyDB.GetJourneyPoint(ctx, id)
+	userDetail, found := auth.GetUserDetailFromCtx(ctx)
+	if !found {
+		err = commonerr.SetNewUnauthorizedAPICall()
+		return
+	}
+
+	param.IDMstInstitution = userDetail.InstitutionID
+
+	return c.JourneyDB.GetJourneyPoint(ctx, param)
 }
 
 func (c *UserJourneyDB) UpdateJourneyPoint(ctx context.Context, journeyPoint *model.MstJourneyPoint) (err error) {
@@ -178,10 +202,18 @@ func (c *UserJourneyDB) UpdateJourneyPoint(ctx context.Context, journeyPoint *mo
 		}
 	}()
 
+	userDetail, found := auth.GetUserDetailFromCtx(ctx)
+	if !found {
+		err = commonerr.SetNewUnauthorizedAPICall()
+		return
+	}
+
+	journeyPoint.IDMstInstitution = userDetail.InstitutionID
+
 	return c.JourneyDB.UpdateJourneyPoint(ctx, journeyPoint)
 }
 
-func (c *UserJourneyDB) DeleteJourneyPoint(ctx context.Context, id int64) (err error) {
+func (c *UserJourneyDB) DeleteJourneyPoint(ctx context.Context, journeyPoint *model.MstJourneyPoint) (err error) {
 
 	defer func() {
 		if err != nil {
@@ -189,7 +221,7 @@ func (c *UserJourneyDB) DeleteJourneyPoint(ctx context.Context, id int64) (err e
 		}
 	}()
 
-	return c.JourneyDB.DeleteJourneyPoint(ctx, id)
+	return c.JourneyDB.DeleteJourneyPoint(ctx, journeyPoint)
 }
 
 func (c *UserJourneyDB) InserNewServicePoint(ctx context.Context, mstServicePoint *model.MstServicePoint) (err error) {
@@ -198,6 +230,14 @@ func (c *UserJourneyDB) InserNewServicePoint(ctx context.Context, mstServicePoin
 			err = errors.Wrap(err, WrapMsgInserNewServicePoint)
 		}
 	}()
+
+	userDetail, found := auth.GetUserDetailFromCtx(ctx)
+	if !found {
+		err = commonerr.SetNewUnauthorizedAPICall()
+		return
+	}
+
+	mstServicePoint.IDMstInstitution = userDetail.InstitutionID
 
 	return c.JourneyDB.InserNewServicePoint(ctx, mstServicePoint)
 }
@@ -210,10 +250,18 @@ func (c *UserJourneyDB) ListServicePoints(ctx context.Context, params model.GetS
 		}
 	}()
 
+	userDetail, found := auth.GetUserDetailFromCtx(ctx)
+	if !found {
+		err = commonerr.SetNewUnauthorizedAPICall()
+		return
+	}
+
+	params.IDMstInstitution = userDetail.InstitutionID
+
 	return c.JourneyDB.ListServicePoints(ctx, params)
 }
 
-func (c *UserJourneyDB) GetServicePoint(ctx context.Context, id int64) (resp model.MstServicePoint, err error) {
+func (c *UserJourneyDB) GetServicePoint(ctx context.Context, servicePoint model.MstServicePoint) (resp model.MstServicePoint, err error) {
 
 	defer func() {
 		if err != nil {
@@ -221,7 +269,15 @@ func (c *UserJourneyDB) GetServicePoint(ctx context.Context, id int64) (resp mod
 		}
 	}()
 
-	return c.JourneyDB.GetServicePoint(ctx, id)
+	userDetail, found := auth.GetUserDetailFromCtx(ctx)
+	if !found {
+		err = commonerr.SetNewUnauthorizedAPICall()
+		return
+	}
+
+	servicePoint.IDMstInstitution = userDetail.InstitutionID
+
+	return c.JourneyDB.GetServicePoint(ctx, servicePoint)
 }
 
 func (c *UserJourneyDB) UpdateServicePoint(ctx context.Context, mstServicePoint *model.MstServicePoint) (err error) {
@@ -232,10 +288,18 @@ func (c *UserJourneyDB) UpdateServicePoint(ctx context.Context, mstServicePoint 
 		}
 	}()
 
+	userDetail, found := auth.GetUserDetailFromCtx(ctx)
+	if !found {
+		err = commonerr.SetNewUnauthorizedAPICall()
+		return
+	}
+
+	mstServicePoint.IDMstInstitution = userDetail.InstitutionID
+
 	return c.JourneyDB.UpdateServicePoint(ctx, mstServicePoint)
 }
 
-func (c *UserJourneyDB) DeleteServicePoint(ctx context.Context, id int64) (err error) {
+func (c *UserJourneyDB) DeleteServicePoint(ctx context.Context, mstServicePoint *model.MstServicePoint) (err error) {
 
 	defer func() {
 		if err != nil {
@@ -243,5 +307,13 @@ func (c *UserJourneyDB) DeleteServicePoint(ctx context.Context, id int64) (err e
 		}
 	}()
 
-	return c.JourneyDB.DeleteServicePoint(ctx, id)
+	userDetail, found := auth.GetUserDetailFromCtx(ctx)
+	if !found {
+		err = commonerr.SetNewUnauthorizedAPICall()
+		return
+	}
+
+	mstServicePoint.IDMstInstitution = userDetail.InstitutionID
+
+	return c.JourneyDB.DeleteServicePoint(ctx, mstServicePoint)
 }

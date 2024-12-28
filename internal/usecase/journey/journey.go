@@ -178,7 +178,7 @@ func (u *JourneyUC) ArchiveJourneyPoint(ctx context.Context, journeyPoint *model
 		return
 	}
 
-	err = u.JourneyDB.DeleteJourneyPoint(ctx, journeyPoint.ID)
+	err = u.JourneyDB.DeleteJourneyPoint(ctx, journeyPoint)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgArchiveJourneyPoint)
 		return
@@ -188,7 +188,12 @@ func (u *JourneyUC) ArchiveJourneyPoint(ctx context.Context, journeyPoint *model
 }
 
 func (u *JourneyUC) GetServicePoint(ctx context.Context, servicePointID int64) (servicePoint model.MstServicePoint, err error) {
-	servicePoint, err = u.JourneyDB.GetServicePoint(ctx, servicePointID)
+	servicePoint, err = u.JourneyDB.GetServicePoint(ctx, model.MstServicePoint{
+		ID: servicePointID,
+	})
+	if err != nil && errors.Is(err, constant.ErrorNoAffectedRow) {
+		return model.MstServicePoint{}, nil
+	}
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgGetServicePoint)
 		return
@@ -224,11 +229,6 @@ func (u *JourneyUC) InsertNewServicePoint(ctx context.Context, servicePoint *mod
 }
 
 func (u *JourneyUC) UpdateServicePoint(ctx context.Context, servicePoint *model.MstServicePoint) (err error) {
-	err = u.validateJourneyBoardOwnership(ctx, servicePoint.IDMstBoard)
-	if err != nil {
-		err = errors.Wrap(err, WrapMsgUpdateServicePoint)
-		return
-	}
 
 	err = u.JourneyDB.UpdateServicePoint(ctx, servicePoint)
 	if err != nil {
@@ -240,13 +240,7 @@ func (u *JourneyUC) UpdateServicePoint(ctx context.Context, servicePoint *model.
 }
 
 func (u *JourneyUC) ArchiveServicePoint(ctx context.Context, servicePoint *model.MstServicePoint) (err error) {
-	err = u.validateJourneyBoardOwnership(ctx, servicePoint.IDMstBoard)
-	if err != nil {
-		err = errors.Wrap(err, WrapMsgArchiveServicePoint)
-		return
-	}
-
-	err = u.JourneyDB.DeleteServicePoint(ctx, servicePoint.ID)
+	err = u.JourneyDB.DeleteServicePoint(ctx, servicePoint)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgArchiveServicePoint)
 		return

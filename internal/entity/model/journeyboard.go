@@ -24,6 +24,7 @@ type MstJourneyPoint struct {
 	Name              string `xorm:"'name'" json:"name"`
 	Position          int    `xorm:"'position'" json:"position"`
 	IDMstJourneyBoard int64  `xorm:"'id_mst_journey_board'" json:"board_id"`
+	IDMstInstitution  int64  `xorm:"id_mst_institution" json:"-"`
 
 	CreateTime time.Time  `xorm:"'create_time' created" json:"create_time"`
 	UpdateTime time.Time  `xorm:"'update_time' updated" json:"update_time"`
@@ -37,9 +38,10 @@ type InsertMstJourneyPoint struct {
 
 // model for mdl_mst_service_point
 type MstServicePoint struct {
-	ID         int64  `xorm:"'id' pk autoincr" json:"id"`
-	Name       string `xorm:"'name'" json:"name"`
-	IDMstBoard int64  `xorm:"'id_mst_journey_board'" json:"board_id"`
+	ID               int64  `xorm:"'id' pk autoincr" json:"id"`
+	Name             string `xorm:"'name'" json:"name"`
+	IDMstBoard       int64  `xorm:"'id_mst_journey_board'" json:"board_id"`
+	IDMstInstitution int64  `xorm:"id_mst_institution" json:"-"`
 
 	CreateTime time.Time  `xorm:"'create_time' created" json:"create_time"`
 	UpdateTime time.Time  `xorm:"'update_time' updated" json:"update_time"`
@@ -54,10 +56,11 @@ type MapServicePointJourneyPoint struct {
 
 // model for mdl_mst_journey_point
 type GetJourneyPointParams struct {
-	IDs        []int64 `json:"ids"`
-	ID         int64
-	Name       []string `json:"name"`
-	IDMstBoard int64    `json:"board_id"`
+	IDs              []int64 `schema:"ids"`
+	ID               int64
+	Name             []string `schema:"name"`
+	IDMstBoard       int64    `schema:"board_id"`
+	IDMstInstitution int64
 }
 
 type JourneyBoardJoinJourneyPoint struct {
@@ -66,8 +69,9 @@ type JourneyBoardJoinJourneyPoint struct {
 }
 
 type GetServicePointParams struct {
-	ID         []int64  `json:"id"`
-	Name       []string `json:"name"`
-	IDMstBoard int64    `json:"board_id"`
+	ID               []int64  `schema:"id"`
+	Name             []string `schema:"name"`
+	IDMstBoard       int64    `schema:"board_id"`
+	IDMstInstitution int64
 	RequestPayload
 }

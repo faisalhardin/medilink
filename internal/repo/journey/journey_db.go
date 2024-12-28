@@ -7,7 +7,6 @@ import (
 	"github.com/faisalhardin/medilink/internal/entity/constant"
 	"github.com/faisalhardin/medilink/internal/entity/constant/database"
 	"github.com/faisalhardin/medilink/internal/entity/model"
-	"github.com/faisalhardin/medilink/internal/library/common/log"
 	xormlib "github.com/faisalhardin/medilink/internal/library/db/xorm"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
@@ -127,7 +126,7 @@ func (c *JourneyDB) GetJourneyBoardDetail(ctx context.Context, params model.GetJ
 	boardID := params.ID[0]
 
 	if params.IDMstInstitution > 0 {
-		session.Where("id_mst_institution = ?", params.IDMstInstitution)
+		session.Where("mmjb.id_mst_institution = ?", params.IDMstInstitution)
 	}
 
 	session.Alias("mmjb").
@@ -185,7 +184,6 @@ func (c *JourneyDB) DeleteJourneyBoard(ctx context.Context, journeyBoard *model.
 }
 
 func (c *JourneyDB) InsertNewJourneyPoint(ctx context.Context, journeyPoint *model.InsertMstJourneyPoint) (err error) {
-	log.Info(journeyPoint.IDMstInstitution)
 	session := c.DB.MasterDB.Table(database.MstJourneyPointTable)
 	sqlResult, err := session.SQL(
 		`WITH latest_position AS (
@@ -246,11 +244,11 @@ func (c *JourneyDB) ListJourneyPoints(ctx context.Context, params model.GetJourn
 	return
 }
 
-func (c *JourneyDB) GetJourneyPoint(ctx context.Context, id int64) (resp model.MstJourneyPoint, err error) {
+func (c *JourneyDB) GetJourneyPoint(ctx context.Context, param model.MstJourneyPoint) (resp model.MstJourneyPoint, err error) {
 	session := c.DB.SlaveDB.Table(database.MstJourneyPointTable)
+	resp = param
 
 	_, err = session.
-		Where("id = ?", id).
 		Get(&resp)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgGetJourneyPoint)
@@ -263,7 +261,13 @@ func (c *JourneyDB) GetJourneyPoint(ctx context.Context, id int64) (resp model.M
 func (c *JourneyDB) UpdateJourneyPoint(ctx context.Context, journeyPoint *model.MstJourneyPoint) (err error) {
 	session := c.DB.MasterDB.Table(database.MstJourneyPointTable)
 
-	_, err = session.Where("id = ?", journeyPoint.ID).Update(journeyPoint)
+	if journeyPoint.IDMstInstitution > 0 {
+		session.Where("id_mst_institution = ?", journeyPoint.IDMstInstitution)
+	}
+
+	_, err = session.
+		Where("id = ?", journeyPoint.ID).
+		Update(journeyPoint)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgUpdateJourneyPoint)
 		return
@@ -272,13 +276,11 @@ func (c *JourneyDB) UpdateJourneyPoint(ctx context.Context, journeyPoint *model.
 	return
 }
 
-func (c *JourneyDB) DeleteJourneyPoint(ctx context.Context, id int64) (err error) {
+func (c *JourneyDB) DeleteJourneyPoint(ctx context.Context, journeyPoint *model.MstJourneyPoint) (err error) {
 	session := c.DB.MasterDB.Table(database.MstJourneyPointTable)
 
 	count, err := session.
-		Delete(model.MstJourneyPoint{
-			ID: id,
-		})
+		Delete(journeyPoint)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgUpdateJourneyPoint)
 		return
@@ -294,7 +296,7 @@ func (c *JourneyDB) DeleteJourneyPoint(ctx context.Context, id int64) (err error
 func (c *JourneyDB) InserNewServicePoint(ctx context.Context, mstServicePoint *model.MstServicePoint) (err error) {
 	session := c.DB.MasterDB.Table(database.MstServicePointTable)
 
-	_, err = session.InsertOne(&mstServicePoint)
+	_, err = session.InsertOne(mstServicePoint)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgInserNewServicePoint)
 		return
@@ -307,9 +309,26 @@ func (c *JourneyDB) InserNewServicePoint(ctx context.Context, mstServicePoint *m
 func (c *JourneyDB) ListServicePoints(ctx context.Context, params model.GetServicePointParams) (resp []model.MstServicePoint, err error) {
 	session := c.DB.SlaveDB.Table(database.MstServicePointTable)
 
+	if params.IDMstInstitution > 0 {
+		session.Where("id_mst_institution = ?", params.IDMstInstitution)
+	}
+
+	if len(params.ID) > 0 {
+		session.Where("id = ANY(?)", pq.Array(params))
+	}
+
+	if len(params.Name) > 0 {
+		substringNames := []string{}
+		for _, name := range params.Name {
+			substringNames = append(substringNames, fmt.Sprintf("%%%s%%", name))
+		}
+		session.Where("name ilike ANY(?)", pq.Array(substringNames))
+	}
+
 	err = session.
 		Where("id_mst_journey_board = ?", params.IDMstBoard).
 		Limit(params.Limit, params.Start).
+		OrderBy("id ASC").
 		Find(&resp)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgListServicePoints)
@@ -318,11 +337,11 @@ func (c *JourneyDB) ListServicePoints(ctx context.Context, params model.GetServi
 	return
 }
 
-func (c *JourneyDB) GetServicePoint(ctx context.Context, id int64) (resp model.MstServicePoint, err error) {
+func (c *JourneyDB) GetServicePoint(ctx context.Context, servicePoint model.MstServicePoint) (resp model.MstServicePoint, err error) {
 	session := c.DB.SlaveDB.Table(database.MstServicePointTable)
-
+	resp = servicePoint
 	found, err := session.
-		Where("id = ?", id).
+		Where("id = ?", resp.ID).
 		Get(&resp)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgGetServicePoint)
@@ -340,6 +359,10 @@ func (c *JourneyDB) GetServicePoint(ctx context.Context, id int64) (resp model.M
 func (c *JourneyDB) UpdateServicePoint(ctx context.Context, mstServicePoint *model.MstServicePoint) (err error) {
 	session := c.DB.MasterDB.Table(database.MstServicePointTable)
 
+	if mstServicePoint.IDMstInstitution > 0 {
+		session.Where("id_mst_institution = ?", mstServicePoint.IDMstInstitution)
+	}
+
 	count, err := session.
 		Where("id = ?", mstServicePoint.ID).
 		Update(mstServicePoint)
@@ -356,11 +379,16 @@ func (c *JourneyDB) UpdateServicePoint(ctx context.Context, mstServicePoint *mod
 	return
 }
 
-func (c *JourneyDB) DeleteServicePoint(ctx context.Context, id int64) (err error) {
+func (c *JourneyDB) DeleteServicePoint(ctx context.Context, mstServicePoint *model.MstServicePoint) (err error) {
 	session := c.DB.MasterDB.Table(database.MstServicePointTable)
 
+	if mstServicePoint.IDMstInstitution > 0 {
+		session.Where("id_mst_institution = ?", mstServicePoint.IDMstInstitution)
+	}
+
 	count, err := session.
-		Delete(model.MstServicePoint{ID: id})
+		Where("id = ?", mstServicePoint.ID).
+		Delete(mstServicePoint)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgDeleteServicePoint)
 		return
