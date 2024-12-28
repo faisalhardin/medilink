@@ -193,27 +193,55 @@ func (c *UserJourneyDB) DeleteJourneyPoint(ctx context.Context, id int64) (err e
 }
 
 func (c *UserJourneyDB) InserNewServicePoint(ctx context.Context, mstServicePoint *model.MstServicePoint) (err error) {
+	defer func() {
+		if err != nil {
+			err = errors.Wrap(err, WrapMsgInserNewServicePoint)
+		}
+	}()
 
-	return
-
+	return c.JourneyDB.InserNewServicePoint(ctx, mstServicePoint)
 }
 
 func (c *UserJourneyDB) ListServicePoints(ctx context.Context, params model.GetServicePointParams) (resp []model.MstServicePoint, err error) {
 
-	return
+	defer func() {
+		if err != nil {
+			err = errors.Wrap(err, WrapMsgListServicePoints)
+		}
+	}()
+
+	return c.JourneyDB.ListServicePoints(ctx, params)
 }
 
 func (c *UserJourneyDB) GetServicePoint(ctx context.Context, id int64) (resp model.MstServicePoint, err error) {
 
-	return
+	defer func() {
+		if err != nil {
+			err = errors.Wrap(err, WrapMsgGetServicePoint)
+		}
+	}()
+
+	return c.JourneyDB.GetServicePoint(ctx, id)
 }
 
 func (c *UserJourneyDB) UpdateServicePoint(ctx context.Context, mstServicePoint *model.MstServicePoint) (err error) {
 
-	return
+	defer func() {
+		if err != nil {
+			err = errors.Wrap(err, WrapMsgUpdateServicePoint)
+		}
+	}()
+
+	return c.JourneyDB.UpdateServicePoint(ctx, mstServicePoint)
 }
 
 func (c *UserJourneyDB) DeleteServicePoint(ctx context.Context, id int64) (err error) {
 
-	return
+	defer func() {
+		if err != nil {
+			err = errors.Wrap(err, WrapMsgDeleteServicePoint)
+		}
+	}()
+
+	return c.JourneyDB.DeleteServicePoint(ctx, id)
 }

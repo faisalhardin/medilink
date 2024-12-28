@@ -22,6 +22,12 @@ const (
 	WrapMsgInsertNewJourneyPoint = WrapMsgPrefix + "InsertNewJourneyPoint"
 	WrapMsgUpdateJourneyPoint    = WrapMsgPrefix + "UpdateJourneyPoint"
 	WrapMsgArchiveJourneyPoint   = WrapMsgPrefix + "ArchiveJourneyPoint"
+
+	WrapMsgGetServicePoint       = WrapMsgPrefix + "GetServicePoint"
+	WrapMsgListServicePoints     = WrapMsgPrefix + "ListServicePoints"
+	WrapMsgInsertNewServicePoint = WrapMsgPrefix + "InsertNewServicePoint"
+	WrapMsgUpdateServicePoint    = WrapMsgPrefix + "UpdateServicePoint"
+	WrapMsgArchiveServicePoint   = WrapMsgPrefix + "ArchiveServicePoint"
 )
 
 type JourneyUC struct {
@@ -175,6 +181,74 @@ func (u *JourneyUC) ArchiveJourneyPoint(ctx context.Context, journeyPoint *model
 	err = u.JourneyDB.DeleteJourneyPoint(ctx, journeyPoint.ID)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgArchiveJourneyPoint)
+		return
+	}
+
+	return
+}
+
+func (u *JourneyUC) GetServicePoint(ctx context.Context, servicePointID int64) (servicePoint model.MstServicePoint, err error) {
+	servicePoint, err = u.JourneyDB.GetServicePoint(ctx, servicePointID)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgGetServicePoint)
+		return
+	}
+
+	return
+}
+
+func (u *JourneyUC) ListServicePoints(ctx context.Context, params model.GetServicePointParams) (servicePoints []model.MstServicePoint, err error) {
+	servicePoints, err = u.JourneyDB.ListServicePoints(ctx, params)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgListServicePoints)
+		return
+	}
+
+	return
+}
+
+func (u *JourneyUC) InsertNewServicePoint(ctx context.Context, servicePoint *model.MstServicePoint) (err error) {
+	err = u.validateJourneyBoardOwnership(ctx, servicePoint.IDMstBoard)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgArchiveJourneyPoint)
+		return
+	}
+
+	err = u.JourneyDB.InserNewServicePoint(ctx, servicePoint)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgArchiveJourneyPoint)
+		return
+	}
+
+	return
+}
+
+func (u *JourneyUC) UpdateServicePoint(ctx context.Context, servicePoint *model.MstServicePoint) (err error) {
+	err = u.validateJourneyBoardOwnership(ctx, servicePoint.IDMstBoard)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgUpdateServicePoint)
+		return
+	}
+
+	err = u.JourneyDB.UpdateServicePoint(ctx, servicePoint)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgUpdateServicePoint)
+		return
+	}
+
+	return
+}
+
+func (u *JourneyUC) ArchiveServicePoint(ctx context.Context, servicePoint *model.MstServicePoint) (err error) {
+	err = u.validateJourneyBoardOwnership(ctx, servicePoint.IDMstBoard)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgArchiveServicePoint)
+		return
+	}
+
+	err = u.JourneyDB.DeleteServicePoint(ctx, servicePoint.ID)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgArchiveServicePoint)
 		return
 	}
 

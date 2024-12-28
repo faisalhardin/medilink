@@ -191,3 +191,112 @@ func (h *JourneyHandler) ArchiveJourneyPoint(w http.ResponseWriter, r *http.Requ
 
 	commonwriter.SetOKWithData(ctx, w, "ok")
 }
+
+func (h *JourneyHandler) GetServicePoint(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	servicePointIDStr := chi.URLParam(r, "id")
+	servicePointID, err := strconv.ParseInt(servicePointIDStr, 10, 64)
+	if err != nil {
+		errMsg := commonerr.SetNewBadRequest("Service Point", "Invalid Service Point ID")
+		commonwriter.SetError(ctx, w, errMsg)
+		return
+	}
+
+	resp, err := h.JourneyUC.GetServicePoint(ctx, servicePointID)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, resp)
+}
+
+func (h *JourneyHandler) ListServicePoint(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	request := model.GetServicePointParams{}
+	err := bindingBind(r, &request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	resp, err := h.JourneyUC.ListServicePoints(ctx, request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, resp)
+}
+
+func (h *JourneyHandler) InsertNewServicePoint(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	request := &model.MstServicePoint{}
+	err := bindingBind(r, request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	err = h.JourneyUC.InsertNewServicePoint(ctx, request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, request)
+}
+
+func (h *JourneyHandler) UpdateServicePoint(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	servicePointIDStr := chi.URLParam(r, "id")
+	servicePointID, err := strconv.ParseInt(servicePointIDStr, 10, 64)
+	if err != nil {
+		errMsg := commonerr.SetNewBadRequest("Service Point", "Invalid Service Point ID")
+		commonwriter.SetError(ctx, w, errMsg)
+		return
+	}
+
+	request := &model.MstServicePoint{}
+	err = bindingBind(r, request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	request.ID = servicePointID
+
+	err = h.JourneyUC.UpdateServicePoint(ctx, request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, request)
+}
+
+func (h *JourneyHandler) ArchiveServicePoint(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	servicePointIDStr := chi.URLParam(r, "id")
+	servicePointID, err := strconv.ParseInt(servicePointIDStr, 10, 64)
+	if err != nil {
+		errMsg := commonerr.SetNewBadRequest("Service Point", "Invalid Service Point ID")
+		commonwriter.SetError(ctx, w, errMsg)
+		return
+	}
+
+	err = h.JourneyUC.ArchiveServicePoint(ctx, &model.MstServicePoint{
+		ID: servicePointID,
+	})
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, "ok")
+}

@@ -74,6 +74,14 @@ func RegisterRoutes(m *module) http.Handler {
 					board.Patch("/{id}", m.httpHandler.JourneyHandler.UpdateJourneyPoint)
 					board.Delete("/{id}", m.httpHandler.JourneyHandler.ArchiveJourneyPoint)
 				})
+
+				journey.Route("/service-point", func(servicePoint chi.Router) {
+					servicePoint.Get("/", m.httpHandler.JourneyHandler.ListServicePoint)
+					servicePoint.Get("/{id}", m.httpHandler.JourneyHandler.GetServicePoint)
+					servicePoint.Post("/", m.httpHandler.JourneyHandler.InsertNewServicePoint)
+					servicePoint.Patch("/{id}", m.httpHandler.JourneyHandler.UpdateServicePoint)
+					servicePoint.Delete("/{id}", m.httpHandler.JourneyHandler.ArchiveServicePoint)
+				})
 			})
 		})
 

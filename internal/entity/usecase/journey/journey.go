@@ -16,4 +16,10 @@ type JourneyUC interface {
 	InsertNewJourneyPoint(ctx context.Context, journeyPoint *model.MstJourneyPoint) (err error)
 	UpdateJourneyPoint(ctx context.Context, journeyPoint *model.MstJourneyPoint) (err error)
 	ArchiveJourneyPoint(ctx context.Context, journeyPoint *model.MstJourneyPoint) (err error)
+
+	GetServicePoint(ctx context.Context, servicePointID int64) (servicePoint model.MstServicePoint, err error)
+	ListServicePoints(ctx context.Context, params model.GetServicePointParams) (servicePoints []model.MstServicePoint, err error)
+	InsertNewServicePoint(ctx context.Context, servicePoint *model.MstServicePoint) (err error)
+	UpdateServicePoint(ctx context.Context, servicePoint *model.MstServicePoint) (err error)
+	ArchiveServicePoint(ctx context.Context, servicePoint *model.MstServicePoint) (err error)
 }
