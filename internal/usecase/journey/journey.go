@@ -187,12 +187,12 @@ func (u *JourneyUC) ArchiveJourneyPoint(ctx context.Context, journeyPoint *model
 	return
 }
 
-func (u *JourneyUC) GetServicePoint(ctx context.Context, servicePointID int64) (servicePoint model.MstServicePoint, err error) {
+func (u *JourneyUC) GetServicePoint(ctx context.Context, servicePointID int64) (servicePoint *model.MstServicePoint, err error) {
 	servicePoint, err = u.JourneyDB.GetServicePoint(ctx, model.MstServicePoint{
 		ID: servicePointID,
 	})
 	if err != nil && errors.Is(err, constant.ErrorNoAffectedRow) {
-		return model.MstServicePoint{}, nil
+		return nil, nil
 	}
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgGetServicePoint)

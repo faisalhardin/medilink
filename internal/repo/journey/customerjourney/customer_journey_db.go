@@ -176,7 +176,7 @@ func (c *UserJourneyDB) ListJourneyPoints(ctx context.Context, params model.GetJ
 	return c.JourneyDB.ListJourneyPoints(ctx, params)
 }
 
-func (c *UserJourneyDB) GetJourneyPoint(ctx context.Context, param model.MstJourneyPoint) (resp model.MstJourneyPoint, err error) {
+func (c *UserJourneyDB) GetJourneyPoint(ctx context.Context, param model.MstJourneyPoint) (resp *model.MstJourneyPoint, err error) {
 	defer func() {
 		if err != nil {
 			err = errors.Wrap(err, WrapMsgGetJourneyPoint)
@@ -261,7 +261,7 @@ func (c *UserJourneyDB) ListServicePoints(ctx context.Context, params model.GetS
 	return c.JourneyDB.ListServicePoints(ctx, params)
 }
 
-func (c *UserJourneyDB) GetServicePoint(ctx context.Context, servicePoint model.MstServicePoint) (resp model.MstServicePoint, err error) {
+func (c *UserJourneyDB) GetServicePoint(ctx context.Context, servicePoint model.MstServicePoint) (resp *model.MstServicePoint, err error) {
 
 	defer func() {
 		if err != nil {

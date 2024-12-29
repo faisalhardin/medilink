@@ -244,12 +244,12 @@ func (c *JourneyDB) ListJourneyPoints(ctx context.Context, params model.GetJourn
 	return
 }
 
-func (c *JourneyDB) GetJourneyPoint(ctx context.Context, param model.MstJourneyPoint) (resp model.MstJourneyPoint, err error) {
+func (c *JourneyDB) GetJourneyPoint(ctx context.Context, param model.MstJourneyPoint) (resp *model.MstJourneyPoint, err error) {
 	session := c.DB.SlaveDB.Table(database.MstJourneyPointTable)
-	resp = param
+	resp = &param
 
 	_, err = session.
-		Get(&resp)
+		Get(resp)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgGetJourneyPoint)
 		return
@@ -337,12 +337,12 @@ func (c *JourneyDB) ListServicePoints(ctx context.Context, params model.GetServi
 	return
 }
 
-func (c *JourneyDB) GetServicePoint(ctx context.Context, servicePoint model.MstServicePoint) (resp model.MstServicePoint, err error) {
+func (c *JourneyDB) GetServicePoint(ctx context.Context, servicePoint model.MstServicePoint) (resp *model.MstServicePoint, err error) {
 	session := c.DB.SlaveDB.Table(database.MstServicePointTable)
-	resp = servicePoint
+	resp = &servicePoint
 	found, err := session.
 		Where("id = ?", resp.ID).
-		Get(&resp)
+		Get(resp)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgGetServicePoint)
 		return
