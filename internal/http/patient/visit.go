@@ -84,12 +84,22 @@ func (h *PatientHandler) GetPatientVisits(w http.ResponseWriter, r *http.Request
 func (h *PatientHandler) UpdatePatientVisit(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	visitIDStr := chi.URLParam(r, "id")
+	visitID, err := strconv.ParseInt(visitIDStr, 10, 64)
+	if err != nil {
+		errMsg := commonerr.SetNewBadRequest("Visit", "Invalid Visit ID")
+		commonwriter.SetError(ctx, w, errMsg)
+		return
+	}
+
 	request := model.UpdatePatientVisitRequest{}
-	err := bindingBind(r, &request)
+	err = bindingBind(r, &request)
 	if err != nil {
 		commonwriter.SetError(ctx, w, err)
 		return
 	}
+
+	request.ID = visitID
 
 	err = h.VisitUC.UpdatePatientVisit(ctx, request)
 	if err != nil {

@@ -7,6 +7,7 @@ import (
 
 	"github.com/faisalhardin/medilink/internal/entity/model"
 	institutionRepo "github.com/faisalhardin/medilink/internal/entity/repo/institution"
+	journeyDB "github.com/faisalhardin/medilink/internal/entity/repo/journey"
 	patientRepo "github.com/faisalhardin/medilink/internal/entity/repo/patient"
 	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
 	"github.com/faisalhardin/medilink/internal/library/db/xorm"
@@ -31,6 +32,7 @@ type VisitUC struct {
 	PatientDB       patientRepo.PatientDB
 	InstitutionRepo institutionRepo.InstitutionDB
 	Transaction     xorm.DBTransactionInterface
+	JourneyDB       journeyDB.JourneyDB
 }
 
 func NewVisitUC(u *VisitUC) *VisitUC {
@@ -141,6 +143,15 @@ func (u *VisitUC) ListPatientVisits(ctx context.Context, req model.GetPatientVis
 }
 
 func (u *VisitUC) UpdatePatientVisit(ctx context.Context, req model.UpdatePatientVisitRequest) (err error) {
+
+	userDetail, found := auth.GetUserDetailFromCtx(ctx)
+	if !found {
+		err = commonerr.SetNewUnauthorizedAPICall()
+		return
+	}
+
+	req.IDMstInstitution = userDetail.InstitutionID
+
 	err = u.PatientDB.UpdatePatientVisit(ctx, req.TrxPatientVisit)
 	if err != nil {
 		return errors.Wrap(err, WrapMsgUpdatePatientVisit)
@@ -178,10 +189,9 @@ func (u *VisitUC) InsertVisitTouchpoint(ctx context.Context, req model.DtlPatien
 	}
 
 	err = u.PatientDB.InsertDtlPatientVisit(ctx, &model.DtlPatientVisit{
-		IDTrxPatientVisit:  req.IDTrxPatientVisit,
-		TouchpointName:     req.TouchpointName,
-		TouchpointCategory: req.TouchpointCategory,
-		Notes:              req.Notes,
+		IDTrxPatientVisit: req.IDTrxPatientVisit,
+		JourneyPointName:  req.JourneyPointName,
+		Notes:             req.Notes,
 	})
 	if err != nil {
 		return errors.Wrap(err, WrapMsgInsertVisitTouchpoint)
@@ -196,10 +206,9 @@ func (u *VisitUC) UpdateVisitTouchpoint(ctx context.Context, req model.DtlPatien
 	}
 
 	err = u.PatientDB.UpdateDtlPatientVisit(ctx, &model.DtlPatientVisit{
-		ID:                 req.ID,
-		TouchpointName:     req.TouchpointName,
-		TouchpointCategory: req.TouchpointCategory,
-		Notes:              req.Notes,
+		ID:               req.ID,
+		JourneyPointName: req.JourneyPointName,
+		Notes:            req.Notes,
 	})
 	if err != nil {
 		return errors.Wrap(err, WrapMsgUpdateVisitTouchpoint)

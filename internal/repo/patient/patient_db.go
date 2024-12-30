@@ -153,13 +153,11 @@ func (c *Conn) GetPatientVisits(ctx context.Context, params model.GetPatientVisi
 }
 
 func (c *Conn) UpdatePatientVisit(ctx context.Context, trxVisit model.TrxPatientVisit) (err error) {
-
 	session := c.DB.MasterDB.Table(model.TrxPatientVisitTableName)
 
 	_, err = session.
 		ID(trxVisit.ID).
 		Where("id_mst_institution = ?", trxVisit.IDMstInstitution).
-		Cols("action", "status", "notes").
 		Update(trxVisit)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgUpdatePatientVisit)
