@@ -37,18 +37,21 @@ func RegisterRoutes(m *module) http.Handler {
 				patient.Get("/", m.httpHandler.PatientHandler.ListPatient)
 				patient.Route("/{uuid}", func(patient chi.Router) {
 					patient.Get("/", m.httpHandler.PatientHandler.GetPatient)
-					patient.Get("/visit", m.httpHandler.PatientHandler.ListPatientVisits)
+					patient.Get("/visit", m.httpHandler.PatientHandler.ListPatientVisitsByPatientUUID)
 				})
 			})
 
+			// START: /v1/visit
 			authed.Route("/visit", func(visit chi.Router) {
 				visit.Post("/", m.httpHandler.PatientHandler.InsertNewVisit)
+				visit.Get("/", m.httpHandler.PatientHandler.ListPatientVisits)
 				visit.Route("/{id}", func(visit chi.Router) {
 					visit.Patch("/", m.httpHandler.PatientHandler.UpdatePatientVisit)
 					visit.Get("/", m.httpHandler.PatientHandler.GetPatientVisits)
 					visit.Get("/detail", m.httpHandler.PatientHandler.ListVisitTouchpoints)
 				})
 			})
+			// END: /v1/visit
 
 			authed.Route("/visit-detail", func(visit chi.Router) {
 				visit.Route("/{id}", func(visit chi.Router) {

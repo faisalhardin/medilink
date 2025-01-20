@@ -33,6 +33,25 @@ func (h *PatientHandler) InsertNewVisit(w http.ResponseWriter, r *http.Request) 
 func (h *PatientHandler) ListPatientVisits(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	request := model.GetPatientVisitParams{}
+	err := bindingBind(r, &request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	visits, err := h.VisitUC.ListPatientVisits(ctx, request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, visits)
+}
+
+func (h *PatientHandler) ListPatientVisitsByPatientUUID(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
 	patientUUID := chi.URLParam(r, "uuid")
 	request := model.GetPatientVisitParams{}
 	err := bindingBind(r, &request)

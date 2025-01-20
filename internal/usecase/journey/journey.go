@@ -19,6 +19,7 @@ const (
 	WrapMsgUpdateJourneyBoard    = WrapMsgPrefix + "UpdateJourneyBoard"
 	WrapMsgDeleteJourneyBoard    = WrapMsgPrefix + "DeleteJourneyBoard"
 
+	WrapMsgListJourneyPoints     = WrapMsgPrefix + "ListJourneyPoints "
 	WrapMsgInsertNewJourneyPoint = WrapMsgPrefix + "InsertNewJourneyPoint"
 	WrapMsgUpdateJourneyPoint    = WrapMsgPrefix + "UpdateJourneyPoint"
 	WrapMsgArchiveJourneyPoint   = WrapMsgPrefix + "ArchiveJourneyPoint"
@@ -131,6 +132,19 @@ func (u *JourneyUC) validateJourneyPointOwnership(ctx context.Context, journeyPo
 	}
 
 	return nil
+}
+
+func (u *JourneyUC) ListJourneyPoints(ctx context.Context, params model.GetJourneyPointParams) (servicePoint []model.MstJourneyPoint, err error) {
+	servicePoint, _, err = u.JourneyDB.ListJourneyPoints(ctx, params)
+	if err != nil && errors.Is(err, constant.ErrorNoAffectedRow) {
+		return nil, nil
+	}
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgListJourneyPoints)
+		return
+	}
+
+	return
 }
 
 func (u *JourneyUC) InsertNewJourneyPoint(ctx context.Context, journeyPoint *model.MstJourneyPoint) (err error) {

@@ -122,6 +122,35 @@ func (h *JourneyHandler) DeleteJourneyBoard(w http.ResponseWriter, r *http.Reque
 	commonwriter.SetOKWithData(ctx, w, "ok")
 }
 
+func (h *JourneyHandler) GetJourneyPoint(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	journeyPointIDStr := chi.URLParam(r, "id")
+	journeyPointID, err := strconv.ParseInt(journeyPointIDStr, 10, 64)
+	if err != nil {
+		errMsg := commonerr.SetNewBadRequest("Journey Point", "Invalid Journey Point ID")
+		commonwriter.SetError(ctx, w, errMsg)
+		return
+	}
+
+	request := &model.GetJourneyPointParams{}
+	err = bindingBind(r, request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	request.ID = journeyPointID
+
+	resp, err := h.JourneyUC.ListJourneyPoints(ctx, model.GetJourneyPointParams{})
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, resp)
+}
+
 func (h *JourneyHandler) InsertNewJourneyPoint(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 

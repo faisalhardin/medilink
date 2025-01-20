@@ -223,7 +223,9 @@ func (c *JourneyDB) InsertNewJourneyPoint(ctx context.Context, journeyPoint *mod
 func (c *JourneyDB) ListJourneyPoints(ctx context.Context, params model.GetJourneyPointParams) (resp []model.MstJourneyPoint, count int64, err error) {
 	session := c.DB.SlaveDB.Table(database.MstJourneyPointTable)
 
-	if len(params.IDs) > 0 {
+	if params.ID > 0 {
+		session.Where("id = ?", params.ID)
+	} else if len(params.IDs) > 0 {
 		session.Where("id = ANY(?)", pq.Array(params.IDs))
 	}
 	if len(params.Name) > 0 {

@@ -9,6 +9,7 @@ type JourneyHandler interface {
 	UpdateJourneyBoard(w http.ResponseWriter, r *http.Request)
 	DeleteJourneyBoard(w http.ResponseWriter, r *http.Request)
 
+	GetJourneyPoint(w http.ResponseWriter, r *http.Request)
 	InsertNewJourneyPoint(w http.ResponseWriter, r *http.Request)
 	UpdateJourneyPoint(w http.ResponseWriter, r *http.Request)
 	ArchiveJourneyPoint(w http.ResponseWriter, r *http.Request)

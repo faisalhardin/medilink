@@ -41,10 +41,11 @@ type UpdatePatientVisitRequest struct {
 }
 
 type GetPatientVisitParams struct {
-	PatientID        int64  `xorm:"id"`
-	PatientUUID      string `xorm:"uuid"`
-	IDPatientVisit   int64  `xorm:"id_trx_patient_visit" schema:"visit_id"`
-	IDMstInstitution int64  `xorm:"id_mst_institution"`
+	PatientID         int64  `xorm:"id"`
+	PatientUUID       string `xorm:"uuid"`
+	IDPatientVisit    int64  `xorm:"id_trx_patient_visit" schema:"visit_id"`
+	IDMstInstitution  int64  `xorm:"id_mst_institution"`
+	IDMstJourneyBoard int64  `schema:"journey_board_id"`
 }
 
 type DtlPatientVisitRequest struct {

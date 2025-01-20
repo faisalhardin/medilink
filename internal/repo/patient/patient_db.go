@@ -141,6 +141,10 @@ func (c *Conn) GetPatientVisits(ctx context.Context, params model.GetPatientVisi
 		session.Where("mtpv.id = ?", params.IDPatientVisit)
 	}
 
+	if params.IDMstJourneyBoard > 0 {
+		session.Where("mtpv.id_mst_journey_board = ?", params.IDMstJourneyBoard)
+	}
+
 	err = session.Alias("mtpv").
 		Where("mtpv.id_mst_institution = ?", params.IDMstInstitution).
 		Find(&trxPatientVisit)
