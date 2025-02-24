@@ -110,6 +110,7 @@ func (u *PatientUC) ListPatients(ctx context.Context, req model.GetPatientParams
 			DateOfBirth:  patient.DateOfBirth,
 			Address:      patient.Address,
 			Religion:     patient.Religion,
+			PhoneNumber:  patient.PhoneNumber,
 		})
 	}
 

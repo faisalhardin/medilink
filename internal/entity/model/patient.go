@@ -21,6 +21,7 @@ type MstPatientInstitution struct {
 	DateOfBirth   time.Time  `json:"date_of_birth" xorm:"'date_of_birth'"`
 	Address       string     `json:"address" xorm:"'address'"`
 	Religion      string     `json:"religion" xorm:"'religion'"`
+	PhoneNumber   string     `json:"phone_number" xorm:"phone_number"`
 	InstitutionID int64      `json:"institution_id" xorm:"'id_mst_institution'"`
 	CreateTime    time.Time  `json:"-" xorm:"'create_time' created"`
 	UpdateTime    time.Time  `json:"-" xorm:"'update_time' updated"`
@@ -55,6 +56,7 @@ type GetPatientParams struct {
 	Name          string   `schema:"name"`
 	InstitutionID int64    `schema:"institution_id"`
 	NIK           string   `schema:"nik"`
+	PhoneNumber   string   `schema:"phone_number"`
 }
 
 type GetPatientResponse struct {
@@ -65,6 +67,7 @@ type GetPatientResponse struct {
 	DateOfBirth  time.Time `json:"date_of_birth" xorm:"'date_of_birth'"`
 	Address      string    `json:"address" xorm:"'address'"`
 	Religion     string    `json:"religion" xorm:"'religion'"`
+	PhoneNumber  string    `json:"phone_number"`
 }
 
 type UpdatePatientRequest struct {

@@ -93,7 +93,7 @@ func (u *VisitUC) GetPatientVisitDetail(ctx context.Context, req model.GetPatien
 		if len(visit) == 0 {
 			return nil
 		}
-		visitDetail.TrxPatientVisit = visit[0]
+		visitDetail.TrxPatientVisit = visit[0].TrxPatientVisit
 		return nil
 	})
 
@@ -123,7 +123,7 @@ func (u *VisitUC) GetPatientVisitDetail(ctx context.Context, req model.GetPatien
 	return
 }
 
-func (u *VisitUC) ListPatientVisits(ctx context.Context, req model.GetPatientVisitParams) (visits []model.TrxPatientVisit, err error) {
+func (u *VisitUC) ListPatientVisits(ctx context.Context, req model.GetPatientVisitParams) (visitResponse []model.ListPatientVisitBoards, err error) {
 
 	userDetail, found := auth.GetUserDetailFromCtx(ctx)
 	if !found {
@@ -133,10 +133,28 @@ func (u *VisitUC) ListPatientVisits(ctx context.Context, req model.GetPatientVis
 
 	req.IDMstInstitution = userDetail.InstitutionID
 
-	visits, err = u.PatientDB.GetPatientVisits(ctx, req)
+	visits, err := u.PatientDB.GetPatientVisits(ctx, req)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgGetPatientVisits)
 		return
+	}
+
+	for _, visit := range visits {
+		visitResponse = append(visitResponse, model.ListPatientVisitBoards{
+			ID:                          visit.TrxPatientVisit.ID,
+			IDMstJourneyBoard:           visit.TrxPatientVisit.IDMstJourneyBoard,
+			IDMstJourneyPoint:           visit.TrxPatientVisit.IDMstJourneyPoint,
+			IDMstServicePoint:           visit.TrxPatientVisit.IDMstServicePoint,
+			NameMstServicePoint:         visit.MstServicePoint.Name,
+			Action:                      visit.TrxPatientVisit.Action,
+			Status:                      visit.TrxPatientVisit.Status,
+			Notes:                       visit.TrxPatientVisit.Notes,
+			CreateTime:                  visit.TrxPatientVisit.CreateTime,
+			Name:                        visit.MstPatientInstitution.Name,
+			UUID:                        visit.MstPatientInstitution.UUID,
+			Sex:                         visit.MstPatientInstitution.Sex,
+			UpdateTimeMstJourneyPointID: visit.TrxPatientVisit.UpdateTimeMstJourneyPointID,
+		})
 	}
 
 	return
@@ -152,7 +170,7 @@ func (u *VisitUC) UpdatePatientVisit(ctx context.Context, req model.UpdatePatien
 
 	req.IDMstInstitution = userDetail.InstitutionID
 
-	err = u.PatientDB.UpdatePatientVisit(ctx, req.TrxPatientVisit)
+	_, err = u.PatientDB.UpdatePatientVisit(ctx, req)
 	if err != nil {
 		return errors.Wrap(err, WrapMsgUpdatePatientVisit)
 	}

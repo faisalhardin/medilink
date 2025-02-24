@@ -82,6 +82,10 @@ func (c *Conn) GetPatients(ctx context.Context, params model.GetPatientParams) (
 		session.Where("mmpi.nik = ?", params.NIK)
 	}
 
+	if len(params.PhoneNumber) > 0 {
+		session.Where("mmpi.phone_number ILIKE ?", params.PhoneNumber)
+	}
+
 	_, err = session.
 		Alias("mmpi").
 		Where("mmpi.id_mst_institution = ?", params.InstitutionID).
@@ -121,7 +125,7 @@ func (c *Conn) GetPatientVisitsRecordByPatientID(ctx context.Context, patientID 
 	return
 }
 
-func (c *Conn) GetPatientVisits(ctx context.Context, params model.GetPatientVisitParams) (trxPatientVisit []model.TrxPatientVisit, err error) {
+func (c *Conn) GetPatientVisits(ctx context.Context, params model.GetPatientVisitParams) (trxPatientVisit []model.GetPatientVisitResponse, err error) {
 	if params.IDMstInstitution == 0 {
 		err = commonerr.SetNewNoInstitutionError()
 		return
@@ -144,9 +148,17 @@ func (c *Conn) GetPatientVisits(ctx context.Context, params model.GetPatientVisi
 	if params.IDMstJourneyBoard > 0 {
 		session.Where("mtpv.id_mst_journey_board = ?", params.IDMstJourneyBoard)
 	}
+	if !params.FromTime.IsZero() && !params.ToTime.IsZero() {
+		session.Where("mtpv.create_time between ? and ?", params.FromTime.Format(constant.DateFormatYYYYMMDDDashed), params.ToTime.Format(constant.DateFormatYYYYMMDDDashed))
+	}
+
+	session.
+		Join(database.SQLInner, "mdl_mst_patient_institution mmpi", "mtpv.id_mst_patient = mmpi.id and mmpi.delete_time is null").
+		Join(database.SQLLeft, "mdl_mst_service_point mmsp", "mmsp.id = mtpv.id_mst_service_point")
 
 	err = session.Alias("mtpv").
 		Where("mtpv.id_mst_institution = ?", params.IDMstInstitution).
+		Select("mtpv.id, mtpv.action, mtpv.create_time, mtpv.update_time, mtpv.id_mst_journey_point, mtpv.id_mst_service_point, mmpi.name, mmsp.name, mmpi.sex, mmpi.uuid, mtpv.mst_journey_point_id_update_unix_time").
 		Find(&trxPatientVisit)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgGetPatientVisits)
@@ -156,13 +168,38 @@ func (c *Conn) GetPatientVisits(ctx context.Context, params model.GetPatientVisi
 	return
 }
 
-func (c *Conn) UpdatePatientVisit(ctx context.Context, trxVisit model.TrxPatientVisit) (err error) {
+func (c *Conn) UpdatePatientVisit(ctx context.Context, updateRequest model.UpdatePatientVisitRequest) (trxVisit model.TrxPatientVisit, err error) {
 	session := c.DB.MasterDB.Table(model.TrxPatientVisitTableName)
+
+	trxVisit = model.TrxPatientVisit{
+		ID:               updateRequest.ID,
+		IDMstInstitution: updateRequest.IDMstInstitution,
+	}
+
+	if updateRequest.IDMstJourneyBoard.Valid {
+		trxVisit.IDMstJourneyBoard = updateRequest.IDMstJourneyBoard.Int64
+		session.Cols("id_mst_journey_board")
+	}
+
+	if updateRequest.IDMstJourneyPoint.Valid {
+		trxVisit.IDMstJourneyPoint = updateRequest.IDMstJourneyPoint.Int64
+		session.Cols("id_mst_journey_point")
+	}
+
+	if updateRequest.IDMstServicePoint.Valid {
+		trxVisit.IDMstServicePoint = updateRequest.IDMstServicePoint.Int64
+		session.Cols("id_mst_service_point")
+	}
+
+	if updateRequest.UpdateTimeMstJourneyPointID.Valid {
+		trxVisit.UpdateTimeMstJourneyPointID = updateRequest.UpdateTimeMstJourneyPointID.Int64
+		session.Cols("mst_journey_point_id_update_unix_time")
+	}
 
 	_, err = session.
 		ID(trxVisit.ID).
 		Where("id_mst_institution = ?", trxVisit.IDMstInstitution).
-		Update(trxVisit)
+		Update(&trxVisit)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgUpdatePatientVisit)
 		return

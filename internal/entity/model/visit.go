@@ -2,21 +2,30 @@ package model
 
 import (
 	"time"
+
+	"github.com/volatiletech/null/v8"
 )
 
 type TrxPatientVisit struct {
-	ID                int64      `xorm:"'id' pk autoincr" json:"id"`
-	IDMstPatient      int64      `xorm:"'id_mst_patient'" json:"-"`
-	IDMstInstitution  int64      `xorm:"'id_mst_institution'" json:"-"`
-	IDMstJourneyBoard int64      `xorm:"'id_mst_journey_board'" json:"board_id"`
-	IDMstJourneyPoint int64      `xorm:"'id_mst_journey_point' null" json:"journey_point_id"`
-	IDMstServicePoint int64      `xorm:"'id_mst_service_point' null" json:"service_point_id"`
-	Action            string     `xorm:"'action'" json:"action"`
-	Status            string     `xorm:"'status'" json:"status"`
-	Notes             string     `xorm:"'notes'" json:"notes"`
-	CreateTime        time.Time  `json:"create_time" xorm:"'create_time' created"`
-	UpdateTime        time.Time  `json:"update_time" xorm:"'update_time' updated"`
-	DeleteTime        *time.Time `json:"-" xorm:"'delete_time' deleted"`
+	ID                          int64      `xorm:"'id' pk autoincr" json:"id"`
+	IDMstPatient                int64      `xorm:"'id_mst_patient'" json:"-"`
+	IDMstInstitution            int64      `xorm:"'id_mst_institution'" json:"-"`
+	IDMstJourneyBoard           int64      `xorm:"'id_mst_journey_board'" json:"board_id"`
+	IDMstJourneyPoint           int64      `xorm:"'id_mst_journey_point' null" json:"journey_point_id"`
+	IDMstServicePoint           int64      `xorm:"'id_mst_service_point' null" json:"service_point_id"`
+	Action                      string     `xorm:"'action'" json:"action"`
+	Status                      string     `xorm:"'status'" json:"status"`
+	Notes                       string     `xorm:"'notes'" json:"notes"`
+	CreateTime                  time.Time  `json:"create_time" xorm:"'create_time' created"`
+	UpdateTime                  time.Time  `json:"update_time" xorm:"'update_time' updated"`
+	DeleteTime                  *time.Time `json:"-" xorm:"'delete_time' deleted"`
+	UpdateTimeMstJourneyPointID int64      `json:"column_update_time" xorm:"'mst_journey_point_id_update_unix_time' created"`
+}
+
+func (tbl *TrxPatientVisit) BeforeUpdate() {
+	if tbl.IDMstJourneyPoint > 0 {
+		tbl.UpdateTimeMstJourneyPointID = time.Now().Unix()
+	}
 }
 
 type DtlPatientVisit struct {
@@ -37,7 +46,15 @@ type InsertNewVisitRequest struct {
 }
 
 type UpdatePatientVisitRequest struct {
-	InsertNewVisitRequest
+	// InsertNewVisitRequest
+	ID                          int64       `xorm:"'id' pk autoincr" json:"id"`
+	IDMstInstitution            int64       `xorm:"'id_mst_institution'" json:"-"`
+	IDMstJourneyBoard           null.Int64  `xorm:"'id_mst_journey_board'" json:"board_id"`
+	IDMstJourneyPoint           null.Int64  `xorm:"'id_mst_journey_point' null" json:"journey_point_id"`
+	IDMstServicePoint           null.Int64  `xorm:"'id_mst_service_point' null" json:"service_point_id"`
+	Action                      null.String `xorm:"'action'" json:"action"`
+	Status                      null.String `xorm:"'status'" json:"status"`
+	UpdateTimeMstJourneyPointID null.Int64  `json:"column_update_time" xorm:"'mst_journey_point_id_update_unix_time' created"`
 }
 
 type GetPatientVisitParams struct {
@@ -46,6 +63,29 @@ type GetPatientVisitParams struct {
 	IDPatientVisit    int64  `xorm:"id_trx_patient_visit" schema:"visit_id"`
 	IDMstInstitution  int64  `xorm:"id_mst_institution"`
 	IDMstJourneyBoard int64  `schema:"journey_board_id"`
+	RequestPayload
+}
+
+type GetPatientVisitResponse struct {
+	TrxPatientVisit       TrxPatientVisit       `xorm:"extends"`
+	MstPatientInstitution MstPatientInstitution `xorm:"extends"`
+	MstServicePoint       MstServicePoint       `xorm:"extends"`
+}
+
+type ListPatientVisitBoards struct {
+	ID                          int64     `xorm:"'id' pk autoincr" json:"id"`
+	IDMstJourneyBoard           int64     `xorm:"'id_mst_journey_board'" json:"board_id"`
+	IDMstJourneyPoint           int64     `xorm:"'id_mst_journey_point' null" json:"journey_point_id"`
+	IDMstServicePoint           int64     `xorm:"'id_mst_service_point' null" json:"service_point_id"`
+	NameMstServicePoint         string    `xorm:"'service_point_name'" json:"service_point_name"`
+	Action                      string    `xorm:"'action'" json:"action"`
+	Status                      string    `xorm:"'status'" json:"status"`
+	Notes                       string    `xorm:"'notes'" json:"notes"`
+	CreateTime                  time.Time `json:"create_time" xorm:"'create_time' created"`
+	UUID                        string    `json:"uuid" xorm:"'uuid' <-"`
+	Name                        string    `json:"name" xorm:"'name'"`
+	Sex                         string    `json:"sex" xorm:"'sex'"`
+	UpdateTimeMstJourneyPointID int64     `json:"column_update_time" xorm:"'mst_journey_point_id_update_unix_time' created"`
 }
 
 type DtlPatientVisitRequest struct {
