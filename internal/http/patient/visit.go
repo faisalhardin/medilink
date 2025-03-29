@@ -190,14 +190,14 @@ func (h *PatientHandler) GetVisitTouchpoint(w http.ResponseWriter, r *http.Reque
 func (h *PatientHandler) InsertVisitTouchpoint(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	request := model.InsertPatientVisitRequest{}
+	request := model.DtlPatientVisitRequest{}
 	err := bindingBind(r, &request)
 	if err != nil {
 		commonwriter.SetError(ctx, w, err)
 		return
 	}
 
-	err = h.VisitUC.InsertVisitTouchpoint(ctx, model.DtlPatientVisitRequest(request))
+	err = h.VisitUC.InsertVisitTouchpoint(ctx, request)
 	if err != nil {
 		commonwriter.SetError(ctx, w, err)
 		return

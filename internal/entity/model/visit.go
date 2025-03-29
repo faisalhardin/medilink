@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/volatiletech/null/v8"
@@ -29,15 +30,15 @@ func (tbl *TrxPatientVisit) BeforeUpdate() {
 }
 
 type DtlPatientVisit struct {
-	ID                int64      `xorm:"'id' pk autoincr" json:"id"`
-	IDTrxPatientVisit int64      `xorm:"'id_trx_patient_visit'" json:"id_trx_patient_visit"`
-	JourneyPointName  string     `xorm:"'name_mst_journey_point'" json:"name_mst_journey_point"`
-	IDMstJourneyPoint string     `xorm:"id_mst_journey_point" json:"journey_point_id"`
-	ActionBy          int64      `xorm:"action_by_id_mst_staff" json:"-"`
-	Notes             string     `xorm:"'notes'" json:"notes"`
-	CreateTime        time.Time  `json:"create_time" xorm:"'create_time' created"`
-	UpdateTime        time.Time  `json:"update_time" xorm:"'update_time' updated"`
-	DeleteTime        *time.Time `json:"-" xorm:"'delete_time' deleted"`
+	ID                int64           `xorm:"'id' pk autoincr" json:"id"`
+	IDTrxPatientVisit int64           `xorm:"'id_trx_patient_visit'" json:"id_trx_patient_visit"`
+	JourneyPointName  string          `xorm:"'name_mst_journey_point'" json:"name_mst_journey_point"`
+	IDMstJourneyPoint int64           `xorm:"id_mst_journey_point" json:"journey_point_id"`
+	ActionBy          int64           `xorm:"action_by_id_mst_staff" json:"-"`
+	Notes             json.RawMessage `xorm:"'notes'" json:"notes"`
+	CreateTime        time.Time       `json:"create_time" xorm:"'create_time' created"`
+	UpdateTime        time.Time       `json:"update_time" xorm:"'update_time' updated"`
+	DeleteTime        *time.Time      `json:"-" xorm:"'delete_time' deleted"`
 }
 
 type InsertNewVisitRequest struct {
@@ -89,10 +90,11 @@ type ListPatientVisitBoards struct {
 }
 
 type DtlPatientVisitRequest struct {
-	ID                int64  `json:"id" schema:"id"`
-	IDTrxPatientVisit int64  `json:"id_trx_patient_visit" schema:"id_trx_patient_visit"`
-	JourneyPointName  string `json:"name_mst_journey_point"`
-	Notes             string `json:"notes"`
+	ID                int64           `json:"id" schema:"id"`
+	IDTrxPatientVisit int64           `json:"id_trx_patient_visit" schema:"id_trx_patient_visit"`
+	JourneyPointName  string          `json:"name_mst_journey_point"`
+	IDMstJourneyPoint int64           `json:"id_mst_journey_point"`
+	Notes             json.RawMessage `json:"notes"`
 }
 
 type InsertPatientVisitRequest struct {

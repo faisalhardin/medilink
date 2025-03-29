@@ -202,14 +202,22 @@ func (u *VisitUC) ValidatePatientVisitExist(ctx context.Context, req model.DtlPa
 
 func (u *VisitUC) InsertVisitTouchpoint(ctx context.Context, req model.DtlPatientVisitRequest) (err error) {
 
+	if req.ID > 0 {
+		return u.UpdateVisitTouchpoint(ctx, req)
+	}
+
 	if err = u.ValidatePatientVisitExist(ctx, req); err != nil {
 		return errors.Wrap(err, WrapMsgInsertVisitTouchpoint)
 	}
 
+	user, _ := auth.GetUserDetailFromCtx(ctx)
+
 	err = u.PatientDB.InsertDtlPatientVisit(ctx, &model.DtlPatientVisit{
-		IDTrxPatientVisit: req.IDTrxPatientVisit,
 		JourneyPointName:  req.JourneyPointName,
 		Notes:             req.Notes,
+		IDTrxPatientVisit: req.IDTrxPatientVisit,
+		IDMstJourneyPoint: req.IDMstJourneyPoint,
+		ActionBy:          user.UserID,
 	})
 	if err != nil {
 		return errors.Wrap(err, WrapMsgInsertVisitTouchpoint)
@@ -224,9 +232,8 @@ func (u *VisitUC) UpdateVisitTouchpoint(ctx context.Context, req model.DtlPatien
 	}
 
 	err = u.PatientDB.UpdateDtlPatientVisit(ctx, &model.DtlPatientVisit{
-		ID:               req.ID,
-		JourneyPointName: req.JourneyPointName,
-		Notes:            req.Notes,
+		ID:    req.ID,
+		Notes: req.Notes,
 	})
 	if err != nil {
 		return errors.Wrap(err, WrapMsgUpdateVisitTouchpoint)

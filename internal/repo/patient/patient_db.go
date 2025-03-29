@@ -233,7 +233,7 @@ func (c *Conn) InsertDtlPatientVisit(ctx context.Context, request *model.DtlPati
 		Table(model.DtlPatientVisitTableName).
 		InsertOne(request)
 	if err != nil {
-		err = errors.Wrap(err, WrapMsgRecordPatientVisit)
+		err = errors.Wrap(err, WrapMsgInsertDtlPatientVisit)
 		return
 	}
 
