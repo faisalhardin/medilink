@@ -403,3 +403,26 @@ func (c *JourneyDB) DeleteServicePoint(ctx context.Context, mstServicePoint *mod
 
 	return
 }
+
+func (c *JourneyDB) GetJourneyBoardMappedByStaff(ctx context.Context, mstStaff model.MstStaff) (journeyPoint []model.MstJourneyPoint, err error) {
+
+	session := c.DB.SlaveDB.Table(database.MstJourneyPointTable).Alias("mjp")
+
+	session.Join(database.SQLInner, database.MapStaffJourneyPoint+" msjp", "msjp.id_mst_journey_point = mjp.id")
+	if mstStaff.ID > 0 {
+		session.Where("msjp.id_mst_staff = ?", mstStaff.ID)
+	} else if len(mstStaff.Email) > 0 {
+		session.
+			Join(database.SQLInner, database.MstStaff+" mms", "mms.id = msjp.id_mst_staff").
+			Where("ms.email = ?", mstStaff.Email)
+	}
+	err = session.
+		Select("mjp.id, mjp.name, mjp.id_mst_journey_board").
+		Find(&journeyPoint)
+	if err != nil {
+		err = errors.Wrap(err, "conn.GetJourneyBoardMappedByStaff")
+		return
+	}
+
+	return
+}

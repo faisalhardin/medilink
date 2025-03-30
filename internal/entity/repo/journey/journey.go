@@ -20,6 +20,7 @@ type JourneyDB interface {
 	GetJourneyPoint(ctx context.Context, param model.MstJourneyPoint) (resp *model.MstJourneyPoint, err error)
 	UpdateJourneyPoint(ctx context.Context, journeyPoint *model.MstJourneyPoint) (err error)
 	DeleteJourneyPoint(ctx context.Context, journeyPoint *model.MstJourneyPoint) (err error)
+	GetJourneyBoardMappedByStaff(ctx context.Context, mstStaff model.MstStaff) (journeyPoint []model.MstJourneyPoint, err error)
 
 	InserNewServicePoint(ctx context.Context, mstServicePoint *model.MstServicePoint) (err error)
 	ListServicePoints(ctx context.Context, params model.GetServicePointParams) (resp []model.MstServicePoint, err error)

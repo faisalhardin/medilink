@@ -21,9 +21,9 @@ type GetJourneyBoardParams struct {
 // model for mdl_mst_journey_point
 type MstJourneyPoint struct {
 	ID                int64  `xorm:"'id' pk autoincr" json:"id"`
-	Name              string `xorm:"'name'" json:"name"`
-	Position          int    `xorm:"'position'" json:"position"`
-	IDMstJourneyBoard int64  `xorm:"'id_mst_journey_board'" json:"board_id"`
+	Name              string `xorm:"'name'" json:"name,omitempty"`
+	Position          int    `xorm:"'position'" json:"position,omitempty"`
+	IDMstJourneyBoard int64  `xorm:"'id_mst_journey_board'" json:"board_id,omitempty"`
 	IDMstInstitution  int64  `xorm:"id_mst_institution" json:"-"`
 
 	CreateTime time.Time  `xorm:"'create_time' created" json:"create_time"`

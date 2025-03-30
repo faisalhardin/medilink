@@ -317,3 +317,21 @@ func (c *UserJourneyDB) DeleteServicePoint(ctx context.Context, mstServicePoint 
 
 	return c.JourneyDB.DeleteServicePoint(ctx, mstServicePoint)
 }
+
+func (c *UserJourneyDB) GetJourneyBoardMappedByStaff(ctx context.Context, mstStaff model.MstStaff) (journeyPoint []model.MstJourneyPoint, err error) {
+
+	defer func() {
+		if err != nil {
+			err = errors.Wrap(err, WrapMsgDeleteServicePoint)
+		}
+	}()
+
+	userDetail, found := auth.GetUserDetailFromCtx(ctx)
+	if !found {
+		err = commonerr.SetNewUnauthorizedAPICall()
+		return
+	}
+
+	mstStaff.ID = userDetail.UserID
+	return c.JourneyDB.GetJourneyBoardMappedByStaff(ctx, mstStaff)
+}

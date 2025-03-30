@@ -140,9 +140,10 @@ func main() {
 	})
 
 	authUC := authUC.New(&authUC.AuthUC{
-		Cfg:       *cfg,
-		AuthRepo:  *authRepo,
-		StaffRepo: staffDB,
+		Cfg:         *cfg,
+		AuthRepo:    *authRepo,
+		StaffRepo:   staffDB,
+		JourneyRepo: journeyDB,
 	})
 
 	productUC := productuc.NewProductUC(&productuc.ProductUC{
