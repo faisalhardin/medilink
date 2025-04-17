@@ -56,7 +56,12 @@ func (u *AuthUC) Login(w http.ResponseWriter, r *http.Request, params AuthParams
 		return
 	}
 
-	journeyPoints, err := u.JourneyRepo.GetJourneyBoardMappedByStaff(ctx, model.MstStaff{ID: userDetail.Staff.ID})
+	journeyPoints, err := u.JourneyRepo.GetJourneyPointMappedByStaff(ctx, model.MstStaff{ID: userDetail.Staff.ID})
+	if err != nil {
+		return
+	}
+
+	servicePoints, err := u.JourneyRepo.GetServicePointMappedByJourneyPoints(ctx, journeyPoints, model.MstStaff{ID: userDetail.Staff.ID})
 	if err != nil {
 		return
 	}
@@ -64,7 +69,7 @@ func (u *AuthUC) Login(w http.ResponseWriter, r *http.Request, params AuthParams
 	currTime := time.Now()
 	expireDuration := time.Duration(u.Cfg.JWTConfig.DurationInMinutes) * time.Minute
 	expiredTime := currTime.Add(expireDuration)
-	token, err := u.AuthRepo.CreateJWTToken(ctx, model.GenerateUserDataJWTInformation(userDetail, authedUser, journeyPoints), currTime, expiredTime)
+	token, err := u.AuthRepo.CreateJWTToken(ctx, model.GenerateUserDataJWTInformation(userDetail, authedUser, journeyPoints, servicePoints), currTime, expiredTime)
 	if err != nil {
 		return
 	}

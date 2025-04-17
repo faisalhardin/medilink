@@ -30,6 +30,8 @@ const (
 	WrapMsgGetServicePoint      = PrefixUserJourneyDB + ".GetServicePoint"
 	WrapMsgUpdateServicePoint   = PrefixUserJourneyDB + ".UpdateServicePoint"
 	WrapMsgDeleteServicePoint   = PrefixUserJourneyDB + ".DeleteServicePoint"
+
+	WrapMsgGetServicePointMappedByJourneyPoints = PrefixUserJourneyDB + ".GetServicePointMappedByJourneyPoints"
 )
 
 type UserJourneyDB struct {
@@ -318,7 +320,7 @@ func (c *UserJourneyDB) DeleteServicePoint(ctx context.Context, mstServicePoint 
 	return c.JourneyDB.DeleteServicePoint(ctx, mstServicePoint)
 }
 
-func (c *UserJourneyDB) GetJourneyBoardMappedByStaff(ctx context.Context, mstStaff model.MstStaff) (journeyPoint []model.MstJourneyPoint, err error) {
+func (c *UserJourneyDB) GetJourneyPointMappedByStaff(ctx context.Context, mstStaff model.MstStaff) (journeyPoint []model.MstJourneyPoint, err error) {
 
 	defer func() {
 		if err != nil {
@@ -333,5 +335,22 @@ func (c *UserJourneyDB) GetJourneyBoardMappedByStaff(ctx context.Context, mstSta
 	}
 
 	mstStaff.ID = userDetail.UserID
-	return c.JourneyDB.GetJourneyBoardMappedByStaff(ctx, mstStaff)
+	return c.JourneyDB.GetJourneyPointMappedByStaff(ctx, mstStaff)
+}
+
+func (c *UserJourneyDB) GetServicePointMappedByJourneyPoints(ctx context.Context, journeyPoints []model.MstJourneyPoint, mstStaff model.MstStaff) (servicePoints []model.MstServicePoint, err error) {
+	defer func() {
+		if err != nil {
+			err = errors.Wrap(err, WrapMsgGetServicePointMappedByJourneyPoints)
+		}
+	}()
+
+	userDetail, found := auth.GetUserDetailFromCtx(ctx)
+	if !found {
+		err = commonerr.SetNewUnauthorizedAPICall()
+	}
+
+	mstStaff.ID = userDetail.UserID
+	return c.JourneyDB.GetServicePointMappedByJourneyPoints(ctx, journeyPoints, mstStaff)
+
 }

@@ -25,6 +25,7 @@ const (
 	WrapMsgInsertDtlPatientVisit            = WrapErrMsgPrefix + "InsertDtlPatientVisit"
 	WrapMsgUpdateDtlPatientVisit            = WrapErrMsgPrefix + "UpdateDtlPatientVisit"
 	WrapMsgGetDtlPatientVisit               = WrapErrMsgPrefix + "GetDtlPatientVisit"
+	WrapMsgGetDtlPatientVisitByID           = WrapErrMsgPrefix + "GetDtlPatientVisitByID"
 	WrapMsgInsertTrxVisitProduct            = WrapErrMsgPrefix + "InsertTrxVisitProduct"
 	WrapMsgUpdateTrxVisitProduct            = WrapErrMsgPrefix + "UpdateTrxVisitProduct"
 	WrapMsgDeleteTrxVisitProduct            = WrapErrMsgPrefix + "DeleteTrxVisitProduct"
@@ -273,6 +274,19 @@ func (c *Conn) GetDtlPatientVisit(ctx context.Context, params model.DtlPatientVi
 		Find(&dtlPatientVisit)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgGetDtlPatientVisit)
+		return
+	}
+
+	return
+}
+
+func (c *Conn) GetDtlPatientVisitByID(ctx context.Context, id int64) (dtlPatientVisit model.DtlPatientVisit, err error) {
+	session := c.DB.SlaveDB.Table(model.DtlPatientVisitTableName)
+
+	_, err = session.Alias("mdpv").
+		Get(&dtlPatientVisit)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgGetDtlPatientVisitByID)
 		return
 	}
 

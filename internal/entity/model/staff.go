@@ -41,6 +41,7 @@ type UserJWTPayload struct {
 	ImageURL        string              `json:"image_url"`
 	ProviderUserID  string              `json:"provider_user_id"`
 	JourneyPoints   []MstJourneyPoint   `json:"journey_points"`
+	ServicePoints   []MstServicePoint   `json:"service_points"`
 }
 
 type UserRoleJWTDetail struct {
@@ -78,7 +79,7 @@ func GenerateUserDetailSessionInformation(u UserDetail, expiredTime time.Time) U
 	}
 }
 
-func GenerateUserDataJWTInformation(internalUserDetail UserDetail, externalUserDetail GoogleUser, journeyPoints []MstJourneyPoint) UserJWTPayload {
+func GenerateUserDataJWTInformation(internalUserDetail UserDetail, externalUserDetail GoogleUser, journeyPoints []MstJourneyPoint, servicePoints []MstServicePoint) UserJWTPayload {
 	userRoles := []UserRoleJWTDetail{}
 
 	for _, role := range internalUserDetail.Roles {
@@ -95,5 +96,6 @@ func GenerateUserDataJWTInformation(internalUserDetail UserDetail, externalUserD
 		ImageURL:       externalUserDetail.Picture,
 		ProviderUserID: externalUserDetail.ID,
 		JourneyPoints:  journeyPoints,
+		ServicePoints:  servicePoints,
 	}
 }

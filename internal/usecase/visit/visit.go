@@ -2,6 +2,7 @@ package visit
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 
@@ -211,14 +212,22 @@ func (u *VisitUC) InsertVisitTouchpoint(ctx context.Context, req model.DtlPatien
 	}
 
 	user, _ := auth.GetUserDetailFromCtx(ctx)
+	contributorsSlice := []string{user.Email}
+	contributors, err := json.Marshal(contributorsSlice)
+	if err != nil {
+		return err
+	}
 
-	err = u.PatientDB.InsertDtlPatientVisit(ctx, &model.DtlPatientVisit{
+	dtlPatientVisit := &model.DtlPatientVisit{
 		JourneyPointName:  req.JourneyPointName,
 		Notes:             req.Notes,
 		IDTrxPatientVisit: req.IDTrxPatientVisit,
 		IDMstJourneyPoint: req.IDMstJourneyPoint,
-		ActionBy:          user.UserID,
-	})
+		Contributors:      contributors,
+		IDMstServicePoint: req.IDMstServicePoint.Int64,
+	}
+
+	err = u.PatientDB.InsertDtlPatientVisit(ctx, dtlPatientVisit)
 	if err != nil {
 		return errors.Wrap(err, WrapMsgInsertVisitTouchpoint)
 	}
@@ -231,10 +240,32 @@ func (u *VisitUC) UpdateVisitTouchpoint(ctx context.Context, req model.DtlPatien
 		return errors.Wrap(err, WrapMsgUpdateVisitTouchpoint)
 	}
 
-	err = u.PatientDB.UpdateDtlPatientVisit(ctx, &model.DtlPatientVisit{
+	oldPatientVisit, err := u.PatientDB.GetDtlPatientVisitByID(ctx, req.ID)
+	if err != nil {
+		return errors.Wrap(err, WrapMsgUpdateVisitTouchpoint)
+	}
+
+	userDetail, found := auth.GetUserDetailFromCtx(ctx)
+	if !found {
+		err = commonerr.SetNewUnauthorizedAPICall()
+		return
+	}
+
+	isNewContributor, err := oldPatientVisit.AddContributor(userDetail.Email)
+	if err != nil {
+		return errors.Wrap(err, WrapMsgUpdateVisitTouchpoint)
+	}
+
+	newPatientVisit := &model.DtlPatientVisit{
 		ID:    req.ID,
 		Notes: req.Notes,
-	})
+	}
+
+	if isNewContributor {
+		newPatientVisit.Contributors = oldPatientVisit.Contributors
+	}
+
+	err = u.PatientDB.UpdateDtlPatientVisit(ctx, newPatientVisit)
 	if err != nil {
 		return errors.Wrap(err, WrapMsgUpdateVisitTouchpoint)
 	}

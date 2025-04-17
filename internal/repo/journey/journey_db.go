@@ -13,6 +13,8 @@ import (
 )
 
 const (
+	WrapMsgPrefix = "JourneyDB."
+
 	WrapMsgInsertNewJourneyBoard = "InsertNewJourneyBoard"
 	WrapMsgListJourneyBoard      = "ListJourneyBoard"
 	WrapMsgGetJourneyBoardByID   = "GetJourneyBoardByID"
@@ -31,6 +33,8 @@ const (
 	WrapMsgGetServicePoint      = "GetServicePoint"
 	WrapMsgUpdateServicePoint   = "UpdateServicePoint"
 	WrapMsgDeleteServicePoint   = "DeleteServicePoint"
+
+	WrapMsgGetServicePointMappedByJourneyPoints = WrapMsgPrefix + "GetServicePointMappedByJourneyPoints"
 )
 
 type JourneyDB struct {
@@ -404,7 +408,7 @@ func (c *JourneyDB) DeleteServicePoint(ctx context.Context, mstServicePoint *mod
 	return
 }
 
-func (c *JourneyDB) GetJourneyBoardMappedByStaff(ctx context.Context, mstStaff model.MstStaff) (journeyPoint []model.MstJourneyPoint, err error) {
+func (c *JourneyDB) GetJourneyPointMappedByStaff(ctx context.Context, mstStaff model.MstStaff) (journeyPoint []model.MstJourneyPoint, err error) {
 
 	session := c.DB.SlaveDB.Table(database.MstJourneyPointTable).Alias("mjp")
 
@@ -420,7 +424,38 @@ func (c *JourneyDB) GetJourneyBoardMappedByStaff(ctx context.Context, mstStaff m
 		Select("mjp.id, mjp.name, mjp.id_mst_journey_board").
 		Find(&journeyPoint)
 	if err != nil {
-		err = errors.Wrap(err, "conn.GetJourneyBoardMappedByStaff")
+		err = errors.Wrap(err, "conn.GetJourneyPointMappedByStaff")
+		return
+	}
+
+	return
+}
+
+func (c *JourneyDB) GetServicePointMappedByJourneyPoints(ctx context.Context, journeyPoints []model.MstJourneyPoint, mstStaff model.MstStaff) (servicePoints []model.MstServicePoint, err error) {
+	session := c.DB.SlaveDB.Table(database.MstServicePointTable).Alias("msp")
+
+	session.
+		Join(database.SQLInner,
+			database.MapStaffServicePoint+" mssp",
+			"mssp.id_mst_service_point = msp.id")
+	if mstStaff.ID > 0 {
+		session.Where("mssp.id_mst_staff = ?", mstStaff.ID)
+	} else if len(mstStaff.Email) > 0 {
+		session.
+			Join(database.SQLInner, database.MstStaff+" mms", "mms.id = msjp.id_mst_staff").
+			Where("ms.email = ?", mstStaff.Email)
+	}
+
+	if len(journeyPoints) == 0 {
+		session.
+			In("mssp.id_mst_journey_point", pq.Array(journeyPoints))
+	}
+
+	err = session.
+		Select("msp.*").
+		Find(&servicePoints)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgGetServicePointMappedByJourneyPoints)
 		return
 	}
 
