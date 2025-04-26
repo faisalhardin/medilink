@@ -54,13 +54,11 @@ func RegisterRoutes(m *module) http.Handler {
 			// END: /v1/visit
 
 			authed.Route("/visit-detail", func(visit chi.Router) {
+				visit.Post("/", m.httpHandler.PatientHandler.UpsertVisitTouchpoint)
 				visit.Route("/{id}", func(visit chi.Router) {
 					visit.Get("/", m.httpHandler.PatientHandler.GetVisitTouchpoint)
 					visit.Post("/product", m.httpHandler.PatientHandler.InsertVisitProduct)
 				})
-
-				visit.Post("/", m.httpHandler.PatientHandler.InsertVisitTouchpoint)
-				visit.Patch("/", m.httpHandler.PatientHandler.UpdateVisitTouchpoint)
 			})
 
 			authed.Route("/journey", func(journey chi.Router) {

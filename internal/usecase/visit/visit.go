@@ -95,6 +95,8 @@ func (u *VisitUC) GetPatientVisitDetail(ctx context.Context, req model.GetPatien
 			return nil
 		}
 		visitDetail.TrxPatientVisit = visit[0].TrxPatientVisit
+		visitDetail.MstPatient = visit[0].MstPatientInstitution
+
 		return nil
 	})
 
@@ -201,25 +203,37 @@ func (u *VisitUC) ValidatePatientVisitExist(ctx context.Context, req model.DtlPa
 	return nil
 }
 
-func (u *VisitUC) InsertVisitTouchpoint(ctx context.Context, req model.DtlPatientVisitRequest) (err error) {
-
+func (u *VisitUC) UpsertVisitTouchpoint(ctx context.Context, req model.DtlPatientVisitRequest) (dtlPatientVisit model.DtlPatientVisit, err error) {
 	if req.ID > 0 {
 		return u.UpdateVisitTouchpoint(ctx, req)
+	} else {
+		return u.InsertVisitTouchpoint(ctx, req)
 	}
+}
 
+func (u *VisitUC) InsertVisitTouchpoint(ctx context.Context, req model.DtlPatientVisitRequest) (dtlPatientVisit model.DtlPatientVisit, err error) {
 	if err = u.ValidatePatientVisitExist(ctx, req); err != nil {
-		return errors.Wrap(err, WrapMsgInsertVisitTouchpoint)
+		err = errors.Wrap(err, WrapMsgInsertVisitTouchpoint)
+		return
 	}
 
 	user, _ := auth.GetUserDetailFromCtx(ctx)
 	contributorsSlice := []string{user.Email}
 	contributors, err := json.Marshal(contributorsSlice)
 	if err != nil {
-		return err
+		return
 	}
 
-	dtlPatientVisit := &model.DtlPatientVisit{
-		JourneyPointName:  req.JourneyPointName,
+	mstJourneyPoint, err := u.JourneyDB.GetJourneyPoint(ctx, model.MstJourneyPoint{
+		ID: req.IDMstJourneyPoint,
+	})
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgInsertVisitTouchpoint)
+		return
+	}
+
+	dtlPatientVisit = model.DtlPatientVisit{
+		JourneyPointName:  mstJourneyPoint.Name,
 		Notes:             req.Notes,
 		IDTrxPatientVisit: req.IDTrxPatientVisit,
 		IDMstJourneyPoint: req.IDMstJourneyPoint,
@@ -227,22 +241,26 @@ func (u *VisitUC) InsertVisitTouchpoint(ctx context.Context, req model.DtlPatien
 		IDMstServicePoint: req.IDMstServicePoint.Int64,
 	}
 
-	err = u.PatientDB.InsertDtlPatientVisit(ctx, dtlPatientVisit)
+	err = u.PatientDB.InsertDtlPatientVisit(ctx, &dtlPatientVisit)
 	if err != nil {
-		return errors.Wrap(err, WrapMsgInsertVisitTouchpoint)
+		err = errors.Wrap(err, WrapMsgInsertVisitTouchpoint)
+		return
 	}
+
 	return
 }
 
-func (u *VisitUC) UpdateVisitTouchpoint(ctx context.Context, req model.DtlPatientVisitRequest) (err error) {
+func (u *VisitUC) UpdateVisitTouchpoint(ctx context.Context, req model.DtlPatientVisitRequest) (dtlPatientVisit model.DtlPatientVisit, err error) {
 
 	if err = u.ValidatePatientVisitExist(ctx, req); err != nil {
-		return errors.Wrap(err, WrapMsgUpdateVisitTouchpoint)
+		err = errors.Wrap(err, WrapMsgUpdateVisitTouchpoint)
+		return
 	}
 
 	oldPatientVisit, err := u.PatientDB.GetDtlPatientVisitByID(ctx, req.ID)
 	if err != nil {
-		return errors.Wrap(err, WrapMsgUpdateVisitTouchpoint)
+		err = errors.Wrap(err, WrapMsgUpdateVisitTouchpoint)
+		return
 	}
 
 	userDetail, found := auth.GetUserDetailFromCtx(ctx)
@@ -253,7 +271,8 @@ func (u *VisitUC) UpdateVisitTouchpoint(ctx context.Context, req model.DtlPatien
 
 	isNewContributor, err := oldPatientVisit.AddContributor(userDetail.Email)
 	if err != nil {
-		return errors.Wrap(err, WrapMsgUpdateVisitTouchpoint)
+		err = errors.Wrap(err, WrapMsgUpdateVisitTouchpoint)
+		return
 	}
 
 	newPatientVisit := &model.DtlPatientVisit{
@@ -267,9 +286,10 @@ func (u *VisitUC) UpdateVisitTouchpoint(ctx context.Context, req model.DtlPatien
 
 	err = u.PatientDB.UpdateDtlPatientVisit(ctx, newPatientVisit)
 	if err != nil {
-		return errors.Wrap(err, WrapMsgUpdateVisitTouchpoint)
+		err = errors.Wrap(err, WrapMsgUpdateVisitTouchpoint)
+		return
 	}
-	return
+	return *newPatientVisit, nil
 }
 
 func (u *VisitUC) GetVisitTouchpoint(ctx context.Context, req model.DtlPatientVisitRequest) (dtlVisit []model.DtlPatientVisit, err error) {

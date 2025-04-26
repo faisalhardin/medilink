@@ -187,7 +187,7 @@ func (h *PatientHandler) GetVisitTouchpoint(w http.ResponseWriter, r *http.Reque
 	commonwriter.SetOKWithData(ctx, w, touchpoint)
 }
 
-func (h *PatientHandler) InsertVisitTouchpoint(w http.ResponseWriter, r *http.Request) {
+func (h *PatientHandler) UpsertVisitTouchpoint(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	request := model.DtlPatientVisitRequest{}
@@ -197,32 +197,13 @@ func (h *PatientHandler) InsertVisitTouchpoint(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	err = h.VisitUC.InsertVisitTouchpoint(ctx, request)
+	resp, err := h.VisitUC.UpsertVisitTouchpoint(ctx, request)
 	if err != nil {
 		commonwriter.SetError(ctx, w, err)
 		return
 	}
 
-	commonwriter.SetOKWithData(ctx, w, "ok")
-}
-
-func (h *PatientHandler) UpdateVisitTouchpoint(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	request := model.DtlPatientVisitRequest{}
-	err := bindingBind(r, &request)
-	if err != nil {
-		commonwriter.SetError(ctx, w, err)
-		return
-	}
-
-	err = h.VisitUC.UpdateVisitTouchpoint(ctx, request)
-	if err != nil {
-		commonwriter.SetError(ctx, w, err)
-		return
-	}
-
-	commonwriter.SetOKWithData(ctx, w, "ok")
+	commonwriter.SetOKWithData(ctx, w, resp)
 }
 
 func (h *PatientHandler) InsertVisitProduct(w http.ResponseWriter, r *http.Request) {

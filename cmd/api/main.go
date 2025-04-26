@@ -137,6 +137,7 @@ func main() {
 		PatientDB:       patientDB,
 		InstitutionRepo: institutionDB,
 		Transaction:     transaction,
+		JourneyDB:       customerJourneyDB,
 	})
 
 	authUC := authUC.New(&authUC.AuthUC{

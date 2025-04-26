@@ -141,5 +141,6 @@ type InsertPatientVisitRequest struct {
 
 type GetPatientVisitDetailResponse struct {
 	TrxPatientVisit
-	DtlPatientVisit []DtlPatientVisit `json:"patient_checkpoints"`
+	DtlPatientVisit []DtlPatientVisit     `json:"patient_checkpoints"`
+	MstPatient      MstPatientInstitution `json:"patient"`
 }

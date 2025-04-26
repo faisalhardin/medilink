@@ -15,7 +15,6 @@ type PatientHandler interface {
 	UpdatePatientVisit(w http.ResponseWriter, r *http.Request)
 
 	GetVisitTouchpoint(w http.ResponseWriter, r *http.Request)
-	InsertVisitTouchpoint(w http.ResponseWriter, r *http.Request)
-	UpdateVisitTouchpoint(w http.ResponseWriter, r *http.Request)
+	UpsertVisitTouchpoint(w http.ResponseWriter, r *http.Request)
 	InsertVisitProduct(w http.ResponseWriter, r *http.Request)
 }

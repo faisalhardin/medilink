@@ -17,6 +17,8 @@ import (
 const (
 	WrapErrMsgPrefix                        = "Conn."
 	WrapMsgRegisterNewPatient               = WrapErrMsgPrefix + "RegisterNewPatient"
+	WrapMsgGetPatientByID                   = WrapErrMsgPrefix + "GetPatientByID"
+	WrapMsgGetPatients                      = WrapErrMsgPrefix + "GetPatients"
 	WrapMsgRecordPatientVisit               = WrapErrMsgPrefix + "RecordPatientVisit"
 	WrapMsgGetPatientVisitRecordByPatientID = WrapErrMsgPrefix + "GetPatientVisitRecordByPatientID"
 	WrapMsgUpdatePatientVisit               = WrapErrMsgPrefix + "UpdatePatientVisit"
@@ -56,13 +58,24 @@ func (c *Conn) RegisterNewPatient(ctx context.Context, patient *model.MstPatient
 	return
 }
 
+func (c *Conn) GetPatientByID(ctx context.Context, patientID int64) (patient model.MstPatientInstitution, err error) {
+	session := c.DB.SlaveDB.Table(model.MstPatientInstitutionTableName)
+	_, err = session.Where("id = ?", patientID).Get(&patient)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgGetPatientByID)
+		return
+	}
+
+	return
+}
+
 func (c *Conn) GetPatients(ctx context.Context, params model.GetPatientParams) (patients []model.MstPatientInstitution, err error) {
 
 	if params.InstitutionID == 0 {
 		err = commonerr.SetNewNoInstitutionError()
 		return
 	}
-	session := c.DB.MasterDB.Table(model.MstPatientInstitutionTableName)
+	session := c.DB.SlaveDB.Table(model.MstPatientInstitutionTableName)
 
 	if !params.DateOfBirth.Time().IsZero() {
 		session.Where("mmpi.date_of_birth::date = ?", params.DateOfBirth.Time().Format(constant.DateFormatYYYYMMDDDashed))
@@ -92,7 +105,7 @@ func (c *Conn) GetPatients(ctx context.Context, params model.GetPatientParams) (
 		Where("mmpi.id_mst_institution = ?", params.InstitutionID).
 		FindAndCount(&patients)
 	if err != nil {
-		err = errors.Wrap(err, WrapMsgRegisterNewPatient)
+		err = errors.Wrap(err, WrapMsgGetPatients)
 		return
 	}
 
@@ -260,8 +273,9 @@ func (c *Conn) UpdateDtlPatientVisit(ctx context.Context, request *model.DtlPati
 }
 
 func (c *Conn) GetDtlPatientVisit(ctx context.Context, params model.DtlPatientVisit) (dtlPatientVisit []model.DtlPatientVisit, err error) {
-	session := c.DB.SlaveDB.Table(model.DtlPatientVisitTableName)
+	dtlPatientVisit = []model.DtlPatientVisit{}
 
+	session := c.DB.SlaveDB.Table(model.DtlPatientVisitTableName)
 	if params.IDTrxPatientVisit > 0 {
 		session.Where("mdpv.id_trx_patient_visit = ?", params.IDTrxPatientVisit)
 	}
