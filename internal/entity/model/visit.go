@@ -105,6 +105,7 @@ type GetPatientVisitResponse struct {
 	TrxPatientVisit       TrxPatientVisit       `xorm:"extends"`
 	MstPatientInstitution MstPatientInstitution `xorm:"extends"`
 	MstServicePoint       MstServicePoint       `xorm:"extends"`
+	MstJourneyPoint       MstJourneyPoint       `xorm:"extends"`
 }
 
 type ListPatientVisitBoards struct {
@@ -143,4 +144,6 @@ type GetPatientVisitDetailResponse struct {
 	TrxPatientVisit
 	DtlPatientVisit []DtlPatientVisit     `json:"patient_checkpoints"`
 	MstPatient      MstPatientInstitution `json:"patient"`
+	JourneyPoint    MstJourneyPoint       `json:"journey_point"`
+	ServicePoint    MstServicePoint       `json:"service_point"`
 }

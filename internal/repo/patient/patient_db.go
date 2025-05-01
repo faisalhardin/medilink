@@ -9,6 +9,7 @@ import (
 	"github.com/faisalhardin/medilink/internal/entity/constant/database"
 	"github.com/faisalhardin/medilink/internal/entity/model"
 	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
+	"github.com/faisalhardin/medilink/internal/library/common/log"
 	xormlib "github.com/faisalhardin/medilink/internal/library/db/xorm"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
@@ -168,17 +169,19 @@ func (c *Conn) GetPatientVisits(ctx context.Context, params model.GetPatientVisi
 
 	session.
 		Join(database.SQLInner, "mdl_mst_patient_institution mmpi", "mtpv.id_mst_patient = mmpi.id and mmpi.delete_time is null").
-		Join(database.SQLLeft, "mdl_mst_service_point mmsp", "mmsp.id = mtpv.id_mst_service_point")
+		Join(database.SQLLeft, "mdl_mst_service_point mmsp", "mmsp.id = mtpv.id_mst_service_point").
+		Join(database.SQLInner, "mdl_mst_journey_point mmjp", "mmjp.id = mtpv.id_mst_journey_point")
 
 	err = session.Alias("mtpv").
 		Where("mtpv.id_mst_institution = ?", params.IDMstInstitution).
-		Select("mtpv.id, mtpv.action, mtpv.create_time, mtpv.update_time, mtpv.id_mst_journey_point, mtpv.id_mst_service_point, mmpi.name, mmsp.name, mmpi.sex, mmpi.uuid, mtpv.mst_journey_point_id_update_unix_time").
+		Select("mtpv.id, mtpv.action, mtpv.create_time, mtpv.update_time, mtpv.id_mst_journey_point, mtpv.id_mst_service_point, mtpv.mst_journey_point_id_update_unix_time, mmpi.id, mmpi.name, mmsp.id, mmsp.name, mmpi.sex, mmpi.uuid,  mmjp.id, mmjp.name").
 		Find(&trxPatientVisit)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgGetPatientVisits)
 		return
 	}
 
+	log.Info(trxPatientVisit[0].MstJourneyPoint)
 	return
 }
 
@@ -263,6 +266,7 @@ func (c *Conn) UpdateDtlPatientVisit(ctx context.Context, request *model.DtlPati
 	_, err = session.
 		ID(request.ID).
 		Table(model.DtlPatientVisitTableName).
+		Cols("notes", "contributors").
 		Update(request)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgUpdateDtlPatientVisit)
