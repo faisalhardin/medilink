@@ -61,6 +61,8 @@ func (u *VisitUC) InsertNewVisit(ctx context.Context, req model.InsertNewVisitRe
 	}
 
 	req.IDMstPatient = mstPatient[0].ID
+	req.IDMstInstitution = userDetail.InstitutionID
+
 	err = u.PatientDB.RecordPatientVisit(ctx, &req.TrxPatientVisit)
 	if err != nil {
 		return errors.Wrap(err, WrapMsgInsertNewVisit)

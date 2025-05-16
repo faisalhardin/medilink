@@ -71,6 +71,7 @@ func (c *Conn) GetPatientByID(ctx context.Context, patientID int64) (patient mod
 }
 
 func (c *Conn) GetPatients(ctx context.Context, params model.GetPatientParams) (patients []model.MstPatientInstitution, err error) {
+	patients = []model.MstPatientInstitution{}
 
 	if params.InstitutionID == 0 {
 		err = commonerr.SetNewNoInstitutionError()
@@ -170,7 +171,7 @@ func (c *Conn) GetPatientVisits(ctx context.Context, params model.GetPatientVisi
 	session.
 		Join(database.SQLInner, "mdl_mst_patient_institution mmpi", "mtpv.id_mst_patient = mmpi.id and mmpi.delete_time is null").
 		Join(database.SQLLeft, "mdl_mst_service_point mmsp", "mmsp.id = mtpv.id_mst_service_point").
-		Join(database.SQLInner, "mdl_mst_journey_point mmjp", "mmjp.id = mtpv.id_mst_journey_point")
+		Join(database.SQLLeft, "mdl_mst_journey_point mmjp", "mmjp.id = mtpv.id_mst_journey_point")
 
 	err = session.Alias("mtpv").
 		Where("mtpv.id_mst_institution = ?", params.IDMstInstitution).

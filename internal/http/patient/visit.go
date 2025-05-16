@@ -13,14 +13,13 @@ import (
 func (h *PatientHandler) InsertNewVisit(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	patientUUID := chi.URLParam(r, "id")
 	request := model.InsertNewVisitRequest{}
 	err := bindingBind(r, &request)
 	if err != nil {
 		commonwriter.SetError(ctx, w, err)
 		return
 	}
-	request.PatientUUID = patientUUID
+
 	err = h.VisitUC.InsertNewVisit(ctx, request)
 	if err != nil {
 		commonwriter.SetError(ctx, w, err)
