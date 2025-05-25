@@ -45,10 +45,16 @@ func (c *Conn) FindTrxInstitutionProductStockByParams(ctx context.Context, reque
 	return
 }
 
-func (c *Conn) FindTrxInstitutionProductJoinStockByParams(ctx context.Context, request model.FindTrxInstitutionProductDBParams) (products []model.GetInstitutionProductResponse, err error) {
+func (c *Conn) FindTrxInstitutionProductJoinStockByParams(ctx context.Context, request model.FindTrxInstitutionProductParams) (products []model.GetInstitutionProductResponse, err error) {
 	if request.IDMstInstitution == 0 {
 		err = errors.Wrap(commonerr.SetNewNoInstitutionError(), WrapMsgFindTrxInstitutionProductJoinStockByParams)
 		return
+	}
+	if request.Page > 0 {
+		request.Offset = request.Limit * (request.Page - 1)
+	}
+	if request.Limit == 0 {
+		request.Limit = 30
 	}
 
 	session := c.DB.SlaveDB.
@@ -56,12 +62,18 @@ func (c *Conn) FindTrxInstitutionProductJoinStockByParams(ctx context.Context, r
 		Alias("mtip").
 		Join(database.SQLInner, "mdl_dtl_institution_product_stock mdips", "(mtip.id = mdips.id_trx_institution_product and mtip.delete_time is null and mdips.delete_time is null)")
 
-	if len(request.ID) > 0 {
-		session.Where("mtip.id = ANY(?)", pq.Array(request.ID))
+	if len(request.IDs) > 0 {
+		session.Where("mtip.id = ANY(?)", pq.Array(request.IDs))
 	}
 
 	if len(request.Name) > 0 {
 		session.Where(fmt.Sprintf("mtip.name ilike '%%%s%%'", request.Name))
+	}
+	if request.IsItem {
+		session.Where("mtip.is_item = ?", request.IsItem)
+	}
+	if request.IsTreatment {
+		session.Where("mtip.is_treatment = ?", request.IsTreatment)
 	}
 
 	if len(request.IDMstProduct) > 0 {
@@ -72,6 +84,7 @@ func (c *Conn) FindTrxInstitutionProductJoinStockByParams(ctx context.Context, r
 		Where("id_mst_institution = ?", request.IDMstInstitution).
 		Select(`mtip.id, mtip.name, mtip.id_mst_product, mtip.price, 
 		mtip.is_item, mtip.is_treatment, mdips.quantity, mdips.unit_type`).
+		Limit(request.Limit, request.Offset).
 		Find(&products)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgFindTrxInstitutionProductJoinStockByParams)

@@ -333,7 +333,7 @@ func (c *JourneyDB) ListServicePoints(ctx context.Context, params model.GetServi
 
 	err = session.
 		Where("id_mst_journey_board = ?", params.IDMstBoard).
-		Limit(params.Limit, params.Start).
+		Limit(params.Limit, params.Offset).
 		OrderBy("id ASC").
 		Find(&resp)
 	if err != nil {

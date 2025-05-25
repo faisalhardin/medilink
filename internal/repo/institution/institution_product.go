@@ -7,6 +7,7 @@ import (
 	"github.com/faisalhardin/medilink/internal/entity/model"
 	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
 	"github.com/faisalhardin/medilink/internal/library/db/xorm"
+	"github.com/lib/pq"
 	"github.com/pkg/errors"
 )
 
@@ -35,7 +36,7 @@ func (c *Conn) InsertInstitutionProduct(ctx context.Context, product *model.TrxI
 	return
 }
 
-func (c *Conn) FindTrxInstitutionProductByParams(ctx context.Context, request model.TrxInstitutionProduct) (products []model.TrxInstitutionProduct, err error) {
+func (c *Conn) FindTrxInstitutionProductByParams(ctx context.Context, request model.FindTrxInstitutionProductParams) (products []model.TrxInstitutionProduct, err error) {
 	if request.IDMstInstitution == 0 {
 		err = commonerr.SetNewNoInstitutionError()
 		return
@@ -45,16 +46,18 @@ func (c *Conn) FindTrxInstitutionProductByParams(ctx context.Context, request mo
 		Context(ctx).
 		Table(TrxInstitutionProduct)
 
-	if request.ID > 0 {
-		session.Where("mtip.id = ?", request.ID)
+	if len(request.IDs) > 0 {
+		session.Where("mtip.id = any(?)", pq.Array(request.IDs))
+	}
+	if request.IsItem {
+		session.Where("mtip.is_item = ?", request.IsItem)
+	}
+	if request.IsTreatment {
+		session.Where("mtip.is_treatment = ?", request.IsTreatment)
 	}
 
 	if len(request.Name) > 0 {
 		session.Where(fmt.Sprintf("mtip.name ilike '%%%s%%'", request.Name))
-	}
-
-	if request.IDMstProduct.Valid {
-		session.Where("mtip.id_mst_product = ?", request.IDMstProduct.Int64)
 	}
 
 	err = session.

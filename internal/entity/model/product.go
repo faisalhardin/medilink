@@ -29,12 +29,15 @@ type TrxInstitutionProduct struct {
 	DeleteTime       *time.Time `json:"-" xorm:"'delete_time' deleted"`
 }
 
-type FindTrxInstitutionProductDBParams struct {
-	ID               []int64 `schema:"id"`
+type FindTrxInstitutionProductParams struct {
+	IDs              []int64 `schema:"id"`
 	Name             string  `schema:"name"`
 	IDMstProduct     []int64 `schema:"id_mst_product"`
 	IDMstProducts    []int64 `schema:"id_mst_product"`
 	IDMstInstitution int64   `schema:"id_mst_institution"`
+	IsItem           bool    `schema:"is_item"`
+	IsTreatment      bool    `schema:"is_treatment"`
+	CommonRequestPayload
 }
 
 type TrxVisitProduct struct {

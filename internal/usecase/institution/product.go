@@ -9,7 +9,7 @@ import (
 	"github.com/friendsofgo/errors"
 )
 
-func (uc *InstitutionUC) InserInstitutionProduct(ctx context.Context, request model.InsertInstitutionProductRequest) (err error) {
+func (uc *InstitutionUC) InserInstitutionProduct(ctx context.Context, request model.InsertInstitutionProductRequest) (resp model.TrxInstitutionProduct, err error) {
 	userDetail, found := auth.GetUserDetailFromCtx(ctx)
 	if !found {
 		err = commonerr.SetNewUnauthorizedAPICall()
@@ -44,11 +44,11 @@ func (uc *InstitutionUC) InserInstitutionProduct(ctx context.Context, request mo
 		return
 	}
 
-	return nil
+	return product, nil
 
 }
 
-func (uc *InstitutionUC) FindInstitutionProductByParams(ctx context.Context, params model.FindTrxInstitutionProductDBParams) (products []model.GetInstitutionProductResponse, err error) {
+func (uc *InstitutionUC) FindInstitutionProductByParams(ctx context.Context, params model.FindTrxInstitutionProductParams) (products []model.GetInstitutionProductResponse, err error) {
 	userDetail, found := auth.GetUserDetailFromCtx(ctx)
 	if !found {
 		err = commonerr.SetNewUnauthorizedAPICall()

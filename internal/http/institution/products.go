@@ -13,7 +13,7 @@ import (
 func (h *InstitutionHandler) FindInstitutionProducts(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	request := model.FindTrxInstitutionProductDBParams{}
+	request := model.FindTrxInstitutionProductParams{}
 	err := bindingBind(r, &request)
 	if err != nil {
 		commonwriter.SetError(ctx, w, err)
@@ -39,13 +39,13 @@ func (h *InstitutionHandler) InsertInstitutionProduct(w http.ResponseWriter, r *
 		return
 	}
 
-	err = h.InstitutionUC.InserInstitutionProduct(ctx, request)
+	result, err := h.InstitutionUC.InserInstitutionProduct(ctx, request)
 	if err != nil {
 		commonwriter.SetError(ctx, w, err)
 		return
 	}
 
-	commonwriter.SetOKWithData(ctx, w, "ok")
+	commonwriter.SetOKWithData(ctx, w, result)
 }
 
 func (h *InstitutionHandler) UpdateInstitutionProduct(w http.ResponseWriter, r *http.Request) {

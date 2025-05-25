@@ -328,12 +328,12 @@ func (u *VisitUC) InsertVisitProduct(ctx context.Context, req model.InsertTrxVis
 		return
 	}
 
-	requestedTrxInstitutionProducts := model.FindTrxInstitutionProductDBParams{
+	requestedTrxInstitutionProducts := model.FindTrxInstitutionProductParams{
 		IDMstInstitution: userDetail.InstitutionID,
 	}
 	mapRequestedProductIDToTrxInstitutionProducts := map[int64]model.PurchasedProduct{}
 	for _, requestProduct := range req.Products {
-		requestedTrxInstitutionProducts.ID = append(requestedTrxInstitutionProducts.ID, requestProduct.IDTrxInstitutionProduct)
+		requestedTrxInstitutionProducts.IDs = append(requestedTrxInstitutionProducts.IDs, requestProduct.IDTrxInstitutionProduct)
 		mapRequestedProductIDToTrxInstitutionProducts[requestProduct.IDTrxInstitutionProduct] = requestProduct
 	}
 
