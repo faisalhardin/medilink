@@ -55,3 +55,6 @@ internal/entity/repo/db/gomock_reflect*
 *medilink.development.json
 
 *.sh
+
+# vscode
+/.vscode/*
