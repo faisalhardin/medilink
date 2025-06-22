@@ -215,7 +215,7 @@ func (c *Conn) UpdatePatientVisit(ctx context.Context, updateRequest model.Updat
 		session.Cols("mst_journey_point_id_update_unix_time")
 	}
 
-	if len(updateRequest.ProductCart) > 0 {
+	if updateRequest.ProductCart != nil {
 		b, _ := json.Marshal(updateRequest.ProductCart)
 		trxVisit.ProductCart = b
 		session.Cols("product_cart")
