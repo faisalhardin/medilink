@@ -2,6 +2,7 @@ package patient
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -175,7 +176,7 @@ func (c *Conn) GetPatientVisits(ctx context.Context, params model.GetPatientVisi
 
 	err = session.Alias("mtpv").
 		Where("mtpv.id_mst_institution = ?", params.IDMstInstitution).
-		Select("mtpv.id, mtpv.action, mtpv.create_time, mtpv.update_time, mtpv.id_mst_journey_point, mtpv.id_mst_service_point, mtpv.mst_journey_point_id_update_unix_time, mmpi.id, mmpi.name, mmsp.id, mmsp.name, mmpi.sex, mmpi.uuid,  mmjp.id, mmjp.name").
+		Select("mtpv.id, mtpv.action, mtpv.create_time, mtpv.update_time, mtpv.id_mst_journey_point, mtpv.id_mst_service_point, mtpv.mst_journey_point_id_update_unix_time, mtpv.product_cart, mmpi.id, mmpi.name, mmsp.id, mmsp.name, mmpi.sex, mmpi.uuid,  mmjp.id, mmjp.name").
 		Find(&trxPatientVisit)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgGetPatientVisits)
@@ -212,6 +213,12 @@ func (c *Conn) UpdatePatientVisit(ctx context.Context, updateRequest model.Updat
 	if updateRequest.UpdateTimeMstJourneyPointID.Valid {
 		trxVisit.UpdateTimeMstJourneyPointID = updateRequest.UpdateTimeMstJourneyPointID.Int64
 		session.Cols("mst_journey_point_id_update_unix_time")
+	}
+
+	if len(updateRequest.ProductCart) > 0 {
+		b, _ := json.Marshal(updateRequest.ProductCart)
+		trxVisit.ProductCart = b
+		session.Cols("product_cart")
 	}
 
 	_, err = session.
@@ -284,7 +291,6 @@ func (c *Conn) GetDtlPatientVisit(ctx context.Context, params model.DtlPatientVi
 	if params.IDTrxPatientVisit > 0 {
 		session.Where("mdpv.id_trx_patient_visit = ?", params.IDTrxPatientVisit)
 	}
-
 	if params.ID > 0 {
 		session.Where("mdpv.id = ?", params.ID)
 	}

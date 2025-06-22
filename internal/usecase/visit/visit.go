@@ -359,6 +359,11 @@ func (u *VisitUC) InsertVisitProduct(ctx context.Context, req model.InsertTrxVis
 
 	for _, productItem := range productItems {
 
+		if productItem.Quantity < int64(mapRequestedProductIDToTrxInstitutionProducts[productItem.ID].Quantity) {
+			err = commonerr.SetNewBadRequest("invalid", "purchase quantity exceeds stock")
+			return
+		}
+
 		quantity := mapRequestedProductIDToTrxInstitutionProducts[productItem.ID].Quantity
 		discountRate := mapRequestedProductIDToTrxInstitutionProducts[productItem.ID].DiscountRate
 		discountPrice := mapRequestedProductIDToTrxInstitutionProducts[productItem.ID].DiscountPrice
@@ -378,7 +383,7 @@ func (u *VisitUC) InsertVisitProduct(ctx context.Context, req model.InsertTrxVis
 			IDTrxInstitutionProduct: productItem.ID,
 			IDMstInstitution:        userDetail.InstitutionID,
 			IDTrxPatientVisit:       dtlPatientVisit[0].IDTrxPatientVisit,
-			IDDtlPatientVisit:       req.IDDtlPatientVisit,
+			IDDtlPatientVisit:       req.IDTrxPatientVisit,
 			Quantity:                quantity,
 			UnitType:                productItem.UnitType,
 			Price:                   productItem.Price,
@@ -404,6 +409,20 @@ func (u *VisitUC) InsertVisitProduct(ctx context.Context, req model.InsertTrxVis
 	}
 
 	return nil
+}
+
+func (u *VisitUC) UpdateVisitProduct(ctx context.Context, req model.InsertTrxVisitProductRequest) (err error) {
+	_, found := auth.GetUserDetailFromCtx(ctx)
+	if !found {
+		err = commonerr.SetNewUnauthorizedAPICall()
+		return
+	}
+
+	err = u.PatientDB.UpdateDtlPatientVisit(ctx, &model.DtlPatientVisit{
+		ID: req.IDDtlPatientVisit,
+	})
+
+	return
 }
 
 type ProductStockReducerRequest struct {
@@ -432,4 +451,15 @@ func (u *VisitUC) ReduceProductStock(ctx context.Context, params ProductStockRed
 	}
 
 	return nil
+}
+
+func (u *VisitUC) ListVisitProducts(ctx context.Context, params model.TrxVisitProduct) (products []model.TrxVisitProduct, err error) {
+	userDetail, found := auth.GetUserDetailFromCtx(ctx)
+	if !found {
+		err = commonerr.SetNewUnauthorizedAPICall()
+		return
+	}
+
+	params.IDMstInstitution = userDetail.InstitutionID
+	return u.PatientDB.GetTrxVisitProduct(ctx, params)
 }

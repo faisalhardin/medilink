@@ -107,12 +107,17 @@ type GetInstitutionProductResponse struct {
 
 type InsertTrxVisitProductRequest struct {
 	Products          []PurchasedProduct `json:"products"`
-	IDDtlPatientVisit int64              `json:"id_dtl_patient_visit"`
+	IDDtlPatientVisit int64              `json:"patient_visit_detail"`
+	IDTrxPatientVisit int64
 }
 
 type PurchasedProduct struct {
-	IDTrxInstitutionProduct int64   `json:"id_trx_institution_product"`
+	IDTrxInstitutionProduct int64   `json:"id"`
 	Quantity                int     `json:"quantity"`
+	Name                    string  `json:"name,omitempty"`
+	Price                   int32   `json:"price"`
+	TotalPrice              int32   `json:"total_price,omitempty"`
+	UnitType                string  `json:"unit_type,omitempty"`
 	DiscountRate            float64 `json:"discount_rate,omitempty"`
 	DiscountPrice           float64 `json:"discount_price,omitempty"`
 	AdjustedPrice           float64 `json:"adjusted_price,omitempty"`
