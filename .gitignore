@@ -57,4 +57,4 @@ internal/entity/repo/db/gomock_reflect*
 *.sh
 
 # vscode
-/.vscode/*
+.vscode/
