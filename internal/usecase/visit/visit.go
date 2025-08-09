@@ -308,14 +308,35 @@ func (u *VisitUC) GetVisitTouchpoint(ctx context.Context, req model.DtlPatientVi
 	return
 }
 
+// InsertVisitProduct processes the insertion of products into a patient visit.
+// This function handles the complete workflow of adding products to a visit including:
+// - User authentication and authorization
+// - Visit detail validation
+// - Product availability and stock validation
+// - Price calculations with discounts
+// - Database transaction management
+// - Stock reduction
+//
+// Parameters:
+// - ctx: Context for request lifecycle and cancellation
+// - req: InsertTrxVisitProductRequest containing visit ID and list of products to add
+//
+// Returns:
+// - error: nil on success, or wrapped error with context on failure
 func (u *VisitUC) InsertVisitProduct(ctx context.Context, req model.InsertTrxVisitProductRequest) (err error) {
 
+	// === USER AUTHENTICATION SECTION ===
+	// Extract user details from context to ensure the request is authenticated
+	// and get the institution ID for data isolation
 	userDetail, found := auth.GetUserDetailFromCtx(ctx)
 	if !found {
 		err = commonerr.SetNewUnauthorizedAPICall()
 		return
 	}
 
+	// === VISIT DETAIL VALIDATION SECTION ===
+	// Validate that the specified patient visit detail exists
+	// This ensures we're adding products to a valid visit
 	dtlPatientVisit, err := u.PatientDB.GetDtlPatientVisit(ctx, model.DtlPatientVisit{
 		ID: req.IDDtlPatientVisit,
 	})
@@ -328,15 +349,23 @@ func (u *VisitUC) InsertVisitProduct(ctx context.Context, req model.InsertTrxVis
 		return
 	}
 
+	// === PRODUCT REQUEST PREPARATION SECTION ===
+	// Prepare parameters to fetch institution products and create a mapping
+	// for quick lookup of requested product details
 	requestedTrxInstitutionProducts := model.FindTrxInstitutionProductParams{
 		IDMstInstitution: userDetail.InstitutionID,
 	}
+	// Create a map to quickly access requested product details by product ID
 	mapRequestedProductIDToTrxInstitutionProducts := map[int64]model.PurchasedProduct{}
 	for _, requestProduct := range req.Products {
+		// Collect all requested product IDs for batch fetching
 		requestedTrxInstitutionProducts.IDs = append(requestedTrxInstitutionProducts.IDs, requestProduct.IDTrxInstitutionProduct)
+		// Map product ID to its request details for later reference
 		mapRequestedProductIDToTrxInstitutionProducts[requestProduct.IDTrxInstitutionProduct] = requestProduct
 	}
 
+	// === PRODUCT VALIDATION SECTION ===
+	// Fetch product details with current stock information from the database
 	productItems, err := u.InstitutionRepo.FindTrxInstitutionProductJoinStockByParams(
 		ctx, requestedTrxInstitutionProducts,
 	)
@@ -345,40 +374,55 @@ func (u *VisitUC) InsertVisitProduct(ctx context.Context, req model.InsertTrxVis
 		return
 	}
 
+	// Validate that all requested products exist
 	if len(productItems) == 0 {
 		err = commonerr.SetNewBadRequest("invalid", "item not found")
 		return
 	}
+	// Ensure all requested products were found (no missing products)
 	if len(productItems) != len(req.Products) {
 		err = commonerr.SetNewBadRequest("item not found", "at least one item is not found")
 		return
 	}
 
+	// === TRANSACTION PROCESSING SECTION ===
+	// Begin database transaction to ensure data consistency
+	// All operations will be rolled back if any step fails
 	session, _ := u.Transaction.Begin(ctx)
 	defer u.Transaction.Finish(session, &err)
 
+	// Process each product item in the request
 	for _, productItem := range productItems {
 
+		// Validate stock availability before processing
 		if productItem.Quantity < int64(mapRequestedProductIDToTrxInstitutionProducts[productItem.ID].Quantity) {
 			err = commonerr.SetNewBadRequest("invalid", "purchase quantity exceeds stock")
 			return
 		}
 
+		// Extract product details from the request mapping
 		quantity := mapRequestedProductIDToTrxInstitutionProducts[productItem.ID].Quantity
 		discountRate := mapRequestedProductIDToTrxInstitutionProducts[productItem.ID].DiscountRate
 		discountPrice := mapRequestedProductIDToTrxInstitutionProducts[productItem.ID].DiscountPrice
 
+		// Calculate total price with discount logic
 		sumPrice := productItem.Price * float64(quantity)
 		if discountPrice > 0 {
+			// Apply fixed discount amount if specified
 			sumPrice = sumPrice - discountPrice
 		} else if discountRate > 0 {
+			// Apply percentage discount if specified
 			sumPrice = sumPrice * (1 - discountRate)
 		}
+
+		// Validate adjusted price doesn't exceed calculated total
 		adjustedPrice := mapRequestedProductIDToTrxInstitutionProducts[productItem.ID].AdjustedPrice
 		if adjustedPrice > sumPrice {
 			err = commonerr.SetNewBadRequest("invalid price", fmt.Sprintf("adjusted price must not exceed total price %v", sumPrice))
 			return
 		}
+
+		// Insert the visit product record into the database
 		err = u.PatientDB.InsertTrxVisitProduct(ctx, &model.TrxVisitProduct{
 			IDTrxInstitutionProduct: productItem.ID,
 			IDMstInstitution:        userDetail.InstitutionID,
@@ -397,6 +441,7 @@ func (u *VisitUC) InsertVisitProduct(ctx context.Context, req model.InsertTrxVis
 			return
 		}
 
+		// Reduce the product stock by the purchased quantity
 		err = u.ReduceProductStock(ctx, ProductStockReducerRequest{
 			ProductID: productItem.ID,
 			Quantity:  int64(quantity),
@@ -409,6 +454,196 @@ func (u *VisitUC) InsertVisitProduct(ctx context.Context, req model.InsertTrxVis
 	}
 
 	return nil
+}
+
+func (u *VisitUC) UpsertVisitProduct(ctx context.Context, req model.InsertTrxVisitProductRequest) (err error) {
+	userDetail, found := auth.GetUserDetailFromCtx(ctx)
+	if !found {
+		err = commonerr.SetNewUnauthorizedAPICall()
+		return
+	}
+
+	// START: fetch institution product
+	mappedProductInstitution, err := u.getMappedInstitutionProducts(ctx, userDetail.InstitutionID, req.Products)
+	if err != nil {
+		return
+	}
+	// END:fetch institution product
+
+	// START: fetch existing product
+	mappedProductVisit, err := u.getMappedOrderedProduct(ctx, req.IDTrxPatientVisit)
+	if err != nil {
+		return
+	}
+	// END: fetch existing product
+
+	// create mapping product id to requested product id
+	// compare
+
+	for _, requestedProduct := range req.Products {
+		productStock := mappedProductInstitution[requestedProduct.IDTrxInstitutionProduct]
+
+		orderedProduct, found := mappedProductVisit[requestedProduct.IDTrxInstitutionProduct]
+		// if not exist then buy anew
+		if !found {
+			err = u.orderProduct(ctx, model.TrxVisitProduct{
+				IDTrxInstitutionProduct: requestedProduct.IDTrxInstitutionProduct,
+				IDMstInstitution:        userDetail.InstitutionID,
+				IDTrxPatientVisit:       req.IDTrxPatientVisit,
+				IDDtlPatientVisit:       req.IDDtlPatientVisit,
+				Quantity:                requestedProduct.Quantity,
+				UnitType:                productStock.UnitType,
+				Price:                   productStock.Price,
+				DiscountRate:            requestedProduct.DiscountRate,
+				DiscountPrice:           requestedProduct.DiscountPrice,
+				TotalPrice:              float64(requestedProduct.TotalPrice),
+				AdjustedPrice:           requestedProduct.AdjustedPrice,
+			}, model.DtlInstitutionProductStock{
+				ID:       productStock.ID,
+				Quantity: productStock.Quantity - int64(requestedProduct.Quantity),
+			}, userDetail)
+			if err != nil {
+				return
+			}
+			continue
+		}
+
+		// if requested quantity > existing quantity => reduce from stock and add to visit product
+		if requestedProduct.Quantity > orderedProduct.Quantity {
+			quantityDifference := requestedProduct.Quantity - orderedProduct.Quantity
+
+			orderedProduct.Price = float64(requestedProduct.Price)
+			orderedProduct.Quantity = requestedProduct.Quantity
+			err = u.orderProduct(ctx, orderedProduct, model.DtlInstitutionProductStock{
+				ID:       productStock.ID,
+				Quantity: productStock.Quantity - int64(quantityDifference),
+			}, userDetail)
+			if err != nil {
+				return
+			}
+
+		}
+		// if requested quantity < existing quantity => add back to stock and reduce from visit product
+		if requestedProduct.Quantity < orderedProduct.Quantity {
+			quantityDifference := orderedProduct.Quantity - requestedProduct.Quantity
+
+			orderedProduct.Price = float64(requestedProduct.Price)
+			orderedProduct.Quantity = requestedProduct.Quantity
+			err = u.orderProduct(ctx, orderedProduct, model.DtlInstitutionProductStock{
+				ID:       productStock.ID,
+				Quantity: productStock.Quantity + int64(quantityDifference),
+			}, userDetail)
+			if err != nil {
+				return
+			}
+		}
+		// if requested quantity == existing quantity => do nothing
+
+		// delete product from mapping
+		delete(mappedProductVisit, requestedProduct.IDTrxInstitutionProduct)
+	}
+
+	// if exist product from mapping => add product quantity back to stock then delete its visit product record
+	for _, remainingProduct := range mappedProductVisit {
+		productStock := mappedProductInstitution[remainingProduct.IDTrxInstitutionProduct]
+		err = u.InstitutionRepo.UpdateDtlInstitutionProductStock(ctx, &model.DtlInstitutionProductStock{
+			ID:       productStock.ID,
+			Quantity: productStock.Quantity + int64(remainingProduct.Quantity),
+		})
+		if err != nil {
+			return errors.Wrap(err, "orderNewProductForVisit")
+		}
+
+		err = u.PatientDB.DeleteTrxVisitProduct(ctx, &remainingProduct)
+		if err != nil {
+			return
+		}
+
+	}
+
+	return nil
+}
+
+func (u *VisitUC) orderProduct(ctx context.Context,
+	existingProduct model.TrxVisitProduct,
+	productStock model.DtlInstitutionProductStock,
+	// productRequest model.PurchasedProduct,
+	userDetail model.UserJWTPayload) (err error) {
+
+	if productStock.Quantity < 0 {
+		return commonerr.SetNewBadRequest("stock issue", fmt.Sprintf("product %s stock is not enough", ""))
+	}
+
+	err = u.InstitutionRepo.UpdateDtlInstitutionProductStock(ctx, &productStock)
+	if err != nil {
+		return errors.Wrap(err, "orderNewProductForVisit")
+	}
+
+	err = u.PatientDB.UpsertTrxVisitProduct(ctx, &existingProduct)
+	if err != nil {
+		return errors.Wrap(err, "orderNewProductForVisit")
+	}
+
+	return
+}
+
+func (u *VisitUC) getMappedInstitutionProducts(
+	ctx context.Context,
+	institutionID int64,
+	requestedProducts []model.PurchasedProduct,
+) (map[int64]model.GetInstitutionProductResponse, error) {
+
+	requestedTrxInstitutionProducts := model.FindTrxInstitutionProductParams{
+		IDMstInstitution: institutionID,
+	}
+	// Create a map to quickly access requested product details by product ID
+	mapRequestedProductIDToTrxInstitutionProducts := map[int64]model.PurchasedProduct{}
+	for _, requestProduct := range requestedProducts {
+		// Collect all requested product IDs for batch fetching
+		requestedTrxInstitutionProducts.IDs = append(requestedTrxInstitutionProducts.IDs, requestProduct.IDTrxInstitutionProduct)
+		// Map product ID to its request details for later reference
+		mapRequestedProductIDToTrxInstitutionProducts[requestProduct.IDTrxInstitutionProduct] = requestProduct
+	}
+
+	productItems, err := u.InstitutionRepo.FindTrxInstitutionProductJoinStockByParams(
+		ctx, requestedTrxInstitutionProducts,
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, WrapMsgInsertVisitProduct)
+	}
+
+	// Validate that all requested products exist
+	if len(productItems) == 0 {
+		return nil, commonerr.SetNewBadRequest("invalid", "item not found")
+	}
+	// Ensure all requested products were found (no missing products)
+	if len(productItems) != len(requestedProducts) {
+		return nil, commonerr.SetNewBadRequest("item not found", "at least one item is not found")
+	}
+
+	// Create the final map of product ID to TrxInstitutionProductJoinStock
+	mappedProductItems := make(map[int64]model.GetInstitutionProductResponse)
+	for _, item := range productItems {
+		mappedProductItems[item.ID] = item
+	}
+
+	return mappedProductItems, nil
+}
+
+func (u *VisitUC) getMappedOrderedProduct(ctx context.Context, trxVisitID int64) (mappedProductVisitByProductID map[int64]model.TrxVisitProduct, err error) {
+	orderedProducts, err := u.PatientDB.GetTrxVisitProduct(ctx, model.TrxVisitProduct{
+		IDTrxPatientVisit: trxVisitID,
+	})
+	if err != nil {
+		return
+	}
+
+	mappedProductVisitByProductID = make(map[int64]model.TrxVisitProduct)
+	for _, orderedProduct := range orderedProducts {
+		mappedProductVisitByProductID[orderedProduct.IDTrxInstitutionProduct] = orderedProduct
+	}
+
+	return
 }
 
 func (u *VisitUC) UpdateVisitProduct(ctx context.Context, req model.InsertTrxVisitProductRequest) (err error) {
