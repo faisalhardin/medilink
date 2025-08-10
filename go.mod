@@ -61,6 +61,7 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/markbates/goth v1.78.0
 	github.com/pkg/errors v0.9.1
+	github.com/shopspring/decimal v1.4.0
 	github.com/volatiletech/null/v8 v8.1.2
 	golang.org/x/sync v0.8.0
 	golang.org/x/text v0.15.0 // indirect

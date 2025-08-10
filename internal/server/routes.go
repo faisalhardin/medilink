@@ -49,8 +49,8 @@ func RegisterRoutes(m *module) http.Handler {
 					visit.Patch("/", m.httpHandler.PatientHandler.UpdatePatientVisit)
 					visit.Get("/", m.httpHandler.PatientHandler.GetPatientVisits)
 					visit.Get("/detail", m.httpHandler.PatientHandler.ListVisitTouchpoints)
-					visit.Post("/product", m.httpHandler.PatientHandler.InsertVisitProduct)
 				})
+				visit.Post("/order-product", m.httpHandler.PatientHandler.InsertVisitProduct)
 			})
 			// END: /v1/visit
 

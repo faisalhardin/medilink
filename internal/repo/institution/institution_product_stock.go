@@ -80,11 +80,14 @@ func (c *Conn) FindTrxInstitutionProductJoinStockByParams(ctx context.Context, r
 		session.Where("mtip.id_mst_product = ANY(?)", pq.Array(request.IDMstProduct))
 	}
 
+	if request.Limit > 0 {
+		session.Limit(request.Limit, request.Offset)
+	}
+
 	err = session.
 		Where("id_mst_institution = ?", request.IDMstInstitution).
 		Select(`mtip.id, mtip.name, mtip.id_mst_product, mtip.price, 
 		mtip.is_item, mtip.is_treatment, mdips.quantity, mdips.unit_type`).
-		Limit(request.Limit, request.Offset).
 		Find(&products)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgFindTrxInstitutionProductJoinStockByParams)
@@ -97,8 +100,22 @@ func (c *Conn) FindTrxInstitutionProductJoinStockByParams(ctx context.Context, r
 func (c *Conn) UpdateDtlInstitutionProductStock(ctx context.Context, request *model.DtlInstitutionProductStock) (err error) {
 	session := c.DB.MasterDB.Table(DtlInstitutionProductStock)
 
+	if request.ID == 0 && request.IDTrxInstitutionProduct == 0 {
+		err = errors.New("invalid parameter: id or id_trx_institution_product must be defined")
+		err = errors.Wrap(err, WrapMsgUpdateDtlInstitutionProductStock)
+		return
+	}
+
+	if request.ID > 0 {
+		session.Where("id = ?", request.ID)
+	}
+
+	if request.IDTrxInstitutionProduct > 0 {
+		session.Where("id_trx_institution_product = ? ", request.IDTrxInstitutionProduct)
+	}
+
 	_, err = session.
-		Where("id_trx_institution_product = ? and delete_time is null", request.IDTrxInstitutionProduct).
+		Cols("quantity").
 		Update(request)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgUpdateDtlInstitutionProductStock)

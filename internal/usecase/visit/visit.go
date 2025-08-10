@@ -14,6 +14,7 @@ import (
 	"github.com/faisalhardin/medilink/internal/library/db/xorm"
 	"github.com/faisalhardin/medilink/internal/library/middlewares/auth"
 	"github.com/pkg/errors"
+	"github.com/shopspring/decimal"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -456,7 +457,7 @@ func (u *VisitUC) InsertVisitProduct(ctx context.Context, req model.InsertTrxVis
 	return nil
 }
 
-func (u *VisitUC) UpsertVisitProduct(ctx context.Context, req model.InsertTrxVisitProductRequest) (err error) {
+func (u *VisitUC) UpsertVisitProduct(ctx context.Context, req model.UpsertTrxVisitProductRequest) (err error) {
 	userDetail, found := auth.GetUserDetailFromCtx(ctx)
 	if !found {
 		err = commonerr.SetNewUnauthorizedAPICall()
@@ -471,7 +472,10 @@ func (u *VisitUC) UpsertVisitProduct(ctx context.Context, req model.InsertTrxVis
 	// END:fetch institution product
 
 	// START: fetch existing product
-	mappedProductVisit, err := u.getMappedOrderedProduct(ctx, req.IDTrxPatientVisit)
+	mappedProductVisit, err := u.getMappedOrderedProduct(ctx, model.TrxVisitProduct{
+		ID:               req.IDTrxPatientVisit,
+		IDMstInstitution: userDetail.InstitutionID,
+	})
 	if err != nil {
 		return
 	}
@@ -490,52 +494,35 @@ func (u *VisitUC) UpsertVisitProduct(ctx context.Context, req model.InsertTrxVis
 				IDTrxInstitutionProduct: requestedProduct.IDTrxInstitutionProduct,
 				IDMstInstitution:        userDetail.InstitutionID,
 				IDTrxPatientVisit:       req.IDTrxPatientVisit,
+				Name:                    productStock.Name,
 				IDDtlPatientVisit:       req.IDDtlPatientVisit,
-				Quantity:                requestedProduct.Quantity,
 				UnitType:                productStock.UnitType,
 				Price:                   productStock.Price,
 				DiscountRate:            requestedProduct.DiscountRate,
 				DiscountPrice:           requestedProduct.DiscountPrice,
 				TotalPrice:              float64(requestedProduct.TotalPrice),
 				AdjustedPrice:           requestedProduct.AdjustedPrice,
-			}, model.DtlInstitutionProductStock{
-				ID:       productStock.ID,
-				Quantity: productStock.Quantity - int64(requestedProduct.Quantity),
-			}, userDetail)
+			},
+				productStock,
+				requestedProduct)
 			if err != nil {
 				return
 			}
 			continue
 		}
 
-		// if requested quantity > existing quantity => reduce from stock and add to visit product
-		if requestedProduct.Quantity > orderedProduct.Quantity {
-			quantityDifference := requestedProduct.Quantity - orderedProduct.Quantity
+		// if requested quantity != existing quantity => reduce/increas from stock and add/substract to visit product
+		if requestedProduct.Quantity != orderedProduct.Quantity {
 
-			orderedProduct.Price = float64(requestedProduct.Price)
-			orderedProduct.Quantity = requestedProduct.Quantity
-			err = u.orderProduct(ctx, orderedProduct, model.DtlInstitutionProductStock{
-				ID:       productStock.ID,
-				Quantity: productStock.Quantity - int64(quantityDifference),
-			}, userDetail)
+			err = u.orderProduct(
+				ctx,
+				orderedProduct,
+				productStock,
+				requestedProduct)
 			if err != nil {
 				return
 			}
 
-		}
-		// if requested quantity < existing quantity => add back to stock and reduce from visit product
-		if requestedProduct.Quantity < orderedProduct.Quantity {
-			quantityDifference := orderedProduct.Quantity - requestedProduct.Quantity
-
-			orderedProduct.Price = float64(requestedProduct.Price)
-			orderedProduct.Quantity = requestedProduct.Quantity
-			err = u.orderProduct(ctx, orderedProduct, model.DtlInstitutionProductStock{
-				ID:       productStock.ID,
-				Quantity: productStock.Quantity + int64(quantityDifference),
-			}, userDetail)
-			if err != nil {
-				return
-			}
 		}
 		// if requested quantity == existing quantity => do nothing
 
@@ -546,15 +533,7 @@ func (u *VisitUC) UpsertVisitProduct(ctx context.Context, req model.InsertTrxVis
 	// if exist product from mapping => add product quantity back to stock then delete its visit product record
 	for _, remainingProduct := range mappedProductVisit {
 		productStock := mappedProductInstitution[remainingProduct.IDTrxInstitutionProduct]
-		err = u.InstitutionRepo.UpdateDtlInstitutionProductStock(ctx, &model.DtlInstitutionProductStock{
-			ID:       productStock.ID,
-			Quantity: productStock.Quantity + int64(remainingProduct.Quantity),
-		})
-		if err != nil {
-			return errors.Wrap(err, "orderNewProductForVisit")
-		}
-
-		err = u.PatientDB.DeleteTrxVisitProduct(ctx, &remainingProduct)
+		err = u.voidOrder(ctx, remainingProduct, productStock)
 		if err != nil {
 			return
 		}
@@ -564,21 +543,55 @@ func (u *VisitUC) UpsertVisitProduct(ctx context.Context, req model.InsertTrxVis
 	return nil
 }
 
-func (u *VisitUC) orderProduct(ctx context.Context,
+func (u *VisitUC) voidOrder(ctx context.Context,
 	existingProduct model.TrxVisitProduct,
-	productStock model.DtlInstitutionProductStock,
-	// productRequest model.PurchasedProduct,
-	userDetail model.UserJWTPayload) (err error) {
-
-	if productStock.Quantity < 0 {
-		return commonerr.SetNewBadRequest("stock issue", fmt.Sprintf("product %s stock is not enough", ""))
+	productStock model.GetInstitutionProductResponse) (err error) {
+	err = u.InstitutionRepo.UpdateDtlInstitutionProductStock(ctx, &model.DtlInstitutionProductStock{
+		ID:       productStock.ID,
+		Quantity: productStock.Quantity + int64(existingProduct.Quantity),
+	})
+	if err != nil {
+		return errors.Wrap(err, "usecase.voidOrder")
 	}
 
-	err = u.InstitutionRepo.UpdateDtlInstitutionProductStock(ctx, &productStock)
+	err = u.PatientDB.DeleteTrxVisitProduct(ctx, &existingProduct)
+	if err != nil {
+		return
+	}
+
+	return nil
+}
+
+func (u *VisitUC) orderProduct(ctx context.Context,
+	existingProduct model.TrxVisitProduct,
+	productStock model.GetInstitutionProductResponse,
+	productRequest model.PurchasedProduct) (err error) {
+
+	quantityDifference := existingProduct.Quantity - productRequest.Quantity
+
+	existingStock := model.DtlInstitutionProductStock{
+		IDTrxInstitutionProduct: productStock.ID,
+		Quantity:                productStock.Quantity + int64(quantityDifference), // if less than zero return error below
+	}
+
+	// if existing quantity > requested quantity => stock replenished
+	// if existing qunatity < reuqested quantity => stock reduced
+	if existingStock.Quantity < 0 {
+		return commonerr.SetNewBadRequest("stock issue", fmt.Sprintf("product %s stock is not enough", productStock.Name))
+	}
+
+	err = u.InstitutionRepo.UpdateDtlInstitutionProductStock(ctx, &existingStock)
 	if err != nil {
 		return errors.Wrap(err, "orderNewProductForVisit")
 	}
 
+	existingProduct.Quantity = productRequest.Quantity
+	existingProduct.AdjustedPrice = productRequest.AdjustedPrice
+	existingProduct.DiscountPrice = productRequest.DiscountPrice
+	existingProduct.DiscountRate = productRequest.DiscountRate
+	decimalPrice := decimal.NewFromFloat(productStock.Price)
+
+	existingProduct.TotalPrice = decimal.NewFromInt(int64(existingProduct.Quantity)).Mul(decimalPrice).InexactFloat64()
 	err = u.PatientDB.UpsertTrxVisitProduct(ctx, &existingProduct)
 	if err != nil {
 		return errors.Wrap(err, "orderNewProductForVisit")
@@ -630,9 +643,10 @@ func (u *VisitUC) getMappedInstitutionProducts(
 	return mappedProductItems, nil
 }
 
-func (u *VisitUC) getMappedOrderedProduct(ctx context.Context, trxVisitID int64) (mappedProductVisitByProductID map[int64]model.TrxVisitProduct, err error) {
+func (u *VisitUC) getMappedOrderedProduct(ctx context.Context, trxVisit model.TrxVisitProduct) (mappedProductVisitByProductID map[int64]model.TrxVisitProduct, err error) {
 	orderedProducts, err := u.PatientDB.GetTrxVisitProduct(ctx, model.TrxVisitProduct{
-		IDTrxPatientVisit: trxVisitID,
+		IDTrxPatientVisit: trxVisit.ID,
+		IDMstInstitution:  trxVisit.IDMstInstitution,
 	})
 	if err != nil {
 		return

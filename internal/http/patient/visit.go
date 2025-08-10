@@ -208,24 +208,14 @@ func (h *PatientHandler) UpsertVisitTouchpoint(w http.ResponseWriter, r *http.Re
 func (h *PatientHandler) InsertVisitProduct(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	visitID := chi.URLParam(r, "id")
-	parsedVisitID, err := strconv.ParseInt(visitID, 10, 64)
-	if err != nil {
-		errMsg := commonerr.SetNewBadRequest("invalid", "Invalid Visit ID")
-		commonwriter.SetError(ctx, w, errMsg)
-		return
-	}
-
-	request := model.InsertTrxVisitProductRequest{}
-	err = bindingBind(r, &request)
+	request := model.UpsertTrxVisitProductRequest{}
+	err := bindingBind(r, &request)
 	if err != nil {
 		commonwriter.SetError(ctx, w, err)
 		return
 	}
 
-	request.IDTrxPatientVisit = parsedVisitID
-
-	err = h.VisitUC.InsertVisitProduct(ctx, request)
+	err = h.VisitUC.UpsertVisitProduct(ctx, request)
 	if err != nil {
 		commonwriter.SetError(ctx, w, err)
 		return

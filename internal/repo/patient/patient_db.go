@@ -23,6 +23,7 @@ const (
 	WrapMsgGetPatients                      = WrapErrMsgPrefix + "GetPatients"
 	WrapMsgRecordPatientVisit               = WrapErrMsgPrefix + "RecordPatientVisit"
 	WrapMsgGetPatientVisitRecordByPatientID = WrapErrMsgPrefix + "GetPatientVisitRecordByPatientID"
+	WrapMsgGetPatientVisitsByID             = WrapErrMsgPrefix + "GetPatientVisitsByID"
 	WrapMsgUpdatePatientVisit               = WrapErrMsgPrefix + "UpdatePatientVisit"
 	WrapMsgUpdatePatient                    = WrapErrMsgPrefix + "UpdatePatient"
 	WrapMsgGetPatientVisits                 = WrapErrMsgPrefix + "GetPatientVisits"
@@ -136,6 +137,19 @@ func (c *Conn) GetPatientVisitsRecordByPatientID(ctx context.Context, patientID 
 		Find(&mstPatientVisits)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgGetPatientVisitRecordByPatientID)
+		return
+	}
+
+	return
+}
+
+func (c *Conn) GetPatientVisitsByID(ctx context.Context, visitID int64) (mstPatientVisits model.TrxPatientVisit, err error) {
+	session := c.DB.SlaveDB.Table(model.TrxPatientVisitTableName).Alias("mtpv")
+
+	err = session.Where("mtpv.id = ?", visitID).
+		Find(&mstPatientVisits)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgGetPatientVisitsByID)
 		return
 	}
 
@@ -352,6 +366,16 @@ func (c *Conn) UpdateTrxVisitProduct(ctx context.Context, request *model.TrxVisi
 	}
 
 	return
+}
+
+func (c *Conn) UpsertTrxVisitProduct(ctx context.Context, request *model.TrxVisitProduct) (err error) {
+	if request.ID > 0 && request.Quantity > 0 {
+		return c.UpdateTrxVisitProduct(ctx, request)
+	}
+	if request.ID > 0 && request.Quantity == 0 {
+		return c.DeleteTrxVisitProduct(ctx, request)
+	}
+	return c.InsertTrxVisitProduct(ctx, request)
 }
 
 func (c *Conn) DeleteTrxVisitProduct(ctx context.Context, request *model.TrxVisitProduct) (err error) {
