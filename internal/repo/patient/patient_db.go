@@ -397,19 +397,19 @@ func (c *Conn) DeleteTrxVisitProduct(ctx context.Context, request *model.TrxVisi
 	return
 }
 
-func (c *Conn) GetTrxVisitProduct(ctx context.Context, params model.TrxVisitProduct) (trxVisitProduct []model.TrxVisitProduct, err error) {
+func (c *Conn) GetTrxVisitProduct(ctx context.Context, params model.GetVisitProductRequest) (trxVisitProduct []model.TrxVisitProduct, err error) {
 	session := c.DB.SlaveDB.Table(model.TrxVisitProductTableName)
 
-	if params.IDTrxPatientVisit > 0 {
-		session.Where("mtvp.id_trx_patient_visit = ?", params.IDTrxPatientVisit)
+	if params.VisitID > 0 {
+		session.Where("mtvp.id_trx_patient_visit = ?", params.VisitID)
 	}
 
-	if params.ID > 0 {
-		session.Where("mtvp.id = ?", params.ID)
+	if params.VisitProductID > 0 {
+		session.Where("mtvp.id = ?", params.VisitProductID)
 	}
 
 	err = session.Alias("mtvp").
-		Where("id_mst_institution = ?", params.IDMstInstitution).
+		Where("id_mst_institution = ?", params.InstitutionID).
 		Find(&trxVisitProduct)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgGetDtlPatientVisit)

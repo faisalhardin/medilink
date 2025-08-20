@@ -24,5 +24,5 @@ type PatientDB interface {
 	UpdateTrxVisitProduct(ctx context.Context, request *model.TrxVisitProduct) (err error)
 	UpsertTrxVisitProduct(ctx context.Context, request *model.TrxVisitProduct) (err error)
 	DeleteTrxVisitProduct(ctx context.Context, request *model.TrxVisitProduct) (err error)
-	GetTrxVisitProduct(ctx context.Context, params model.TrxVisitProduct) (trxVisitProduct []model.TrxVisitProduct, err error)
+	GetTrxVisitProduct(ctx context.Context, params model.GetVisitProductRequest) (trxVisitProduct []model.TrxVisitProduct, err error)
 }

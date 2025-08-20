@@ -224,6 +224,25 @@ func (h *PatientHandler) InsertVisitProduct(w http.ResponseWriter, r *http.Reque
 	commonwriter.SetOKWithData(ctx, w, "ok")
 }
 
+func (h *PatientHandler) ListVisitProducts(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	request := model.GetVisitProductRequest{}
+	err := bindingBind(r, &request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	response, err := h.VisitUC.ListVisitProducts(ctx, request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, response)
+}
+
 func (h *PatientHandler) UpdateVisitProduct(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 

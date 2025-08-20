@@ -644,9 +644,9 @@ func (u *VisitUC) getMappedInstitutionProducts(
 }
 
 func (u *VisitUC) getMappedOrderedProduct(ctx context.Context, trxVisit model.TrxVisitProduct) (mappedProductVisitByProductID map[int64]model.TrxVisitProduct, err error) {
-	orderedProducts, err := u.PatientDB.GetTrxVisitProduct(ctx, model.TrxVisitProduct{
-		IDTrxPatientVisit: trxVisit.ID,
-		IDMstInstitution:  trxVisit.IDMstInstitution,
+	orderedProducts, err := u.PatientDB.GetTrxVisitProduct(ctx, model.GetVisitProductRequest{
+		VisitID:       trxVisit.ID,
+		InstitutionID: trxVisit.IDMstInstitution,
 	})
 	if err != nil {
 		return
@@ -702,13 +702,13 @@ func (u *VisitUC) ReduceProductStock(ctx context.Context, params ProductStockRed
 	return nil
 }
 
-func (u *VisitUC) ListVisitProducts(ctx context.Context, params model.TrxVisitProduct) (products []model.TrxVisitProduct, err error) {
+func (u *VisitUC) ListVisitProducts(ctx context.Context, params model.GetVisitProductRequest) (products []model.TrxVisitProduct, err error) {
 	userDetail, found := auth.GetUserDetailFromCtx(ctx)
 	if !found {
 		err = commonerr.SetNewUnauthorizedAPICall()
 		return
 	}
 
-	params.IDMstInstitution = userDetail.InstitutionID
+	params.InstitutionID = userDetail.InstitutionID
 	return u.PatientDB.GetTrxVisitProduct(ctx, params)
 }
