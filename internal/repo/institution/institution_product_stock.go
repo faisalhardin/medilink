@@ -124,3 +124,29 @@ func (c *Conn) UpdateDtlInstitutionProductStock(ctx context.Context, request *mo
 
 	return
 }
+
+func (c *Conn) RestockDtlInstitutionProductStock(ctx context.Context, request *model.DtlInstitutionProductStock) (err error) {
+	session := c.DB.MasterDB.Table(DtlInstitutionProductStock)
+
+	if request.ID == 0 && request.IDTrxInstitutionProduct == 0 {
+		err = errors.New("invalid parameter: id or id_trx_institution_product must be defined")
+		err = errors.Wrap(err, WrapMsgUpdateDtlInstitutionProductStock)
+		return
+	}
+
+	if request.ID > 0 {
+		session.Where("id = ?", request.ID)
+	}
+
+	if request.IDTrxInstitutionProduct > 0 {
+		session.Where("id_trx_institution_product = ? ", request.IDTrxInstitutionProduct)
+	}
+
+	_, err = session.Incr("quantity", request.Quantity).Update(&model.DtlInstitutionProductStock{})
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgUpdateDtlInstitutionProductStock)
+		return
+	}
+
+	return
+}

@@ -532,8 +532,8 @@ func (u *VisitUC) UpsertVisitProduct(ctx context.Context, req model.UpsertTrxVis
 
 	// if exist product from mapping => add product quantity back to stock then delete its visit product record
 	for _, remainingProduct := range mappedProductVisit {
-		productStock := mappedProductInstitution[remainingProduct.IDTrxInstitutionProduct]
-		err = u.voidOrder(ctx, remainingProduct, productStock)
+		// productStock := mappedProductInstitution[remainingProduct.IDTrxInstitutionProduct]
+		err = u.voidOrder(ctx, remainingProduct)
 		if err != nil {
 			return
 		}
@@ -545,10 +545,10 @@ func (u *VisitUC) UpsertVisitProduct(ctx context.Context, req model.UpsertTrxVis
 
 func (u *VisitUC) voidOrder(ctx context.Context,
 	existingProduct model.TrxVisitProduct,
-	productStock model.GetInstitutionProductResponse) (err error) {
-	err = u.InstitutionRepo.UpdateDtlInstitutionProductStock(ctx, &model.DtlInstitutionProductStock{
-		ID:       productStock.ID,
-		Quantity: productStock.Quantity + int64(existingProduct.Quantity),
+) (err error) {
+	err = u.InstitutionRepo.RestockDtlInstitutionProductStock(ctx, &model.DtlInstitutionProductStock{
+		IDTrxInstitutionProduct: existingProduct.IDTrxInstitutionProduct,
+		Quantity:                int64(existingProduct.Quantity),
 	})
 	if err != nil {
 		return errors.Wrap(err, "usecase.voidOrder")

@@ -17,4 +17,5 @@ type InstitutionDB interface {
 	FindTrxInstitutionProductStockByParams(ctx context.Context, request model.DtlInstitutionProductStock) (stock []model.DtlInstitutionProductStock, err error)
 	FindTrxInstitutionProductJoinStockByParams(ctx context.Context, request model.FindTrxInstitutionProductParams) (products []model.GetInstitutionProductResponse, err error)
 	UpdateDtlInstitutionProductStock(ctx context.Context, request *model.DtlInstitutionProductStock) (err error)
+	RestockDtlInstitutionProductStock(ctx context.Context, request *model.DtlInstitutionProductStock) (err error)
 }
