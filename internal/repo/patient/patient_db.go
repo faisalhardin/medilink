@@ -323,6 +323,7 @@ func (c *Conn) GetDtlPatientVisitByID(ctx context.Context, id int64) (dtlPatient
 	session := c.DB.SlaveDB.Table(model.DtlPatientVisitTableName)
 
 	_, err = session.Alias("mdpv").
+		Where("id = ?", id).
 		Get(&dtlPatientVisit)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgGetDtlPatientVisitByID)

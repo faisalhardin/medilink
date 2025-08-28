@@ -43,6 +43,9 @@ func NewVisitUC(u *VisitUC) *VisitUC {
 
 func (u *VisitUC) InsertNewVisit(ctx context.Context, req model.InsertNewVisitRequest) (err error) {
 
+	session, _ := u.Transaction.Begin(ctx)
+	defer u.Transaction.Finish(session, &err)
+
 	userDetail, found := auth.GetUserDetailFromCtx(ctx)
 	if !found {
 		err = commonerr.SetNewUnauthorizedAPICall()
@@ -61,10 +64,19 @@ func (u *VisitUC) InsertNewVisit(ctx context.Context, req model.InsertNewVisitRe
 		return commonerr.SetNewBadRequest("patient is not found", "no patient with given uuid")
 	}
 
-	req.IDMstPatient = mstPatient[0].ID
-	req.IDMstInstitution = userDetail.InstitutionID
+	req.Visit.IDMstPatient = mstPatient[0].ID
+	req.Visit.IDMstInstitution = userDetail.InstitutionID
 
-	err = u.PatientDB.RecordPatientVisit(ctx, &req.TrxPatientVisit)
+	err = u.PatientDB.RecordPatientVisit(ctx, &req.Visit)
+	if err != nil {
+		return errors.Wrap(err, WrapMsgInsertNewVisit)
+	}
+
+	if req.Detail.Notes == nil {
+		return
+	}
+
+	err = u.PatientDB.InsertDtlPatientVisit(ctx, &req.Detail)
 	if err != nil {
 		return errors.Wrap(err, WrapMsgInsertNewVisit)
 	}
@@ -256,6 +268,9 @@ func (u *VisitUC) InsertVisitTouchpoint(ctx context.Context, req model.DtlPatien
 }
 
 func (u *VisitUC) UpdateVisitTouchpoint(ctx context.Context, req model.DtlPatientVisitRequest) (dtlPatientVisit model.DtlPatientVisit, err error) {
+
+	session, _ := u.Transaction.Begin(ctx)
+	defer u.Transaction.Finish(session, &err)
 
 	if err = u.ValidatePatientVisitExist(ctx, req); err != nil {
 		err = errors.Wrap(err, WrapMsgUpdateVisitTouchpoint)
