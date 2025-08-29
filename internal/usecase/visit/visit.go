@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
 
+	"github.com/faisalhardin/medilink/internal/entity/constant"
 	"github.com/faisalhardin/medilink/internal/entity/model"
 	institutionRepo "github.com/faisalhardin/medilink/internal/entity/repo/institution"
 	journeyDB "github.com/faisalhardin/medilink/internal/entity/repo/journey"
@@ -64,19 +66,47 @@ func (u *VisitUC) InsertNewVisit(ctx context.Context, req model.InsertNewVisitRe
 		return commonerr.SetNewBadRequest("patient is not found", "no patient with given uuid")
 	}
 
-	req.Visit.IDMstPatient = mstPatient[0].ID
-	req.Visit.IDMstInstitution = userDetail.InstitutionID
-
-	err = u.PatientDB.RecordPatientVisit(ctx, &req.Visit)
+	journeyBoard, err := u.JourneyDB.GetJourneyBoardByJourneyPoint(ctx, req.JourneyPointID)
+	if err != nil && errors.Is(err, constant.ErrorRowNotFound) {
+		return commonerr.SetNewBadRequest("journey point is not found", "no journey point with given id")
+	}
 	if err != nil {
 		return errors.Wrap(err, WrapMsgInsertNewVisit)
 	}
 
-	if req.Detail.Notes == nil {
+	patientID := mstPatient[0].ID
+	institutionID := userDetail.InstitutionID
+
+	newTrxVisit := &model.TrxPatientVisit{
+		IDMstPatient:                patientID,
+		IDMstInstitution:            institutionID,
+		IDMstJourneyPoint:           req.JourneyPointID,
+		IDMstJourneyBoard:           journeyBoard.ID,
+		UpdateTimeMstJourneyPointID: time.Now().Unix(),
+	}
+
+	err = u.PatientDB.RecordPatientVisit(ctx, newTrxVisit)
+	if err != nil {
+		return errors.Wrap(err, WrapMsgInsertNewVisit)
+	}
+
+	if req.Notes == nil {
 		return
 	}
 
-	err = u.PatientDB.InsertDtlPatientVisit(ctx, &req.Detail)
+	journeyPoint, err := u.JourneyDB.GetJourneyPoint(ctx, model.MstJourneyPoint{
+		ID: req.JourneyPointID,
+	})
+
+	visitDetail := model.DtlPatientVisit{
+		IDTrxPatientVisit: newTrxVisit.ID,
+		Notes:             req.Notes,
+		JourneyPointName:  journeyPoint.Name,
+		IDMstJourneyPoint: req.JourneyPointID,
+	}
+	visitDetail.AddContributor(userDetail.Email)
+
+	err = u.PatientDB.InsertDtlPatientVisit(ctx, &visitDetail)
 	if err != nil {
 		return errors.Wrap(err, WrapMsgInsertNewVisit)
 	}

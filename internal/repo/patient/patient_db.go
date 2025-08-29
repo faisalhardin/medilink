@@ -119,6 +119,11 @@ func (c *Conn) GetPatients(ctx context.Context, params model.GetPatientParams) (
 func (c *Conn) RecordPatientVisit(ctx context.Context, request *model.TrxPatientVisit) (err error) {
 	session := c.DB.MasterDB
 
+	if request.ProductCart == nil {
+		emptyArray := []string{}
+		request.ProductCart, _ = json.Marshal(emptyArray)
+	}
+
 	_, err = session.
 		Table(model.TrxPatientVisitTableName).
 		InsertOne(request)

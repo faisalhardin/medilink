@@ -15,12 +15,13 @@ import (
 const (
 	WrapMsgPrefix = "JourneyDB."
 
-	WrapMsgInsertNewJourneyBoard = "InsertNewJourneyBoard"
-	WrapMsgListJourneyBoard      = "ListJourneyBoard"
-	WrapMsgGetJourneyBoardByID   = "GetJourneyBoardByID"
-	WrapMsgGetJourneyBoardDetail = "GetJourneyBoardDetail"
-	WrapMsgUpdateJourneyBoard    = "UpdateJourneyBoard"
-	WrapMsgDeleteJourneyBoard    = "DeleteJourneyBoard"
+	WrapMsgInsertNewJourneyBoard         = "InsertNewJourneyBoard"
+	WrapMsgListJourneyBoard              = "ListJourneyBoard"
+	WrapMsgGetJourneyBoardByID           = "GetJourneyBoardByID"
+	WrapMsgGetJourneyBoardDetail         = "GetJourneyBoardDetail"
+	WrapMsgUpdateJourneyBoard            = "UpdateJourneyBoard"
+	WrapMsgDeleteJourneyBoard            = "DeleteJourneyBoard"
+	WrapMsgGetJourneyBoardByJourneyPoint = "GetJourneyBoardByJourneyPoint"
 
 	WrapMsgInserNewJourneyPoint = "InsertNewJourneyPoint"
 	WrapMsgListJourneyPoints    = "ListJourneyPoints"
@@ -108,12 +109,12 @@ func (c *JourneyDB) GetJourneyBoardByJourneyPoint(ctx context.Context, journeyPo
 		Select("mmjb.*").
 		Get(&resp)
 	if err != nil {
-		err = errors.Wrap(err, WrapMsgGetJourneyBoardByID)
+		err = errors.Wrap(err, WrapMsgGetJourneyBoardByJourneyPoint)
 		return
 	}
 
 	if !found {
-		err = errors.Wrap(constant.ErrorRowNotFound, WrapMsgGetJourneyBoardByID)
+		err = errors.Wrap(constant.ErrorRowNotFound, WrapMsgGetJourneyBoardByJourneyPoint)
 		return
 	}
 

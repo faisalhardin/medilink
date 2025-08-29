@@ -77,8 +77,9 @@ func (dtlPatientVisit *DtlPatientVisit) AddContributor(contributorEmail string) 
 }
 
 type InsertNewVisitRequest struct {
-	PatientUUID string `json:"patient_uuid"`
-	TrxPatientVisit
+	PatientUUID    string          `json:"patient_uuid"`
+	JourneyPointID int64           `json:"journey_point_id"`
+	Notes          json.RawMessage `json:"notes"`
 }
 
 type UpdatePatientVisitRequest struct {
