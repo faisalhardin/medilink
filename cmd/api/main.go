@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	ilog "github.com/faisalhardin/medilink/cmd/log"
 	"github.com/faisalhardin/medilink/internal/repo/auth"
@@ -46,6 +47,9 @@ const (
 )
 
 func main() {
+
+	loc, _ := time.LoadLocation("Asia/Jakarta")
+	time.Local = loc
 
 	// init config
 	cfg, err := config.New(repoName)

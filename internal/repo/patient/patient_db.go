@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/faisalhardin/medilink/internal/entity/constant"
 	"github.com/faisalhardin/medilink/internal/entity/constant/database"
 	"github.com/faisalhardin/medilink/internal/entity/model"
 	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
-	"github.com/faisalhardin/medilink/internal/library/common/log"
 	xormlib "github.com/faisalhardin/medilink/internal/library/db/xorm"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
@@ -185,7 +185,7 @@ func (c *Conn) GetPatientVisits(ctx context.Context, params model.GetPatientVisi
 		session.Where("mtpv.id_mst_journey_board = ?", params.IDMstJourneyBoard)
 	}
 	if !params.FromTime.IsZero() && !params.ToTime.IsZero() {
-		session.Where("mtpv.create_time between ? and ?", params.FromTime.Format(constant.DateFormatYYYYMMDDDashed), params.ToTime.Format(constant.DateFormatYYYYMMDDDashed))
+		session.Where("mtpv.create_time between ? and ?", params.FromTime.Format(time.RFC3339), params.ToTime.Format(time.RFC3339))
 	}
 
 	session.
@@ -202,7 +202,6 @@ func (c *Conn) GetPatientVisits(ctx context.Context, params model.GetPatientVisi
 		return
 	}
 
-	log.Info(trxPatientVisit[0].MstJourneyPoint)
 	return
 }
 

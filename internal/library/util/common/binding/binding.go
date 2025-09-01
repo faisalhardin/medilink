@@ -10,6 +10,7 @@ import (
 
 	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
 	"github.com/faisalhardin/medilink/internal/library/util/validation"
+	customtime "github.com/faisalhardin/medilink/pkg/type/time"
 	"github.com/go-playground/locales/en"
 
 	"github.com/faisalhardin/medilink/internal/entity/model"
@@ -33,6 +34,8 @@ const (
 )
 
 func init() {
+
+	schemaDecoder.RegisterConverter(customtime.Time{}, customtime.TimeConverter)
 
 	validatorJSON = validation.NewValidation()
 	validatorURL = validation.NewValidation()
