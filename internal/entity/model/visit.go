@@ -92,7 +92,6 @@ type InsertNewVisitRequest struct {
 }
 
 type UpdatePatientVisitRequest struct {
-	// InsertNewVisitRequest
 	ID                          int64               `xorm:"'id' pk autoincr" json:"id"`
 	IDMstInstitution            int64               `xorm:"'id_mst_institution'" json:"-"`
 	IDMstJourneyBoard           null.Int64          `xorm:"'id_mst_journey_board'" json:"board_id"`

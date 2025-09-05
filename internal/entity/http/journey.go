@@ -13,6 +13,7 @@ type JourneyHandler interface {
 	InsertNewJourneyPoint(w http.ResponseWriter, r *http.Request)
 	UpdateJourneyPoint(w http.ResponseWriter, r *http.Request)
 	ArchiveJourneyPoint(w http.ResponseWriter, r *http.Request)
+	RenameJourneyPoint(w http.ResponseWriter, r *http.Request)
 
 	GetServicePoint(w http.ResponseWriter, r *http.Request)
 	ListServicePoint(w http.ResponseWriter, r *http.Request)

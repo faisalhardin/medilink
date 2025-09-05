@@ -75,3 +75,8 @@ type GetServicePointParams struct {
 	IDMstInstitution int64
 	CommonRequestPayload
 }
+
+type RenameJourneyPointRequest struct {
+	ID   int64  `xorm:"'id' pk autoincr" json:"id" validation:"required"`
+	Name string `xorm:"'name'" json:"name" validation:"required"`
+}

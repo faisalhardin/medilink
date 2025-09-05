@@ -199,6 +199,28 @@ func (h *JourneyHandler) UpdateJourneyPoint(w http.ResponseWriter, r *http.Reque
 	commonwriter.SetOKWithData(ctx, w, request)
 }
 
+func (h *JourneyHandler) RenameJourneyPoint(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	request := &model.RenameJourneyPointRequest{}
+	err := bindingBind(r, request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	err = h.JourneyUC.UpdateJourneyPoint(ctx, &model.MstJourneyPoint{
+		ID:   request.ID,
+		Name: request.Name,
+	})
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, request)
+}
+
 func (h *JourneyHandler) ArchiveJourneyPoint(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
