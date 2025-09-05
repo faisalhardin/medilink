@@ -13,6 +13,7 @@ type PatientHandler interface {
 	ListPatientVisitsByPatientUUID(w http.ResponseWriter, r *http.Request)
 	ListPatientVisits(w http.ResponseWriter, r *http.Request)
 	UpdatePatientVisit(w http.ResponseWriter, r *http.Request)
+	ListPatientVisitsDetailed(w http.ResponseWriter, r *http.Request)
 
 	GetVisitTouchpoint(w http.ResponseWriter, r *http.Request)
 	UpsertVisitTouchpoint(w http.ResponseWriter, r *http.Request)

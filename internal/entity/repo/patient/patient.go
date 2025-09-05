@@ -18,7 +18,7 @@ type PatientDB interface {
 	UpdatePatientVisit(ctx context.Context, updateRequest model.UpdatePatientVisitRequest) (trxVisit model.TrxPatientVisit, err error)
 	InsertDtlPatientVisit(ctx context.Context, request *model.DtlPatientVisit) (err error)
 	UpdateDtlPatientVisit(ctx context.Context, request *model.DtlPatientVisit) (err error)
-	GetDtlPatientVisit(ctx context.Context, params model.DtlPatientVisit) (dtlPatientVisit []model.DtlPatientVisit, err error)
+	GetDtlPatientVisit(ctx context.Context, params model.GetDtlPatientVisitParams) (dtlPatientVisit []model.DtlPatientVisit, err error)
 	GetDtlPatientVisitByID(ctx context.Context, id int64) (dtlPatientVisit model.DtlPatientVisit, err error)
 	InsertTrxVisitProduct(ctx context.Context, request *model.TrxVisitProduct) (err error)
 	UpdateTrxVisitProduct(ctx context.Context, request *model.TrxVisitProduct) (err error)

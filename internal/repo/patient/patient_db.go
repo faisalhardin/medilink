@@ -170,8 +170,7 @@ func (c *Conn) GetPatientVisits(ctx context.Context, params model.GetPatientVisi
 	session := c.DB.MasterDB.Table(model.TrxPatientVisitTableName)
 
 	if len(params.PatientUUID) > 0 {
-		session.Join(database.SQLInner, "mdl_mst_patient_institution mmpi", "mmpi.id = mtpv.id_mst_patient and mmpi.delete_time is null").
-			Where("mmpi.uuid = ?", params.PatientUUID)
+		session.Where("mmpi.uuid = ?", params.PatientUUID)
 	}
 	if params.PatientID > 0 {
 		session.Where("mtpv.id_mst_patient = ?", params.PatientID)
@@ -302,15 +301,18 @@ func (c *Conn) UpdateDtlPatientVisit(ctx context.Context, request *model.DtlPati
 	return
 }
 
-func (c *Conn) GetDtlPatientVisit(ctx context.Context, params model.DtlPatientVisit) (dtlPatientVisit []model.DtlPatientVisit, err error) {
+func (c *Conn) GetDtlPatientVisit(ctx context.Context, params model.GetDtlPatientVisitParams) (dtlPatientVisit []model.DtlPatientVisit, err error) {
 	dtlPatientVisit = []model.DtlPatientVisit{}
 
 	session := c.DB.SlaveDB.Table(model.DtlPatientVisitTableName)
-	if params.IDTrxPatientVisit > 0 {
-		session.Where("mdpv.id_trx_patient_visit = ?", params.IDTrxPatientVisit)
+	if len(params.IDsTrxPatientVisit) > 0 {
+		session.Where("mdpv.id_trx_patient_visit = any(?)", pq.Array(params.IDsTrxPatientVisit))
 	}
-	if params.ID > 0 {
-		session.Where("mdpv.id = ?", params.ID)
+	if len(params.IDs) > 0 {
+		session.Where("mdpv.id = ANY(?)", pq.Array(params.IDs))
+	}
+	if params.Limit > 0 {
+		session.Limit(params.Limit, params.Offset)
 	}
 
 	err = session.Alias("mdpv").

@@ -45,6 +45,7 @@ func RegisterRoutes(m *module) http.Handler {
 			authed.Route("/visit", func(visit chi.Router) {
 				visit.Post("/", m.httpHandler.PatientHandler.InsertNewVisit)
 				visit.Get("/", m.httpHandler.PatientHandler.ListPatientVisits)
+				visit.Get("/detailed", m.httpHandler.PatientHandler.ListPatientVisitsDetailed)
 				visit.Route("/{id}", func(visit chi.Router) {
 					visit.Patch("/", m.httpHandler.PatientHandler.UpdatePatientVisit)
 					visit.Get("/", m.httpHandler.PatientHandler.GetPatientVisits)

@@ -31,17 +31,26 @@ func (tbl *TrxPatientVisit) BeforeUpdate() {
 }
 
 type DtlPatientVisit struct {
-	ID                int64           `xorm:"'id' pk autoincr" json:"id"`
-	IDTrxPatientVisit int64           `xorm:"'id_trx_patient_visit'" json:"id_trx_patient_visit"`
-	JourneyPointName  string          `xorm:"'name_mst_journey_point'" json:"name_mst_journey_point"`
-	IDMstJourneyPoint int64           `xorm:"id_mst_journey_point" json:"journey_point_id"`
-	ActionBy          int64           `xorm:"action_by_id_mst_staff" json:"-"`
-	Notes             json.RawMessage `xorm:"'notes'" json:"notes"`
-	Contributors      json.RawMessage `xorm:"'contributors'" json:"contributors"`
-	IDMstServicePoint int64           `xorm:"id_mst_service_point" json:"service_point_id"`
-	CreateTime        time.Time       `json:"create_time" xorm:"'create_time' created"`
-	UpdateTime        time.Time       `json:"update_time" xorm:"'update_time' updated"`
-	DeleteTime        *time.Time      `json:"-" xorm:"'delete_time' deleted"`
+	ID                 int64           `xorm:"'id' pk autoincr" json:"id"`
+	IDTrxPatientVisit  int64           `xorm:"'id_trx_patient_visit'" json:"id_trx_patient_visit"`
+	IDsTrxPatientVisit []int64         `xorm:"-" json:"-"`
+	JourneyPointName   string          `xorm:"'name_mst_journey_point'" json:"name_mst_journey_point"`
+	IDMstJourneyPoint  int64           `xorm:"id_mst_journey_point" json:"journey_point_id"`
+	ActionBy           int64           `xorm:"action_by_id_mst_staff" json:"-"`
+	Notes              json.RawMessage `xorm:"'notes'" json:"notes"`
+	Contributors       json.RawMessage `xorm:"'contributors'" json:"contributors"`
+	IDMstServicePoint  int64           `xorm:"id_mst_service_point" json:"service_point_id"`
+	CreateTime         time.Time       `json:"create_time" xorm:"'create_time' created"`
+	UpdateTime         time.Time       `json:"update_time" xorm:"'update_time' updated"`
+	DeleteTime         *time.Time      `json:"-" xorm:"'delete_time' deleted"`
+}
+
+type GetDtlPatientVisitParams struct {
+	IDs                []int64 `xorm:"'id' pk autoincr" json:"id"`
+	IDsTrxPatientVisit []int64 `xorm:"'id_trx_patient_visit'" json:"id_trx_patient_visit"`
+	IDsMstJourneyPoins []int64 `xorm:"id_mst_journey_point" json:"journey_point_id"`
+	IDsMstServicePoint []int64 `xorm:"id_mst_service_point" json:"service_point_id"`
+	CommonRequestPayload
 }
 
 func (dtlPatientVisit *DtlPatientVisit) AddContributor(contributorEmail string) (isNewContributor bool, err error) {
@@ -96,8 +105,8 @@ type UpdatePatientVisitRequest struct {
 }
 
 type GetPatientVisitParams struct {
-	PatientID         int64  `xorm:"id"`
-	PatientUUID       string `xorm:"uuid"`
+	PatientID         int64  `xorm:"id" schema:"-"`
+	PatientUUID       string `xorm:"uuid" schema:"patient_uuid"`
 	IDPatientVisit    int64  `xorm:"id_trx_patient_visit" schema:"visit_id"`
 	IDMstInstitution  int64  `xorm:"id_mst_institution"`
 	IDMstJourneyBoard int64  `schema:"journey_board_id"`
@@ -145,7 +154,7 @@ type InsertPatientVisitRequest struct {
 
 type GetPatientVisitDetailResponse struct {
 	TrxPatientVisit
-	DtlPatientVisit []DtlPatientVisit     `json:"patient_checkpoints"`
+	DtlPatientVisit []DtlPatientVisit     `json:"patient_journeypoints"`
 	MstPatient      MstPatientInstitution `json:"patient"`
 	JourneyPoint    MstJourneyPoint       `json:"journey_point"`
 	ServicePoint    MstServicePoint       `json:"service_point"`

@@ -32,6 +32,10 @@ const (
 	WrapMsgReduceProductStock    = WrapErrMsgPrefix + "ReduceProductStock"
 )
 
+const (
+	defaultLimit = 5
+)
+
 type VisitUC struct {
 	PatientDB       patientRepo.PatientDB
 	InstitutionRepo institutionRepo.InstitutionDB
@@ -149,8 +153,8 @@ func (u *VisitUC) GetPatientVisitDetail(ctx context.Context, req model.GetPatien
 
 	errGroup.Go(func() error {
 		defer wg.Done()
-		dtlVisit, err := u.PatientDB.GetDtlPatientVisit(ctxWithCancel, model.DtlPatientVisit{
-			IDTrxPatientVisit: req.IDPatientVisit,
+		dtlVisit, err := u.PatientDB.GetDtlPatientVisit(ctxWithCancel, model.GetDtlPatientVisitParams{
+			IDsTrxPatientVisit: []int64{req.IDPatientVisit},
 		})
 		if err != nil {
 			err = errors.Wrap(err, WrapMsgGetPatientVisits)
@@ -168,6 +172,71 @@ func (u *VisitUC) GetPatientVisitDetail(ctx context.Context, req model.GetPatien
 	if err = errGroup.Wait(); err != nil {
 		err = errors.Wrap(err, WrapMsgGetPatientVisits)
 		return
+	}
+
+	return
+}
+
+func (u *VisitUC) ListPatientVisitDetailed(ctx context.Context, req model.GetPatientVisitParams) (visitsDetails []model.GetPatientVisitDetailResponse, err error) {
+
+	if req.CommonRequestPayload.Limit == 0 {
+		req.CommonRequestPayload.Limit = defaultLimit
+	}
+
+	userDetail, found := auth.GetUserDetailFromCtx(ctx)
+	if !found {
+		err = commonerr.SetNewUnauthorizedAPICall()
+		return
+	}
+
+	req.IDMstInstitution = userDetail.InstitutionID
+
+	visitsDetails = []model.GetPatientVisitDetailResponse{}
+
+	visits, err := u.PatientDB.GetPatientVisits(ctx, req)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgGetPatientVisits)
+		return
+	}
+
+	if len(visits) == 0 {
+		return
+	}
+
+	visitIDs := []int64{}
+	for _, visit := range visits {
+		visitIDs = append(visitIDs, visit.TrxPatientVisit.ID)
+		visitsDetails = append(visitsDetails, model.GetPatientVisitDetailResponse{
+			TrxPatientVisit: visit.TrxPatientVisit,
+			MstPatient:      visit.MstPatientInstitution,
+			JourneyPoint:    visit.MstJourneyPoint,
+			ServicePoint:    visit.MstServicePoint,
+		})
+	}
+
+	dtlVisits, err := u.PatientDB.GetDtlPatientVisit(ctx, model.GetDtlPatientVisitParams{
+		IDsTrxPatientVisit: visitIDs,
+	})
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgGetPatientVisits)
+		return
+	}
+
+	mapVisitIDtoDtlVisit := map[int64][]model.DtlPatientVisit{}
+	for _, detailVisit := range dtlVisits {
+		if dtlVisit, ok := mapVisitIDtoDtlVisit[detailVisit.IDTrxPatientVisit]; ok {
+			dtlVisit = append(dtlVisit, detailVisit)
+			mapVisitIDtoDtlVisit[detailVisit.IDTrxPatientVisit] = dtlVisit
+		} else {
+			mapVisitIDtoDtlVisit[detailVisit.IDTrxPatientVisit] = []model.DtlPatientVisit{
+				detailVisit,
+			}
+		}
+	}
+
+	for i, response := range visitsDetails {
+		response.DtlPatientVisit = mapVisitIDtoDtlVisit[response.ID]
+		visitsDetails[i] = response
 	}
 
 	return
@@ -343,9 +412,9 @@ func (u *VisitUC) GetVisitTouchpoint(ctx context.Context, req model.DtlPatientVi
 		return
 	}
 
-	dtlVisit, err = u.PatientDB.GetDtlPatientVisit(ctx, model.DtlPatientVisit{
-		ID:                req.ID,
-		IDTrxPatientVisit: req.IDTrxPatientVisit,
+	dtlVisit, err = u.PatientDB.GetDtlPatientVisit(ctx, model.GetDtlPatientVisitParams{
+		IDs:                []int64{req.ID},
+		IDsTrxPatientVisit: []int64{req.IDTrxPatientVisit},
 	})
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgGetVisitTouchpoint)
@@ -383,8 +452,8 @@ func (u *VisitUC) InsertVisitProduct(ctx context.Context, req model.InsertTrxVis
 	// === VISIT DETAIL VALIDATION SECTION ===
 	// Validate that the specified patient visit detail exists
 	// This ensures we're adding products to a valid visit
-	dtlPatientVisit, err := u.PatientDB.GetDtlPatientVisit(ctx, model.DtlPatientVisit{
-		ID: req.IDDtlPatientVisit,
+	dtlPatientVisit, err := u.PatientDB.GetDtlPatientVisit(ctx, model.GetDtlPatientVisitParams{
+		IDs: []int64{req.IDDtlPatientVisit},
 	})
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgInsertVisitProduct)

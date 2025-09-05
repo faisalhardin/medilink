@@ -99,6 +99,25 @@ func (h *PatientHandler) GetPatientVisits(w http.ResponseWriter, r *http.Request
 	commonwriter.SetOKWithData(ctx, w, visits)
 }
 
+func (h *PatientHandler) ListPatientVisitsDetailed(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	request := model.GetPatientVisitParams{}
+	err := bindingBind(r, &request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	visits, err := h.VisitUC.ListPatientVisitDetailed(ctx, request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, visits)
+}
+
 func (h *PatientHandler) UpdatePatientVisit(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
