@@ -297,7 +297,11 @@ func (u *VisitUC) UpdatePatientVisit(ctx context.Context, req model.UpdatePatien
 	return
 }
 
-func (u *VisitUC) ValidatePatientVisitExist(ctx context.Context, req model.DtlPatientVisitRequest) (err error) {
+type ValidatePatientVisitExistRequest struct {
+	IDTrxPatientVisit int64
+}
+
+func (u *VisitUC) ValidatePatientVisitExist(ctx context.Context, req ValidatePatientVisitExistRequest) (userDetail model.UserJWTPayload, err error) {
 	userDetail, found := auth.GetUserDetailFromCtx(ctx)
 	if !found {
 		err = commonerr.SetNewUnauthorizedAPICall()
@@ -309,14 +313,14 @@ func (u *VisitUC) ValidatePatientVisitExist(ctx context.Context, req model.DtlPa
 		IDMstInstitution: userDetail.InstitutionID,
 	})
 	if err != nil {
-		return err
+		return
 	}
 	if len(visit) == 0 {
 		err = commonerr.SetNewBadRequest("invalid", "no patient visit found")
 		return
 	}
 
-	return nil
+	return
 }
 
 func (u *VisitUC) UpsertVisitTouchpoint(ctx context.Context, req model.DtlPatientVisitRequest) (dtlPatientVisit model.DtlPatientVisit, err error) {
@@ -328,7 +332,9 @@ func (u *VisitUC) UpsertVisitTouchpoint(ctx context.Context, req model.DtlPatien
 }
 
 func (u *VisitUC) InsertVisitTouchpoint(ctx context.Context, req model.DtlPatientVisitRequest) (dtlPatientVisit model.DtlPatientVisit, err error) {
-	if err = u.ValidatePatientVisitExist(ctx, req); err != nil {
+	if _, err = u.ValidatePatientVisitExist(ctx, ValidatePatientVisitExistRequest{
+		IDTrxPatientVisit: req.IDTrxPatientVisit,
+	}); err != nil {
 		err = errors.Wrap(err, WrapMsgInsertVisitTouchpoint)
 		return
 	}
@@ -371,7 +377,9 @@ func (u *VisitUC) UpdateVisitTouchpoint(ctx context.Context, req model.DtlPatien
 	session, _ := u.Transaction.Begin(ctx)
 	defer u.Transaction.Finish(session, &err)
 
-	if err = u.ValidatePatientVisitExist(ctx, req); err != nil {
+	if _, err = u.ValidatePatientVisitExist(ctx, ValidatePatientVisitExistRequest{
+		IDTrxPatientVisit: req.IDTrxPatientVisit,
+	}); err != nil {
 		err = errors.Wrap(err, WrapMsgUpdateVisitTouchpoint)
 		return
 	}
@@ -407,7 +415,9 @@ func (u *VisitUC) UpdateVisitTouchpoint(ctx context.Context, req model.DtlPatien
 
 func (u *VisitUC) GetVisitTouchpoint(ctx context.Context, req model.DtlPatientVisitRequest) (dtlVisit []model.DtlPatientVisit, err error) {
 
-	if err = u.ValidatePatientVisitExist(ctx, req); err != nil {
+	if _, err = u.ValidatePatientVisitExist(ctx, ValidatePatientVisitExistRequest{
+		IDTrxPatientVisit: req.IDTrxPatientVisit,
+	}); err != nil {
 		err = errors.Wrap(err, WrapMsgGetVisitTouchpoint)
 		return
 	}
@@ -825,4 +835,24 @@ func (u *VisitUC) ListVisitProducts(ctx context.Context, params model.GetVisitPr
 
 	params.InstitutionID = userDetail.InstitutionID
 	return u.PatientDB.GetTrxVisitProduct(ctx, params)
+}
+
+func (u *VisitUC) ArchivePatientVisit(ctx context.Context, req model.ArchivePatientVisitRequest) (err error) {
+
+	_, err = u.ValidatePatientVisitExist(ctx, ValidatePatientVisitExistRequest{
+		IDTrxPatientVisit: req.ID,
+	})
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgUpdateVisitTouchpoint)
+		return
+	}
+
+	err = u.PatientDB.DeletePatientVisit(ctx, &model.TrxPatientVisit{
+		ID: req.ID,
+	})
+	if err != nil {
+		return errors.Wrap(err, WrapMsgUpdateVisitTouchpoint)
+	}
+
+	return nil
 }

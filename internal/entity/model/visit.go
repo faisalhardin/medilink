@@ -158,3 +158,7 @@ type GetPatientVisitDetailResponse struct {
 	JourneyPoint    MstJourneyPoint       `json:"journey_point"`
 	ServicePoint    MstServicePoint       `json:"service_point"`
 }
+
+type ArchivePatientVisitRequest struct {
+	ID int64 `json:"id" validation:"required"`
+}

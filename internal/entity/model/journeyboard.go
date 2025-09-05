@@ -80,3 +80,7 @@ type RenameJourneyPointRequest struct {
 	ID   int64  `xorm:"'id' pk autoincr" json:"id" validation:"required"`
 	Name string `xorm:"'name'" json:"name" validation:"required"`
 }
+
+type ArchiveJourneyPointRequest struct {
+	ID int64 `json:"id" validation:"required"`
+}

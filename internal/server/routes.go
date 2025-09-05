@@ -46,6 +46,7 @@ func RegisterRoutes(m *module) http.Handler {
 				visit.Post("/", m.httpHandler.PatientHandler.InsertNewVisit)
 				visit.Get("/", m.httpHandler.PatientHandler.ListPatientVisits)
 				visit.Get("/detailed", m.httpHandler.PatientHandler.ListPatientVisitsDetailed)
+				visit.Patch("/archive", m.httpHandler.PatientHandler.ArchivePatientVisit)
 				visit.Route("/{id}", func(visit chi.Router) {
 					visit.Patch("/", m.httpHandler.PatientHandler.UpdatePatientVisit)
 					visit.Get("/", m.httpHandler.PatientHandler.GetPatientVisits)
@@ -76,7 +77,7 @@ func RegisterRoutes(m *module) http.Handler {
 					board.Post("/", m.httpHandler.JourneyHandler.InsertNewJourneyPoint)
 					board.Patch("/{id}", m.httpHandler.JourneyHandler.UpdateJourneyPoint)
 					board.Patch("/rename", m.httpHandler.JourneyHandler.RenameJourneyPoint)
-					board.Delete("/{id}", m.httpHandler.JourneyHandler.ArchiveJourneyPoint)
+					board.Delete("/", m.httpHandler.JourneyHandler.ArchiveJourneyPoint)
 				})
 
 				journey.Route("/service-point", func(servicePoint chi.Router) {

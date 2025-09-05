@@ -25,6 +25,7 @@ const (
 	WrapMsgGetPatientVisitRecordByPatientID = WrapErrMsgPrefix + "GetPatientVisitRecordByPatientID"
 	WrapMsgGetPatientVisitsByID             = WrapErrMsgPrefix + "GetPatientVisitsByID"
 	WrapMsgUpdatePatientVisit               = WrapErrMsgPrefix + "UpdatePatientVisit"
+	WrapMsgDeletePatientVisit               = WrapErrMsgPrefix + "DeletePatientVisit"
 	WrapMsgUpdatePatient                    = WrapErrMsgPrefix + "UpdatePatient"
 	WrapMsgGetPatientVisits                 = WrapErrMsgPrefix + "GetPatientVisits"
 	WrapMsgInsertDtlPatientVisit            = WrapErrMsgPrefix + "InsertDtlPatientVisit"
@@ -244,6 +245,29 @@ func (c *Conn) UpdatePatientVisit(ctx context.Context, updateRequest model.Updat
 		Update(&trxVisit)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgUpdatePatientVisit)
+		return
+	}
+
+	return
+}
+
+func (c *Conn) DeletePatientVisit(ctx context.Context, request *model.TrxPatientVisit) (err error) {
+	session := xormlib.GetDBSession(ctx)
+	if session == nil {
+		session = c.DB.MasterDB.Context(ctx)
+	}
+
+	if request.ID == 0 {
+		err = errors.Wrap(errors.New("id or id_trx_patient_visit is required"), WrapMsgDeletePatientVisit)
+		return
+	}
+
+	_, err = session.
+		ID(request.ID).
+		Table(model.TrxPatientVisitTableName).
+		Delete(&model.TrxPatientVisit{})
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgDeletePatientVisit)
 		return
 	}
 

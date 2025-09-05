@@ -185,14 +185,16 @@ func (u *JourneyUC) UpdateJourneyPoint(ctx context.Context, journeyPoint *model.
 	return
 }
 
-func (u *JourneyUC) ArchiveJourneyPoint(ctx context.Context, journeyPoint *model.MstJourneyPoint) (err error) {
+func (u *JourneyUC) ArchiveJourneyPoint(ctx context.Context, journeyPoint *model.ArchiveJourneyPointRequest) (err error) {
 	err = u.validateJourneyPointOwnership(ctx, journeyPoint.ID)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgArchiveJourneyPoint)
 		return
 	}
 
-	err = u.JourneyDB.DeleteJourneyPoint(ctx, journeyPoint)
+	err = u.JourneyDB.DeleteJourneyPoint(ctx, &model.MstJourneyPoint{
+		ID: journeyPoint.ID,
+	})
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgArchiveJourneyPoint)
 		return

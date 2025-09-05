@@ -224,17 +224,14 @@ func (h *JourneyHandler) RenameJourneyPoint(w http.ResponseWriter, r *http.Reque
 func (h *JourneyHandler) ArchiveJourneyPoint(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	journeyIDStr := chi.URLParam(r, "id")
-	journeyID, err := strconv.ParseInt(journeyIDStr, 10, 64)
+	request := &model.ArchiveJourneyPointRequest{}
+	err := bindingBind(r, request)
 	if err != nil {
-		errMsg := commonerr.SetNewBadRequest("Journey ID", "Invalid Journey ID")
-		commonwriter.SetError(ctx, w, errMsg)
+		commonwriter.SetError(ctx, w, err)
 		return
 	}
 
-	err = h.JourneyUC.ArchiveJourneyPoint(ctx, &model.MstJourneyPoint{
-		ID: journeyID,
-	})
+	err = h.JourneyUC.ArchiveJourneyPoint(ctx, request)
 	if err != nil {
 		commonwriter.SetError(ctx, w, err)
 		return

@@ -147,6 +147,25 @@ func (h *PatientHandler) UpdatePatientVisit(w http.ResponseWriter, r *http.Reque
 	commonwriter.SetOKWithData(ctx, w, "ok")
 }
 
+func (h *PatientHandler) ArchivePatientVisit(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	request := model.ArchivePatientVisitRequest{}
+	err := bindingBind(r, &request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	err = h.VisitUC.ArchivePatientVisit(ctx, request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, "ok")
+}
+
 func (h *PatientHandler) ListVisitTouchpoints(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 

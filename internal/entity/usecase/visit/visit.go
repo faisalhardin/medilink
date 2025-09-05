@@ -22,4 +22,5 @@ type VisitUC interface {
 	UpdateVisitProduct(ctx context.Context, req model.InsertTrxVisitProductRequest) (err error)
 	UpsertVisitProduct(ctx context.Context, req model.UpsertTrxVisitProductRequest) (err error)
 	ListVisitProducts(ctx context.Context, params model.GetVisitProductRequest) (products []model.TrxVisitProduct, err error)
+	ArchivePatientVisit(ctx context.Context, req model.ArchivePatientVisitRequest) (err error)
 }
