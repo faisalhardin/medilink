@@ -109,6 +109,7 @@ type GetPatientVisitParams struct {
 	IDPatientVisit    int64  `xorm:"id_trx_patient_visit" schema:"visit_id"`
 	IDMstInstitution  int64  `xorm:"id_mst_institution"`
 	IDMstJourneyBoard int64  `schema:"journey_board_id"`
+	IDMstJourneyPoint int64  `schema:"journey_point_id"`
 	CommonRequestPayload
 }
 

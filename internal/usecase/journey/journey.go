@@ -115,12 +115,7 @@ func (u *JourneyUC) validateJourneyBoardOwnership(ctx context.Context, boardID i
 	return nil
 }
 
-func (u *JourneyUC) validateJourneyPointOwnership(ctx context.Context, journeyPointID int64) (err error) {
-	userDetail, found := auth.GetUserDetailFromCtx(ctx)
-	if !found {
-		err = errors.Wrap(commonerr.SetNewUnauthorizedAPICall(), WrapMsgUpdateJourneyPoint)
-		return
-	}
+func (u *JourneyUC) validateJourneyPointOwnership(ctx context.Context, journeyPointID int64, userDetail model.UserJWTPayload) (err error) {
 
 	journeyBoard, err := u.JourneyDB.GetJourneyBoardByJourneyPoint(ctx, journeyPointID)
 	if err != nil && errors.Is(err, constant.ErrorRowNotFound) {
@@ -174,7 +169,13 @@ func (u *JourneyUC) InsertNewJourneyPoint(ctx context.Context, journeyPoint *mod
 
 func (u *JourneyUC) UpdateJourneyPoint(ctx context.Context, journeyPoint *model.MstJourneyPoint) (err error) {
 
-	err = u.validateJourneyPointOwnership(ctx, journeyPoint.ID)
+	userDetail, found := auth.GetUserDetailFromCtx(ctx)
+	if !found {
+		err = errors.Wrap(commonerr.SetNewUnauthorizedAPICall(), WrapMsgUpdateJourneyPoint)
+		return
+	}
+
+	err = u.validateJourneyPointOwnership(ctx, journeyPoint.ID, userDetail)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgUpdateJourneyPoint)
 		return
@@ -190,22 +191,34 @@ func (u *JourneyUC) UpdateJourneyPoint(ctx context.Context, journeyPoint *model.
 }
 
 func (u *JourneyUC) ArchiveJourneyPoint(ctx context.Context, journeyPoint *model.ArchiveJourneyPointRequest) (err error) {
-	err = u.validateJourneyPointOwnership(ctx, journeyPoint.ID)
+
+	userDetail, found := auth.GetUserDetailFromCtx(ctx)
+	if !found {
+		err = errors.Wrap(commonerr.SetNewUnauthorizedAPICall(), WrapMsgUpdateJourneyPoint)
+		return
+	}
+
+	err = u.validateJourneyPointOwnership(ctx, journeyPoint.ID, userDetail)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgArchiveJourneyPoint)
 		return
 	}
 
 	patientVisits, err := u.PatientDB.GetPatientVisits(ctx, model.GetPatientVisitParams{
-		IDMstJourneyBoard: journeyPoint.ID,
+		IDMstJourneyPoint: journeyPoint.ID,
+		IDMstInstitution:  userDetail.InstitutionID,
 		CommonRequestPayload: model.CommonRequestPayload{
-			FromTime: customtime.Time{time.Now().AddDate(0, 0, -30)},
+			FromTime: customtime.Time{time.Now().AddDate(0, 0, -3)},
 			ToTime:   customtime.Time{time.Now()},
 		},
 	})
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgArchiveJourneyPoint)
+		return
+	}
 
 	if len(patientVisits) > 0 {
-		err = commonerr.SetNewBadRequest("invalid", "There are visits that are still active within 30 days")
+		err = commonerr.SetNewBadRequest("invalid", "There are visits that are still active within 3 days")
 		return
 	}
 

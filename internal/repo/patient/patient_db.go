@@ -187,6 +187,9 @@ func (c *Conn) GetPatientVisits(ctx context.Context, params model.GetPatientVisi
 	if !params.FromTime.IsZero() && !params.ToTime.IsZero() {
 		session.Where("mtpv.create_time between ? and ?", params.FromTime.Format(time.RFC3339), params.ToTime.Format(time.RFC3339))
 	}
+	if params.IDMstJourneyPoint > 0 {
+		session.Where("mtpv.id_mst_journey_point = ?", params.IDMstJourneyPoint)
+	}
 
 	session.
 		Join(database.SQLInner, "mdl_mst_patient_institution mmpi", "mtpv.id_mst_patient = mmpi.id and mmpi.delete_time is null").
