@@ -32,8 +32,7 @@ type MstJourneyPoint struct {
 }
 
 type InsertMstJourneyPoint struct {
-	MstJourneyPoint  *MstJourneyPoint
-	IDMstInstitution int64
+	MstJourneyPoint *MstJourneyPoint
 }
 
 // model for mdl_mst_service_point

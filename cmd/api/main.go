@@ -157,6 +157,7 @@ func main() {
 
 	journeyUC := journeyuc.NewJourneyUC(&journeyuc.JourneyUC{
 		JourneyDB: customerJourneyDB,
+		PatientDB: patientDB,
 	})
 
 	// usecase block end

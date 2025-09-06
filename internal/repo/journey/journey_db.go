@@ -196,17 +196,18 @@ func (c *JourneyDB) InsertNewJourneyPoint(ctx context.Context, journeyPoint *mod
 				(SELECT j.position + 100
 				FROM mdl_mst_journey_point j
 				WHERE j.id_mst_journey_board = ? AND j.delete_time IS NULL
-				ORDER BY j.id DESC LIMIT 1),
+				ORDER BY j.position DESC LIMIT 1),
 				100
 			) AS next_position
 		)
-		INSERT INTO mdl_mst_journey_point (name, id_mst_journey_board, position, create_time, update_time)
-		SELECT ?, ?, lp.next_position, NOW(), NOW()
+		INSERT INTO mdl_mst_journey_point (name, id_mst_journey_board, id_mst_institution, position, create_time, update_time)
+		SELECT ?, ?, ?, lp.next_position, NOW(), NOW()
 		FROM latest_position lp
 		RETURNING id, name, id_mst_journey_board, position
 		`,
 		journeyPoint.MstJourneyPoint.IDMstJourneyBoard,
 		journeyPoint.MstJourneyPoint.Name,
+		journeyPoint.MstJourneyPoint.IDMstInstitution,
 		journeyPoint.MstJourneyPoint.IDMstJourneyBoard,
 	).QueryInterface()
 	if err != nil {
@@ -269,7 +270,7 @@ func (c *JourneyDB) UpdateJourneyPoint(ctx context.Context, journeyPoint *model.
 	session := c.DB.MasterDB.Table(database.MstJourneyPointTable)
 
 	if journeyPoint.IDMstInstitution > 0 {
-		session.Where("id_mst_institution = ?", journeyPoint.IDMstInstitution)
+		session.Where("id_mst_institution = ?", journeyPoint.IDMstInstitution).Omit("id_mst_institution")
 	}
 
 	_, err = session.

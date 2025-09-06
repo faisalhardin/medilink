@@ -2,12 +2,15 @@ package journey
 
 import (
 	"context"
+	"time"
 
 	"github.com/faisalhardin/medilink/internal/entity/constant"
 	"github.com/faisalhardin/medilink/internal/entity/model"
 	journeyRepo "github.com/faisalhardin/medilink/internal/entity/repo/journey"
+	patientRepo "github.com/faisalhardin/medilink/internal/entity/repo/patient"
 	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
 	"github.com/faisalhardin/medilink/internal/library/middlewares/auth"
+	customtime "github.com/faisalhardin/medilink/pkg/type/time"
 	"github.com/pkg/errors"
 )
 
@@ -33,6 +36,7 @@ const (
 
 type JourneyUC struct {
 	JourneyDB journeyRepo.JourneyDB
+	PatientDB patientRepo.PatientDB
 }
 
 func NewJourneyUC(conn *JourneyUC) *JourneyUC {
@@ -189,6 +193,19 @@ func (u *JourneyUC) ArchiveJourneyPoint(ctx context.Context, journeyPoint *model
 	err = u.validateJourneyPointOwnership(ctx, journeyPoint.ID)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgArchiveJourneyPoint)
+		return
+	}
+
+	patientVisits, err := u.PatientDB.GetPatientVisits(ctx, model.GetPatientVisitParams{
+		IDMstJourneyBoard: journeyPoint.ID,
+		CommonRequestPayload: model.CommonRequestPayload{
+			FromTime: customtime.Time{time.Now().AddDate(0, 0, -30)},
+			ToTime:   customtime.Time{time.Now()},
+		},
+	})
+
+	if len(patientVisits) > 0 {
+		err = commonerr.SetNewBadRequest("invalid", "There are visits that are still active within 30 days")
 		return
 	}
 

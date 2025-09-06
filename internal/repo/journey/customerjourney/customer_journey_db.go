@@ -154,7 +154,7 @@ func (c *UserJourneyDB) InsertNewJourneyPoint(ctx context.Context, journeyPoint 
 		return
 	}
 
-	journeyPoint.IDMstInstitution = userDetail.InstitutionID
+	journeyPoint.MstJourneyPoint.IDMstInstitution = userDetail.InstitutionID
 
 	return c.JourneyDB.InsertNewJourneyPoint(ctx, journeyPoint)
 }
