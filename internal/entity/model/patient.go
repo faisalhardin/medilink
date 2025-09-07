@@ -68,6 +68,7 @@ type GetPatientResponse struct {
 	Address      string    `json:"address" xorm:"'address'"`
 	Religion     string    `json:"religion" xorm:"'religion'"`
 	PhoneNumber  string    `json:"phone_number"`
+	Sex          string    `json:"sex" xorm:"'sex'"`
 }
 
 type UpdatePatientRequest struct {
