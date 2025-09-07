@@ -53,10 +53,35 @@ func (c *Conn) RegisterNewPatient(ctx context.Context, patient *model.MstPatient
 
 	session := c.DB.MasterDB
 
-	_, err = session.Table(model.MstPatientInstitutionTableName).InsertOne(patient)
+	sqlResult, err := session.SQL(`
+		INSERT INTO mdl_mst_patient_institution 
+		(nik, name, sex, place_of_birth, date_of_birth, address, religion, phone_number, id_mst_institution, create_time, update_time)
+		VALUES (
+		?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+		RETURNING id, uuid, create_time, update_time
+	`,
+		patient.NIK,
+		patient.Name,
+		patient.Sex,
+		patient.PlaceOfBirth,
+		patient.DateOfBirth,
+		patient.Address,
+		patient.Religion,
+		patient.PhoneNumber,
+		patient.InstitutionID,
+	).QueryInterface()
+
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgRegisterNewPatient)
 		return
+	}
+
+	if len(sqlResult) > 0 {
+		row := sqlResult[0]
+		patient.ID = row["id"].(int64)
+		patient.UUID = row["uuid"].(string)
+		patient.CreateTime = row["create_time"].(time.Time)
+		patient.UpdateTime = row["update_time"].(time.Time)
 	}
 
 	return

@@ -34,13 +34,13 @@ func (h *PatientHandler) RegisterNewPatient(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	err = h.PatientUC.RegisterNewPatient(ctx, request)
+	newPatientResponse, err := h.PatientUC.RegisterNewPatient(ctx, request)
 	if err != nil {
 		commonwriter.SetError(ctx, w, err)
 		return
 	}
 
-	commonwriter.SetOKWithData(ctx, w, "ok")
+	commonwriter.SetOKWithData(ctx, w, newPatientResponse)
 }
 
 func (h *PatientHandler) ListPatient(w http.ResponseWriter, r *http.Request) {

@@ -25,7 +25,7 @@ func NewPatientUC(u *PatientUC) *PatientUC {
 	return u
 }
 
-func (u *PatientUC) RegisterNewPatient(ctx context.Context, req model.RegisterNewPatientRequest) (err error) {
+func (u *PatientUC) RegisterNewPatient(ctx context.Context, req model.RegisterNewPatientRequest) (newPatientResponse model.GetPatientResponse, err error) {
 
 	userDetail, found := auth.GetUserDetailFromCtx(ctx)
 	if !found {
@@ -33,7 +33,7 @@ func (u *PatientUC) RegisterNewPatient(ctx context.Context, req model.RegisterNe
 		return
 	}
 
-	err = u.PatientDB.RegisterNewPatient(ctx, &model.MstPatientInstitution{
+	newPatient := model.MstPatientInstitution{
 		NIK:           req.NIK,
 		Name:          req.Name,
 		Sex:           req.Sex,
@@ -42,13 +42,26 @@ func (u *PatientUC) RegisterNewPatient(ctx context.Context, req model.RegisterNe
 		Address:       req.Address,
 		Religion:      req.Religion,
 		InstitutionID: userDetail.InstitutionID,
-	})
+	}
+
+	err = u.PatientDB.RegisterNewPatient(ctx, &newPatient)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgRegisterNewPatient)
 		return
 	}
 
-	return
+	newPatientResponse = model.GetPatientResponse{
+		UUID:         newPatient.UUID,
+		NIK:          newPatient.NIK,
+		Name:         newPatient.Name,
+		PlaceOfBirth: newPatient.PlaceOfBirth,
+		DateOfBirth:  newPatient.DateOfBirth,
+		Address:      newPatient.Address,
+		Religion:     newPatient.Religion,
+		PhoneNumber:  newPatient.PhoneNumber,
+	}
+
+	return newPatientResponse, nil
 }
 
 func (u *PatientUC) GetPatients(ctx context.Context, patientUUID string) (patient model.GetPatientResponse, err error) {
