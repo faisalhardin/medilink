@@ -48,7 +48,10 @@ const (
 
 func main() {
 
-	loc, _ := time.LoadLocation("Asia/Jakarta")
+	loc, err := time.LoadLocation("Asia/Jakarta")
+	if err != nil {
+		log.Fatalf("failed to load location: %v", err)
+	}
 	time.Local = loc
 
 	// init config
