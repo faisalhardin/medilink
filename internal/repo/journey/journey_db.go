@@ -448,11 +448,6 @@ func (c *JourneyDB) GetServicePointMappedByJourneyPoints(ctx context.Context, jo
 			Where("ms.email = ?", mstStaff.Email)
 	}
 
-	if len(journeyPoints) == 0 {
-		session.
-			In("mssp.id_mst_journey_point", pq.Array(journeyPoints))
-	}
-
 	err = session.
 		Select("msp.*").
 		Find(&servicePoints)
