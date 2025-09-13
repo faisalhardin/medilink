@@ -72,6 +72,10 @@ func (c *JourneyDB) ListJourneyBoard(ctx context.Context, params model.GetJourne
 		session.Where("name = ANY(?)", pq.Array(nameParams))
 	}
 
+	if params.IDMstInstitution > 0 {
+		session.Where("id_mst_institution = ?", params.IDMstInstitution)
+	}
+
 	err = session.Find(&journeyBoards)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgListJourneyBoard)
