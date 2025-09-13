@@ -99,7 +99,14 @@ type GoogleAuthConfig struct {
 
 func New(repoName string) (*Config, error) {
 	dir, _ := os.Getwd()
-	filename := "files/etc/medilink/medilink.development.yaml"
+
+	// Get environment from ENVIRONMENT variable, default to development
+	env := os.Getenv("ENVIRONMENT")
+	if env == "" {
+		env = "development"
+	}
+
+	filename := fmt.Sprintf("files/etc/medilink/medilink.%s.yaml", env)
 
 	f, err := os.Open(fmt.Sprintf("%s/%s", dir, filename))
 	if err != nil {
@@ -121,7 +128,14 @@ func New(repoName string) (*Config, error) {
 
 func NewVault() (VaultData, error) {
 	dir, _ := os.Getwd()
-	filename := "files/etc/configuration/medilink.development.json"
+
+	// Get environment from ENVIRONMENT variable, default to development
+	env := os.Getenv("ENVIRONMENT")
+	if env == "" {
+		env = "development"
+	}
+
+	filename := fmt.Sprintf("files/etc/configuration/medilink.%s.json", env)
 
 	f, err := os.Open(fmt.Sprintf("%s/%s", dir, filename))
 	if err != nil {
