@@ -17,6 +17,8 @@ type JourneyDB interface {
 
 	InsertNewJourneyPoint(ctx context.Context, journeyPoint *model.InsertMstJourneyPoint) (err error)
 	ListJourneyPoints(ctx context.Context, params model.GetJourneyPointParams) (resp []model.MstJourneyPoint, count int64, err error)
+	ListJourneyPointsWithoutShortID(ctx context.Context, params model.GetJourneyPointParams) (resp []model.MstJourneyPoint, err error)
+	GetJourneyPointByShortID(ctx context.Context, shortID string) (resp *model.MstJourneyPoint, err error)
 	GetJourneyPoint(ctx context.Context, param model.MstJourneyPoint) (resp *model.MstJourneyPoint, err error)
 	UpdateJourneyPoint(ctx context.Context, journeyPoint *model.MstJourneyPoint) (err error)
 	DeleteJourneyPoint(ctx context.Context, journeyPoint *model.MstJourneyPoint) (err error)

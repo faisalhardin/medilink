@@ -63,16 +63,32 @@ func (u *JourneyUC) ListJourneyBoard(ctx context.Context, params model.GetJourne
 	return
 }
 
-func (u *JourneyUC) GetJourneyBoardDetail(ctx context.Context, params model.GetJourneyBoardParams) (journeyBoard model.JourneyBoardJoinJourneyPoint, err error) {
-	journeyBoard, _, err = u.JourneyDB.GetJourneyBoardDetail(ctx, params)
+func (u *JourneyUC) GetJourneyBoardDetail(ctx context.Context, params model.GetJourneyBoardParams) (journeyBoardDetail model.JourneyBoardJoinJourneyPoint, err error) {
+	if len(params.ID) == 0 {
+		err = errors.New("missing board id")
+		return
+	}
+
+	journeyBoard, err := u.JourneyDB.GetJourneyBoardByID(ctx, params.ID[0])
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgGetJourneyBoardDetail)
 		return
 	}
 
-	if len(journeyBoard.JourneyPoints) > 0 && journeyBoard.JourneyPoints[0].ID == 0 {
-		journeyBoard.JourneyPoints = []model.MstJourneyPoint{}
+	journeyPoints, _, err := u.JourneyDB.ListJourneyPoints(ctx, model.GetJourneyPointParams{
+		IDMstBoard: journeyBoard.ID,
+	})
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgGetJourneyBoardDetail)
+		return
 	}
+
+	journeyBoardDetail.JourneyPoints = journeyPoints
+	journeyBoardDetail.ID = journeyBoard.ID
+	journeyBoardDetail.Name = journeyBoard.Name
+	journeyBoardDetail.IDMstInstitution = journeyBoard.IDMstInstitution
+	journeyBoardDetail.CreateTime = journeyBoard.CreateTime
+	journeyBoardDetail.UpdateTime = journeyBoard.UpdateTime
 
 	return
 }

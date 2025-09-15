@@ -138,11 +138,11 @@ func (c *JourneyDB) GetJourneyBoardDetail(ctx context.Context, params model.GetJ
 		session.Where("mmjb.id_mst_institution = ?", params.IDMstInstitution)
 	}
 
-	session.Alias("mmjb").
+	session.
+		Alias("mmjb").
 		Join(database.SQLLeft, "mdl_mst_journey_point mmjp", `mmjp.id_mst_journey_board = mmjb.id and mmjb.delete_time is null and mmjp.delete_time is null`)
-
 	found, err = session.
-		Select("mmjb.*, json_agg(json_build_object('id', mmjp.id, 'name', mmjp.name, 'position', mmjp.position, 'id_mst_journey_board', mmjp.id_mst_journey_board, 'create_time', mmjp.create_time, 'update_time', mmjp.update_time) ORDER BY mmjp.position ASC) as mst_journey_point").
+		Select("mmjb.*, json_agg(json_build_object('id', mmjp.short_id, 'name', mmjp.name, 'position', mmjp.position, 'id_mst_journey_board', mmjp.id_mst_journey_board, 'create_time', mmjp.create_time, 'update_time', mmjp.update_time) ORDER BY mmjp.position ASC) as mst_journey_point").
 		GroupBy("mmjb.id").
 		Where("mmjb.id = ?", boardID).
 		Where("mmjp.delete_time is null").
@@ -193,6 +193,9 @@ func (c *JourneyDB) DeleteJourneyBoard(ctx context.Context, journeyBoard *model.
 }
 
 func (c *JourneyDB) InsertNewJourneyPoint(ctx context.Context, journeyPoint *model.InsertMstJourneyPoint) (err error) {
+	// Generate short ID before insertion
+	// journeyPoint.MstJourneyPoint.BeforeInsert()
+
 	session := c.DB.MasterDB.Table(database.MstJourneyPointTable)
 	sqlResult, err := session.SQL(
 		`WITH latest_position AS (
@@ -204,13 +207,14 @@ func (c *JourneyDB) InsertNewJourneyPoint(ctx context.Context, journeyPoint *mod
 				100
 			) AS next_position
 		)
-		INSERT INTO mdl_mst_journey_point (name, id_mst_journey_board, id_mst_institution, position, create_time, update_time)
-		SELECT ?, ?, ?, lp.next_position, NOW(), NOW()
+		INSERT INTO mdl_mst_journey_point (name, short_id, id_mst_journey_board, id_mst_institution, position, create_time, update_time)
+		SELECT ?, ?, ?, ?, lp.next_position, NOW(), NOW()
 		FROM latest_position lp
-		RETURNING id, name, id_mst_journey_board, position
+		RETURNING id, name, short_id, id_mst_journey_board, position
 		`,
 		journeyPoint.MstJourneyPoint.IDMstJourneyBoard,
 		journeyPoint.MstJourneyPoint.Name,
+		journeyPoint.MstJourneyPoint.ShortID,
 		journeyPoint.MstJourneyPoint.IDMstInstitution,
 		journeyPoint.MstJourneyPoint.IDMstJourneyBoard,
 	).QueryInterface()
@@ -222,9 +226,11 @@ func (c *JourneyDB) InsertNewJourneyPoint(ctx context.Context, journeyPoint *mod
 	for _, column := range sqlResult {
 		columnID := column["id"].(int64)
 		position := int(column["position"].(int64))
+		shortID := column["short_id"].(string)
 
 		journeyPoint.MstJourneyPoint.ID = columnID
 		journeyPoint.MstJourneyPoint.Position = position
+		journeyPoint.MstJourneyPoint.ShortID = shortID
 	}
 
 	return
@@ -270,6 +276,41 @@ func (c *JourneyDB) GetJourneyPoint(ctx context.Context, param model.MstJourneyP
 	return
 }
 
+func (c *JourneyDB) ListJourneyPointsWithoutShortID(ctx context.Context, params model.GetJourneyPointParams) (resp []model.MstJourneyPoint, err error) {
+	session := c.DB.SlaveDB.Table(database.MstJourneyPointTable)
+
+	if params.Limit > 0 {
+		session.Limit(params.Limit, params.Offset)
+	}
+
+	err = session.
+		Where("short_id = ? or short_id is null", "").
+		Unscoped().
+		Find(&resp)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgListJourneyPoints)
+		return
+	}
+
+	return
+}
+
+// GetJourneyPointByShortID retrieves a journey point by its short ID
+func (c *JourneyDB) GetJourneyPointByShortID(ctx context.Context, shortID string) (resp *model.MstJourneyPoint, err error) {
+	session := c.DB.SlaveDB.Table(database.MstJourneyPointTable)
+	resp = &model.MstJourneyPoint{}
+
+	_, err = session.
+		Where("short_id = ?", shortID).
+		Get(resp)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgGetJourneyPoint)
+		return
+	}
+
+	return
+}
+
 func (c *JourneyDB) UpdateJourneyPoint(ctx context.Context, journeyPoint *model.MstJourneyPoint) (err error) {
 	session := c.DB.MasterDB.Table(database.MstJourneyPointTable)
 
@@ -277,8 +318,17 @@ func (c *JourneyDB) UpdateJourneyPoint(ctx context.Context, journeyPoint *model.
 		session.Where("id_mst_institution = ?", journeyPoint.IDMstInstitution).Omit("id_mst_institution")
 	}
 
+	if journeyPoint.ShortID != "" {
+		session.Where("short_id = ?", journeyPoint.ShortID).Omit("short_id")
+	} else if journeyPoint.ID > 0 {
+		session.Where("id = ?", journeyPoint.ID)
+	} else {
+		err = errors.New("missing short id or id")
+		return
+	}
+
 	_, err = session.
-		Where("id = ?", journeyPoint.ID).
+		Unscoped().
 		Update(journeyPoint)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgUpdateJourneyPoint)
@@ -427,7 +477,7 @@ func (c *JourneyDB) GetJourneyPointMappedByStaff(ctx context.Context, mstStaff m
 			Where("ms.email = ?", mstStaff.Email)
 	}
 	err = session.
-		Select("mjp.id, mjp.name, mjp.id_mst_journey_board").
+		Select("mjp.short_id, mjp.name, mjp.id_mst_journey_board").
 		Find(&journeyPoint)
 	if err != nil {
 		err = errors.Wrap(err, "conn.GetJourneyPointMappedByStaff")
