@@ -17,6 +17,7 @@ import (
 	"github.com/faisalhardin/medilink/internal/library/middlewares/auth"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
+	"github.com/volatiletech/null/v8"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -291,6 +292,14 @@ func (u *VisitUC) UpdatePatientVisit(ctx context.Context, req model.UpdatePatien
 	}
 
 	req.IDMstInstitution = userDetail.InstitutionID
+
+	if req.ShortIDMstJourneyPoint.Valid {
+		journeyPoint, err := u.JourneyDB.GetJourneyPointByShortID(ctx, req.ShortIDMstJourneyPoint.String)
+		if err != nil {
+			return errors.Wrap(err, WrapMsgUpdatePatientVisit)
+		}
+		req.IDMstJourneyPoint = null.Int64From(journeyPoint.ID)
+	}
 
 	_, err = u.PatientDB.UpdatePatientVisit(ctx, req)
 	if err != nil {

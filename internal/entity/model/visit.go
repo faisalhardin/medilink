@@ -95,7 +95,8 @@ type UpdatePatientVisitRequest struct {
 	ID                          int64               `xorm:"'id' pk autoincr" json:"id"`
 	IDMstInstitution            int64               `xorm:"'id_mst_institution'" json:"-"`
 	IDMstJourneyBoard           null.Int64          `xorm:"'id_mst_journey_board'" json:"board_id"`
-	IDMstJourneyPoint           null.Int64          `xorm:"'id_mst_journey_point' null" json:"journey_point_id"`
+	ShortIDMstJourneyPoint      null.String         `xorm:"'id_mst_journey_point' null" json:"journey_point_id"`
+	IDMstJourneyPoint           null.Int64          `json:"-"`
 	IDMstServicePoint           null.Int64          `xorm:"'id_mst_service_point' null" json:"service_point_id"`
 	Action                      null.String         `xorm:"'action'" json:"action"`
 	Status                      null.String         `xorm:"'status'" json:"status"`
