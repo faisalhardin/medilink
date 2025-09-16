@@ -131,9 +131,11 @@ func (u *JourneyUC) validateJourneyBoardOwnership(ctx context.Context, boardID i
 	return nil
 }
 
-func (u *JourneyUC) validateJourneyPointOwnership(ctx context.Context, journeyPointID int64, userDetail model.UserJWTPayload) (err error) {
+func (u *JourneyUC) validateJourneyPointOwnership(ctx context.Context, journeyPointShortID string, userDetail model.UserJWTPayload) (err error) {
 
-	journeyBoard, err := u.JourneyDB.GetJourneyBoardByJourneyPoint(ctx, journeyPointID)
+	journeyBoard, err := u.JourneyDB.GetJourneyBoardByJourneyPoint(ctx, model.MstJourneyPoint{
+		ShortID: journeyPointShortID,
+	})
 	if err != nil && errors.Is(err, constant.ErrorRowNotFound) {
 		err = errors.Wrap(commonerr.SetNewUnauthorizedAPICall(), WrapMsgUpdateJourneyPoint)
 		return
@@ -191,7 +193,7 @@ func (u *JourneyUC) UpdateJourneyPoint(ctx context.Context, journeyPoint *model.
 		return
 	}
 
-	err = u.validateJourneyPointOwnership(ctx, journeyPoint.ID, userDetail)
+	err = u.validateJourneyPointOwnership(ctx, journeyPoint.ShortID, userDetail)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgUpdateJourneyPoint)
 		return
@@ -214,15 +216,15 @@ func (u *JourneyUC) ArchiveJourneyPoint(ctx context.Context, journeyPoint *model
 		return
 	}
 
-	err = u.validateJourneyPointOwnership(ctx, journeyPoint.ID, userDetail)
+	err = u.validateJourneyPointOwnership(ctx, journeyPoint.ShortID, userDetail)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgArchiveJourneyPoint)
 		return
 	}
 
 	patientVisits, err := u.PatientDB.GetPatientVisits(ctx, model.GetPatientVisitParams{
-		IDMstJourneyPoint: journeyPoint.ID,
-		IDMstInstitution:  userDetail.InstitutionID,
+		ShortIDMstJourneyPoint: journeyPoint.ShortID,
+		IDMstInstitution:       userDetail.InstitutionID,
 		CommonRequestPayload: model.CommonRequestPayload{
 			FromTime: customtime.Time{time.Now().AddDate(0, 0, -3)},
 			ToTime:   customtime.Time{time.Now()},
@@ -239,7 +241,7 @@ func (u *JourneyUC) ArchiveJourneyPoint(ctx context.Context, journeyPoint *model
 	}
 
 	err = u.JourneyDB.DeleteJourneyPoint(ctx, &model.MstJourneyPoint{
-		ID: journeyPoint.ID,
+		ShortID: journeyPoint.ShortID,
 	})
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgArchiveJourneyPoint)

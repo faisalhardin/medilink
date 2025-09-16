@@ -104,12 +104,19 @@ func (c *JourneyDB) GetJourneyBoardByID(ctx context.Context, id int64) (resp mod
 	return
 }
 
-func (c *JourneyDB) GetJourneyBoardByJourneyPoint(ctx context.Context, journeyPointID int64) (resp model.MstJourneyBoard, err error) {
+func (c *JourneyDB) GetJourneyBoardByJourneyPoint(ctx context.Context, journeyPoint model.MstJourneyPoint) (resp model.MstJourneyBoard, err error) {
 	session := c.DB.SlaveDB.Table(database.MstJourneyBoardTable)
 
+	if journeyPoint.ID > 0 {
+		session.Where("mmjp.id = ?", journeyPoint.ID)
+	} else if journeyPoint.ShortID != "" {
+		session.Where("mmjp.short_id = ?", journeyPoint.ShortID)
+	} else {
+		err = errors.New("missing journey point id or short id")
+		return
+	}
 	found, err := session.Alias("mmjb").
 		Join(database.SQLInner, "mdl_mst_journey_point mmjp", "mmjb.id = mmjp.id_mst_journey_board and mmjp.delete_time is null and mmjb.delete_time is null").
-		Where("mmjp.id = ?", journeyPointID).
 		Select("mmjb.*").
 		Get(&resp)
 	if err != nil {

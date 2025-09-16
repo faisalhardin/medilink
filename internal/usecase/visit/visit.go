@@ -70,7 +70,14 @@ func (u *VisitUC) InsertNewVisit(ctx context.Context, req model.InsertNewVisitRe
 		return commonerr.SetNewBadRequest("patient is not found", "no patient with given uuid")
 	}
 
-	journeyBoard, err := u.JourneyDB.GetJourneyBoardByJourneyPoint(ctx, req.JourneyPointID)
+	journeyPoint, err := u.JourneyDB.GetJourneyPoint(ctx, model.MstJourneyPoint{
+		ShortID: req.JourneyPointShortID,
+	})
+	if err != nil {
+		return errors.Wrap(err, WrapMsgInsertNewVisit)
+	}
+
+	journeyBoard, err := u.JourneyDB.GetJourneyBoardByJourneyPoint(ctx, *journeyPoint)
 	if err != nil && errors.Is(err, constant.ErrorRowNotFound) {
 		return commonerr.SetNewBadRequest("journey point is not found", "no journey point with given id")
 	}
@@ -84,7 +91,7 @@ func (u *VisitUC) InsertNewVisit(ctx context.Context, req model.InsertNewVisitRe
 	newTrxVisit := &model.TrxPatientVisit{
 		IDMstPatient:                patientID,
 		IDMstInstitution:            institutionID,
-		IDMstJourneyPoint:           req.JourneyPointID,
+		IDMstJourneyPoint:           journeyPoint.ID,
 		IDMstJourneyBoard:           journeyBoard.ID,
 		UpdateTimeMstJourneyPointID: time.Now().Unix(),
 	}
@@ -98,15 +105,11 @@ func (u *VisitUC) InsertNewVisit(ctx context.Context, req model.InsertNewVisitRe
 		return
 	}
 
-	journeyPoint, err := u.JourneyDB.GetJourneyPoint(ctx, model.MstJourneyPoint{
-		ID: req.JourneyPointID,
-	})
-
 	visitDetail := model.DtlPatientVisit{
 		IDTrxPatientVisit: newTrxVisit.ID,
 		Notes:             req.Notes,
 		JourneyPointName:  journeyPoint.Name,
-		IDMstJourneyPoint: req.JourneyPointID,
+		IDMstJourneyPoint: journeyPoint.ID,
 	}
 	visitDetail.AddContributor(userDetail.Email)
 
@@ -262,7 +265,7 @@ func (u *VisitUC) ListPatientVisits(ctx context.Context, req model.GetPatientVis
 		visitResponse = append(visitResponse, model.ListPatientVisitBoards{
 			ID:                          visit.TrxPatientVisit.ID,
 			IDMstJourneyBoard:           visit.TrxPatientVisit.IDMstJourneyBoard,
-			IDMstJourneyPoint:           visit.TrxPatientVisit.IDMstJourneyPoint,
+			ShortIDMstJourneyPoint:      visit.MstJourneyPoint.ShortID,
 			IDMstServicePoint:           visit.TrxPatientVisit.IDMstServicePoint,
 			NameMstServicePoint:         visit.MstServicePoint.Name,
 			Action:                      visit.TrxPatientVisit.Action,

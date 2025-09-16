@@ -64,8 +64,8 @@ func (c *UserJourneyDB) GetJourneyBoardByID(ctx context.Context, id int64) (resp
 	return c.JourneyDB.GetJourneyBoardByID(ctx, id)
 }
 
-func (c *UserJourneyDB) GetJourneyBoardByJourneyPoint(ctx context.Context, journeyPointID int64) (resp model.MstJourneyBoard, err error) {
-	return c.JourneyDB.GetJourneyBoardByJourneyPoint(ctx, journeyPointID)
+func (c *UserJourneyDB) GetJourneyBoardByJourneyPoint(ctx context.Context, journeyPoint model.MstJourneyPoint) (resp model.MstJourneyBoard, err error) {
+	return c.JourneyDB.GetJourneyBoardByJourneyPoint(ctx, journeyPoint)
 }
 
 func (c *UserJourneyDB) ListJourneyBoard(ctx context.Context, params model.GetJourneyBoardParams) (journeyBoards []model.MstJourneyBoard, err error) {

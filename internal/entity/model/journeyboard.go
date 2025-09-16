@@ -97,5 +97,5 @@ type RenameJourneyPointRequest struct {
 }
 
 type ArchiveJourneyPointRequest struct {
-	ID int64 `json:"id" validation:"required"`
+	ShortID string `json:"id" validation:"required"`
 }
