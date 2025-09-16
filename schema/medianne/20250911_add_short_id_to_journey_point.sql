@@ -9,3 +9,6 @@ CREATE INDEX idx_mdl_mst_journey_point_short_id ON mdl_mst_journey_point(short_i
 
 -- Add comment to the column
 COMMENT ON COLUMN mdl_mst_journey_point.short_id IS 'Short unique identifier for journey point (Base58 encoded, 8 characters)';
+
+ALTER TABLE mdl_mst_journey_point 
+ALTER COLUMN short_id SET NOT NULL;

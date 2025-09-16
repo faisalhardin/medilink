@@ -325,10 +325,10 @@ func (c *JourneyDB) UpdateJourneyPoint(ctx context.Context, journeyPoint *model.
 		session.Where("id_mst_institution = ?", journeyPoint.IDMstInstitution).Omit("id_mst_institution")
 	}
 
-	if journeyPoint.ShortID != "" {
-		session.Where("short_id = ?", journeyPoint.ShortID).Omit("short_id")
-	} else if journeyPoint.ID > 0 {
+	if journeyPoint.ID > 0 {
 		session.Where("id = ?", journeyPoint.ID)
+	} else if journeyPoint.ShortID != "" {
+		session.Where("short_id = ?", journeyPoint.ShortID).Omit("short_id")
 	} else {
 		err = errors.New("missing short id or id")
 		return

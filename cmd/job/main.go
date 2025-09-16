@@ -8,6 +8,7 @@ import (
 	ilog "github.com/faisalhardin/medilink/cmd/log"
 	"github.com/faisalhardin/medilink/internal/config"
 	"github.com/faisalhardin/medilink/internal/entity/model"
+	liblog "github.com/faisalhardin/medilink/internal/library/common/log"
 	xormlib "github.com/faisalhardin/medilink/internal/library/db/xorm"
 	journeyrepo "github.com/faisalhardin/medilink/internal/repo/journey"
 )
@@ -63,6 +64,7 @@ func fillShortID(journeyDB *journeyrepo.JourneyDB) {
 		log.Fatalf("failed to list journey points: %v", err)
 	}
 
+	liblog.Info("journey points: %v", journeyPoints)
 	for _, journeyPoint := range journeyPoints {
 		journeyPoint.BeforeInsert()
 		err := journeyDB.UpdateJourneyPoint(context.Background(), &journeyPoint)
