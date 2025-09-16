@@ -12,7 +12,8 @@ type TrxPatientVisit struct {
 	IDMstPatient                int64           `xorm:"'id_mst_patient'" json:"-"`
 	IDMstInstitution            int64           `xorm:"'id_mst_institution'" json:"-"`
 	IDMstJourneyBoard           int64           `xorm:"'id_mst_journey_board'" json:"board_id"`
-	IDMstJourneyPoint           int64           `xorm:"'id_mst_journey_point' null" json:"journey_point_id"`
+	IDMstJourneyPoint           int64           `xorm:"'id_mst_journey_point' null" json:"-"`
+	ShortIDMstJourneyPoint      string          `xorm:"-" json:"journey_point_id"`
 	IDMstServicePoint           int64           `xorm:"'id_mst_service_point' null" json:"service_point_id"`
 	Action                      string          `xorm:"'action'" json:"action"`
 	Status                      string          `xorm:"'status'" json:"status"`
