@@ -174,21 +174,14 @@ func (h *JourneyHandler) UpdateJourneyPoint(w http.ResponseWriter, r *http.Reque
 	ctx := r.Context()
 
 	journeyIDStr := chi.URLParam(r, "id")
-	journeyID, err := strconv.ParseInt(journeyIDStr, 10, 64)
-	if err != nil {
-		errMsg := commonerr.SetNewBadRequest("Journey ID", "Invalid Journey ID")
-		commonwriter.SetError(ctx, w, errMsg)
-		return
-	}
-
 	request := &model.MstJourneyPoint{}
-	err = bindingBind(r, request)
+	err := bindingBind(r, request)
 	if err != nil {
 		commonwriter.SetError(ctx, w, err)
 		return
 	}
 
-	request.ID = journeyID
+	request.ShortID = journeyIDStr
 
 	err = h.JourneyUC.UpdateJourneyPoint(ctx, request)
 	if err != nil {
