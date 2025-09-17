@@ -54,17 +54,19 @@ func (c *Conn) GetUserByParams(ctx context.Context, params user.User) (resp user
 // function GetUserDetailByEmail run the following query:
 // SELECT mms.*, jsonb_agg(json_build_object('role_id',mmr.role_id, 'name', mmr."name")) as roles
 // FROM "mdl_mst_staff" AS "mms"
-// INNER JOIN mdl_map_role_staff mmrs ON mmrs.id_mst_staff = mms.id
-// INNER JOIN mdl_mst_role mmr ON mmr.id = mmrs.id_mst_role and mmr.delete_time is null
+// LEFT JOIN mdl_map_role_staff mmrs ON mmrs.id_mst_staff = mms.id
+// LEFT JOIN mdl_mst_role mmr ON mmr.id = mmrs.id_mst_role and mmr.delete_time is null
 // WHERE ("mms"."delete_time" IS NULL)
+// WHERE ("mms"."email" = ?)
 // group by mms.id;
 func (c *Conn) GetUserDetailByEmail(ctx context.Context, email string) (staff model.UserDetail, err error) {
 	session := c.DB.SlaveDB.Table("mdl_mst_staff").Alias("mms")
 
 	found, err := session.
-		Join(database.SQLInner, "mdl_map_role_staff mmrs", "mmrs.id_mst_staff = mms.id").
-		Join(database.SQLInner, "mdl_mst_role mmr", "mmr.id = mmrs.id_mst_role and mmr.delete_time is null").
+		Join(database.SQLLeft, "mdl_map_role_staff mmrs", "mmrs.id_mst_staff = mms.id").
+		Join(database.SQLLeft, "mdl_mst_role mmr", "mmr.id = mmrs.id_mst_role and mmr.delete_time is null").
 		Select("mms.*, jsonb_agg(json_build_object('role_id',mmr.role_id, 'name', mmr.name)) as roles").
+		Where("mms.email = ?", email).
 		GroupBy("mms.id").
 		Get(&staff)
 	if err != nil {
@@ -74,6 +76,10 @@ func (c *Conn) GetUserDetailByEmail(ctx context.Context, email string) (staff mo
 	if !found {
 		err = commonerr.SetNewBadRequest("User not found", "Please login with a registered email")
 		return
+	}
+
+	if len(staff.Roles) == 1 && staff.Roles[0].RoleID == 0 {
+		staff.Roles = []model.MstRole{}
 	}
 
 	return
