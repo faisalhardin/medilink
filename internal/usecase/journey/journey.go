@@ -9,6 +9,7 @@ import (
 	journeyRepo "github.com/faisalhardin/medilink/internal/entity/repo/journey"
 	patientRepo "github.com/faisalhardin/medilink/internal/entity/repo/patient"
 	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
+	"github.com/faisalhardin/medilink/internal/library/db/xorm"
 	"github.com/faisalhardin/medilink/internal/library/middlewares/auth"
 	customtime "github.com/faisalhardin/medilink/pkg/type/time"
 	"github.com/pkg/errors"
@@ -35,8 +36,9 @@ const (
 )
 
 type JourneyUC struct {
-	JourneyDB journeyRepo.JourneyDB
-	PatientDB patientRepo.PatientDB
+	JourneyDB   journeyRepo.JourneyDB
+	PatientDB   patientRepo.PatientDB
+	Transaction xorm.DBTransactionInterface
 }
 
 func NewJourneyUC(conn *JourneyUC) *JourneyUC {
@@ -112,12 +114,7 @@ func (u *JourneyUC) DeleteJourneyBoard(ctx context.Context, journeyBoard *model.
 	return
 }
 
-func (u *JourneyUC) validateJourneyBoardOwnership(ctx context.Context, boardID int64) (err error) {
-	userDetail, found := auth.GetUserDetailFromCtx(ctx)
-	if !found {
-		err = commonerr.SetNewUnauthorizedAPICall()
-		return
-	}
+func (u *JourneyUC) validateJourneyBoardOwnership(ctx context.Context, userDetail model.UserJWTPayload, boardID int64) (err error) {
 
 	mstJourneyBoard, err := u.JourneyDB.GetJourneyBoardByID(ctx, boardID)
 	if err != nil {
@@ -166,11 +163,21 @@ func (u *JourneyUC) ListJourneyPoints(ctx context.Context, params model.GetJourn
 
 func (u *JourneyUC) InsertNewJourneyPoint(ctx context.Context, journeyPoint *model.MstJourneyPoint) (err error) {
 
-	err = u.validateJourneyBoardOwnership(ctx, journeyPoint.IDMstJourneyBoard)
+	userDetail, found := auth.GetUserDetailFromCtx(ctx)
+	if !found {
+		err = commonerr.SetNewUnauthorizedAPICall()
+		return
+	}
+
+	err = u.validateJourneyBoardOwnership(ctx, userDetail, journeyPoint.IDMstJourneyBoard)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgInsertNewJourneyPoint)
 		return
 	}
+
+	session, _ := u.Transaction.Begin(ctx)
+	defer u.Transaction.Finish(session, &err)
+	ctx = xorm.SetDBSession(ctx, session)
 
 	insertJourneyPointRequest := &model.InsertMstJourneyPoint{
 		MstJourneyPoint: journeyPoint,
@@ -179,6 +186,15 @@ func (u *JourneyUC) InsertNewJourneyPoint(ctx context.Context, journeyPoint *mod
 	err = u.JourneyDB.InsertNewJourneyPoint(ctx, insertJourneyPointRequest)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgInsertNewJourneyPoint)
+		return
+	}
+
+	err = u.JourneyDB.InsertNewMapStaffJourneyPoint(ctx, &model.MapStaffJourneyPoint{
+		IDMstStaff:        userDetail.UserID,
+		IDMstJourneyPoint: insertJourneyPointRequest.MstJourneyPoint.ID,
+	})
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgInsertNewJourneyBoard)
 		return
 	}
 
@@ -277,7 +293,13 @@ func (u *JourneyUC) ListServicePoints(ctx context.Context, params model.GetServi
 }
 
 func (u *JourneyUC) InsertNewServicePoint(ctx context.Context, servicePoint *model.MstServicePoint) (err error) {
-	err = u.validateJourneyBoardOwnership(ctx, servicePoint.IDMstBoard)
+	userDetail, found := auth.GetUserDetailFromCtx(ctx)
+	if !found {
+		err = commonerr.SetNewUnauthorizedAPICall()
+		return
+	}
+
+	err = u.validateJourneyBoardOwnership(ctx, userDetail, servicePoint.IDMstBoard)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgArchiveJourneyPoint)
 		return

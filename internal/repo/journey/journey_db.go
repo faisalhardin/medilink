@@ -36,6 +36,7 @@ const (
 	WrapMsgDeleteServicePoint   = "DeleteServicePoint"
 
 	WrapMsgGetServicePointMappedByJourneyPoints = WrapMsgPrefix + "GetServicePointMappedByJourneyPoints"
+	WrapMsgInsertNewMapStaffJourneyPoint        = WrapMsgPrefix + "InsertNewMapStaffJourneyPoint"
 )
 
 type JourneyDB struct {
@@ -222,8 +223,8 @@ func (c *JourneyDB) InsertNewJourneyPoint(ctx context.Context, journeyPoint *mod
 		journeyPoint.MstJourneyPoint.IDMstJourneyBoard,
 		journeyPoint.MstJourneyPoint.Name,
 		journeyPoint.MstJourneyPoint.ShortID,
-		journeyPoint.MstJourneyPoint.IDMstInstitution,
 		journeyPoint.MstJourneyPoint.IDMstJourneyBoard,
+		journeyPoint.MstJourneyPoint.IDMstInstitution,
 	).QueryInterface()
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgInserNewJourneyPoint)
@@ -488,6 +489,19 @@ func (c *JourneyDB) GetJourneyPointMappedByStaff(ctx context.Context, mstStaff m
 		Find(&journeyPoint)
 	if err != nil {
 		err = errors.Wrap(err, "conn.GetJourneyPointMappedByStaff")
+		return
+	}
+
+	return
+}
+
+func (c *JourneyDB) InsertNewMapStaffJourneyPoint(ctx context.Context, mapStaffJourneyPoint *model.MapStaffJourneyPoint) (err error) {
+	session := c.DB.MasterDB.Table(database.MapStaffJourneyPoint)
+	_, err = session.
+		NoAutoTime().
+		InsertOne(mapStaffJourneyPoint)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgInsertNewMapStaffJourneyPoint)
 		return
 	}
 

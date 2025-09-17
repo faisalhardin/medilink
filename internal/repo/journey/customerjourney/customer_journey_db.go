@@ -32,6 +32,7 @@ const (
 	WrapMsgDeleteServicePoint   = PrefixUserJourneyDB + ".DeleteServicePoint"
 
 	WrapMsgGetServicePointMappedByJourneyPoints = PrefixUserJourneyDB + ".GetServicePointMappedByJourneyPoints"
+	WrapMsgInsertNewMapStaffJourneyPoint        = PrefixUserJourneyDB + ".InsertNewMapStaffJourneyPoint"
 )
 
 type UserJourneyDB struct {
@@ -362,4 +363,14 @@ func (c *UserJourneyDB) GetServicePointMappedByJourneyPoints(ctx context.Context
 	mstStaff.ID = userDetail.UserID
 	return c.JourneyDB.GetServicePointMappedByJourneyPoints(ctx, journeyPoints, mstStaff)
 
+}
+
+func (c *UserJourneyDB) InsertNewMapStaffJourneyPoint(ctx context.Context, mapStaffJourneyPoint *model.MapStaffJourneyPoint) (err error) {
+	defer func() {
+		if err != nil {
+			err = errors.Wrap(err, WrapMsgInsertNewMapStaffJourneyPoint)
+		}
+	}()
+
+	return c.JourneyDB.InsertNewMapStaffJourneyPoint(ctx, mapStaffJourneyPoint)
 }
