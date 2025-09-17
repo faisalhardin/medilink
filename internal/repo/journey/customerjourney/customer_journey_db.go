@@ -64,8 +64,8 @@ func (c *UserJourneyDB) GetJourneyBoardByID(ctx context.Context, id int64) (resp
 	return c.JourneyDB.GetJourneyBoardByID(ctx, id)
 }
 
-func (c *UserJourneyDB) GetJourneyBoardByJourneyPoint(ctx context.Context, journeyPointID int64) (resp model.MstJourneyBoard, err error) {
-	return c.JourneyDB.GetJourneyBoardByJourneyPoint(ctx, journeyPointID)
+func (c *UserJourneyDB) GetJourneyBoardByJourneyPoint(ctx context.Context, journeyPoint model.MstJourneyPoint) (resp model.MstJourneyBoard, err error) {
+	return c.JourneyDB.GetJourneyBoardByJourneyPoint(ctx, journeyPoint)
 }
 
 func (c *UserJourneyDB) ListJourneyBoard(ctx context.Context, params model.GetJourneyBoardParams) (journeyBoards []model.MstJourneyBoard, err error) {
@@ -194,6 +194,15 @@ func (c *UserJourneyDB) GetJourneyPoint(ctx context.Context, param model.MstJour
 	param.IDMstInstitution = userDetail.InstitutionID
 
 	return c.JourneyDB.GetJourneyPoint(ctx, param)
+}
+
+func (c *UserJourneyDB) ListJourneyPointsWithoutShortID(ctx context.Context, params model.GetJourneyPointParams) (resp []model.MstJourneyPoint, err error) {
+	return c.JourneyDB.ListJourneyPointsWithoutShortID(ctx, params)
+}
+
+// GetJourneyPointByShortID retrieves a journey point by its short ID
+func (c *UserJourneyDB) GetJourneyPointByShortID(ctx context.Context, shortID string) (resp *model.MstJourneyPoint, err error) {
+	return c.JourneyDB.GetJourneyPointByShortID(ctx, shortID)
 }
 
 func (c *UserJourneyDB) UpdateJourneyPoint(ctx context.Context, journeyPoint *model.MstJourneyPoint) (err error) {

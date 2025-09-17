@@ -63,16 +63,32 @@ func (u *JourneyUC) ListJourneyBoard(ctx context.Context, params model.GetJourne
 	return
 }
 
-func (u *JourneyUC) GetJourneyBoardDetail(ctx context.Context, params model.GetJourneyBoardParams) (journeyBoard model.JourneyBoardJoinJourneyPoint, err error) {
-	journeyBoard, _, err = u.JourneyDB.GetJourneyBoardDetail(ctx, params)
+func (u *JourneyUC) GetJourneyBoardDetail(ctx context.Context, params model.GetJourneyBoardParams) (journeyBoardDetail model.JourneyBoardJoinJourneyPoint, err error) {
+	if len(params.ID) == 0 {
+		err = errors.New("missing board id")
+		return
+	}
+
+	journeyBoard, err := u.JourneyDB.GetJourneyBoardByID(ctx, params.ID[0])
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgGetJourneyBoardDetail)
 		return
 	}
 
-	if len(journeyBoard.JourneyPoints) > 0 && journeyBoard.JourneyPoints[0].ID == 0 {
-		journeyBoard.JourneyPoints = []model.MstJourneyPoint{}
+	journeyPoints, _, err := u.JourneyDB.ListJourneyPoints(ctx, model.GetJourneyPointParams{
+		IDMstBoard: journeyBoard.ID,
+	})
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgGetJourneyBoardDetail)
+		return
 	}
+
+	journeyBoardDetail.JourneyPoints = journeyPoints
+	journeyBoardDetail.ID = journeyBoard.ID
+	journeyBoardDetail.Name = journeyBoard.Name
+	journeyBoardDetail.IDMstInstitution = journeyBoard.IDMstInstitution
+	journeyBoardDetail.CreateTime = journeyBoard.CreateTime
+	journeyBoardDetail.UpdateTime = journeyBoard.UpdateTime
 
 	return
 }
@@ -115,9 +131,11 @@ func (u *JourneyUC) validateJourneyBoardOwnership(ctx context.Context, boardID i
 	return nil
 }
 
-func (u *JourneyUC) validateJourneyPointOwnership(ctx context.Context, journeyPointID int64, userDetail model.UserJWTPayload) (err error) {
+func (u *JourneyUC) validateJourneyPointOwnership(ctx context.Context, journeyPointShortID string, userDetail model.UserJWTPayload) (err error) {
 
-	journeyBoard, err := u.JourneyDB.GetJourneyBoardByJourneyPoint(ctx, journeyPointID)
+	journeyBoard, err := u.JourneyDB.GetJourneyBoardByJourneyPoint(ctx, model.MstJourneyPoint{
+		ShortID: journeyPointShortID,
+	})
 	if err != nil && errors.Is(err, constant.ErrorRowNotFound) {
 		err = errors.Wrap(commonerr.SetNewUnauthorizedAPICall(), WrapMsgUpdateJourneyPoint)
 		return
@@ -175,7 +193,7 @@ func (u *JourneyUC) UpdateJourneyPoint(ctx context.Context, journeyPoint *model.
 		return
 	}
 
-	err = u.validateJourneyPointOwnership(ctx, journeyPoint.ID, userDetail)
+	err = u.validateJourneyPointOwnership(ctx, journeyPoint.ShortID, userDetail)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgUpdateJourneyPoint)
 		return
@@ -198,15 +216,15 @@ func (u *JourneyUC) ArchiveJourneyPoint(ctx context.Context, journeyPoint *model
 		return
 	}
 
-	err = u.validateJourneyPointOwnership(ctx, journeyPoint.ID, userDetail)
+	err = u.validateJourneyPointOwnership(ctx, journeyPoint.ShortID, userDetail)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgArchiveJourneyPoint)
 		return
 	}
 
 	patientVisits, err := u.PatientDB.GetPatientVisits(ctx, model.GetPatientVisitParams{
-		IDMstJourneyPoint: journeyPoint.ID,
-		IDMstInstitution:  userDetail.InstitutionID,
+		ShortIDMstJourneyPoint: journeyPoint.ShortID,
+		IDMstInstitution:       userDetail.InstitutionID,
 		CommonRequestPayload: model.CommonRequestPayload{
 			FromTime: customtime.Time{time.Now().AddDate(0, 0, -3)},
 			ToTime:   customtime.Time{time.Now()},
@@ -223,7 +241,7 @@ func (u *JourneyUC) ArchiveJourneyPoint(ctx context.Context, journeyPoint *model
 	}
 
 	err = u.JourneyDB.DeleteJourneyPoint(ctx, &model.MstJourneyPoint{
-		ID: journeyPoint.ID,
+		ShortID: journeyPoint.ShortID,
 	})
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgArchiveJourneyPoint)

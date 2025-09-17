@@ -12,7 +12,8 @@ type TrxPatientVisit struct {
 	IDMstPatient                int64           `xorm:"'id_mst_patient'" json:"-"`
 	IDMstInstitution            int64           `xorm:"'id_mst_institution'" json:"-"`
 	IDMstJourneyBoard           int64           `xorm:"'id_mst_journey_board'" json:"board_id"`
-	IDMstJourneyPoint           int64           `xorm:"'id_mst_journey_point' null" json:"journey_point_id"`
+	IDMstJourneyPoint           int64           `xorm:"'id_mst_journey_point' null" json:"-"`
+	ShortIDMstJourneyPoint      string          `xorm:"-" json:"journey_point_id"`
 	IDMstServicePoint           int64           `xorm:"'id_mst_service_point' null" json:"service_point_id"`
 	Action                      string          `xorm:"'action'" json:"action"`
 	Status                      string          `xorm:"'status'" json:"status"`
@@ -86,16 +87,17 @@ func (dtlPatientVisit *DtlPatientVisit) AddContributor(contributorEmail string) 
 }
 
 type InsertNewVisitRequest struct {
-	PatientUUID    string          `json:"patient_uuid"`
-	JourneyPointID int64           `json:"journey_point_id"`
-	Notes          json.RawMessage `json:"notes"`
+	PatientUUID         string          `json:"patient_uuid"`
+	JourneyPointShortID string          `json:"journey_point_id"`
+	Notes               json.RawMessage `json:"notes"`
 }
 
 type UpdatePatientVisitRequest struct {
 	ID                          int64               `xorm:"'id' pk autoincr" json:"id"`
 	IDMstInstitution            int64               `xorm:"'id_mst_institution'" json:"-"`
 	IDMstJourneyBoard           null.Int64          `xorm:"'id_mst_journey_board'" json:"board_id"`
-	IDMstJourneyPoint           null.Int64          `xorm:"'id_mst_journey_point' null" json:"journey_point_id"`
+	ShortIDMstJourneyPoint      null.String         `xorm:"'id_mst_journey_point' null" json:"journey_point_id"`
+	IDMstJourneyPoint           null.Int64          `json:"-"`
 	IDMstServicePoint           null.Int64          `xorm:"'id_mst_service_point' null" json:"service_point_id"`
 	Action                      null.String         `xorm:"'action'" json:"action"`
 	Status                      null.String         `xorm:"'status'" json:"status"`
@@ -104,12 +106,12 @@ type UpdatePatientVisitRequest struct {
 }
 
 type GetPatientVisitParams struct {
-	PatientID         int64  `xorm:"id" schema:"-"`
-	PatientUUID       string `xorm:"uuid" schema:"patient_uuid"`
-	IDPatientVisit    int64  `xorm:"id_trx_patient_visit" schema:"visit_id"`
-	IDMstInstitution  int64  `xorm:"id_mst_institution"`
-	IDMstJourneyBoard int64  `schema:"journey_board_id"`
-	IDMstJourneyPoint int64  `schema:"journey_point_id"`
+	PatientID              int64  `xorm:"id" schema:"-"`
+	PatientUUID            string `xorm:"uuid" schema:"patient_uuid"`
+	IDPatientVisit         int64  `xorm:"id_trx_patient_visit" schema:"visit_id"`
+	IDMstInstitution       int64  `xorm:"id_mst_institution"`
+	IDMstJourneyBoard      int64  `schema:"journey_board_id"`
+	ShortIDMstJourneyPoint string `schema:"journey_point_id"`
 	CommonRequestPayload
 }
 
@@ -123,7 +125,7 @@ type GetPatientVisitResponse struct {
 type ListPatientVisitBoards struct {
 	ID                          int64     `xorm:"'id' pk autoincr" json:"id"`
 	IDMstJourneyBoard           int64     `xorm:"'id_mst_journey_board'" json:"board_id"`
-	IDMstJourneyPoint           int64     `xorm:"'id_mst_journey_point' null" json:"journey_point_id"`
+	ShortIDMstJourneyPoint      string    `xorm:"'id_mst_journey_point' null" json:"journey_point_id"`
 	IDMstServicePoint           int64     `xorm:"'id_mst_service_point' null" json:"service_point_id"`
 	NameMstServicePoint         string    `xorm:"'service_point_name'" json:"service_point_name"`
 	Action                      string    `xorm:"'action'" json:"action"`

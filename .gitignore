@@ -59,3 +59,4 @@ internal/entity/repo/db/gomock_reflect*
 
 # vscode
 .vscode/
+cloud_sql_proxy

@@ -1,6 +1,10 @@
 package model
 
-import "time"
+import (
+	"time"
+
+	"github.com/faisalhardin/medilink/internal/library/util/shortid"
+)
 
 // model for mdl_mst_journey_board
 type MstJourneyBoard struct {
@@ -20,7 +24,8 @@ type GetJourneyBoardParams struct {
 
 // model for mdl_mst_journey_point
 type MstJourneyPoint struct {
-	ID                int64  `xorm:"'id' pk autoincr" json:"id"`
+	ID                int64  `xorm:"'id' pk autoincr" json:"-"`
+	ShortID           string `xorm:"'short_id' unique" json:"id,omitempty"`
 	Name              string `xorm:"'name'" json:"name,omitempty"`
 	Position          int    `xorm:"'position'" json:"position,omitempty"`
 	IDMstJourneyBoard int64  `xorm:"'id_mst_journey_board'" json:"board_id,omitempty"`
@@ -29,6 +34,16 @@ type MstJourneyPoint struct {
 	CreateTime time.Time  `xorm:"'create_time' created" json:"create_time"`
 	UpdateTime time.Time  `xorm:"'update_time' updated" json:"update_time"`
 	DeleteTime *time.Time `xorm:"'delete_time' deleted" json:"-" `
+}
+
+// BeforeInsert generates a short ID before inserting the journey point
+func (m *MstJourneyPoint) BeforeInsert() {
+	if m.ShortID == "" {
+		shortID, err := shortid.GenerateShortID(8)
+		if err == nil {
+			m.ShortID = shortID
+		}
+	}
 }
 
 type InsertMstJourneyPoint struct {
@@ -60,6 +75,7 @@ type GetJourneyPointParams struct {
 	Name             []string `schema:"name"`
 	IDMstBoard       int64    `schema:"board_id"`
 	IDMstInstitution int64
+	CommonRequestPayload
 }
 
 type JourneyBoardJoinJourneyPoint struct {
@@ -81,5 +97,5 @@ type RenameJourneyPointRequest struct {
 }
 
 type ArchiveJourneyPointRequest struct {
-	ID int64 `json:"id" validation:"required"`
+	ShortID string `json:"id" validation:"required"`
 }

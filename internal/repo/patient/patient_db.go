@@ -212,8 +212,8 @@ func (c *Conn) GetPatientVisits(ctx context.Context, params model.GetPatientVisi
 	if !params.FromTime.IsZero() && !params.ToTime.IsZero() {
 		session.Where("mtpv.create_time between ? and ?", params.FromTime.Format(time.RFC3339), params.ToTime.Format(time.RFC3339))
 	}
-	if params.IDMstJourneyPoint > 0 {
-		session.Where("mtpv.id_mst_journey_point = ?", params.IDMstJourneyPoint)
+	if len(params.ShortIDMstJourneyPoint) > 0 {
+		session.Where("mmjp.short_id = ?", params.ShortIDMstJourneyPoint)
 	}
 
 	session.
@@ -223,7 +223,8 @@ func (c *Conn) GetPatientVisits(ctx context.Context, params model.GetPatientVisi
 
 	err = session.Alias("mtpv").
 		Where("mtpv.id_mst_institution = ?", params.IDMstInstitution).
-		Select("mtpv.id, mtpv.action, mtpv.create_time, mtpv.update_time, mtpv.id_mst_journey_point, mtpv.id_mst_service_point, mtpv.mst_journey_point_id_update_unix_time, mtpv.product_cart, mmpi.id, mmpi.name, mmsp.id, mmsp.name, mmpi.sex, mmpi.uuid,  mmjp.id, mmjp.name").
+		Select("mtpv.id, mtpv.action, mtpv.create_time, mtpv.update_time, mtpv.id_mst_journey_point, mtpv.id_mst_service_point, mtpv.mst_journey_point_id_update_unix_time, mtpv.product_cart, mmpi.id, mmpi.name, mmsp.id, mmsp.name, mmpi.sex, mmpi.uuid,  mmjp.short_id, mmjp.name").
+		OrderBy("mtpv.create_time DESC").
 		Find(&trxPatientVisit)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgGetPatientVisits)
