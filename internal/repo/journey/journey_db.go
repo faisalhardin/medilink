@@ -201,7 +201,7 @@ func (c *JourneyDB) DeleteJourneyBoard(ctx context.Context, journeyBoard *model.
 
 func (c *JourneyDB) InsertNewJourneyPoint(ctx context.Context, journeyPoint *model.InsertMstJourneyPoint) (err error) {
 	// Generate short ID before insertion
-	// journeyPoint.MstJourneyPoint.BeforeInsert()
+	journeyPoint.MstJourneyPoint.BeforeInsert()
 
 	session := c.DB.MasterDB.Table(database.MstJourneyPointTable)
 	sqlResult, err := session.SQL(
