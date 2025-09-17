@@ -148,6 +148,7 @@ func (u *VisitUC) GetPatientVisitDetail(ctx context.Context, req model.GetPatien
 			return nil
 		}
 		visitDetail.TrxPatientVisit = visit[0].TrxPatientVisit
+		visitDetail.TrxPatientVisit.ShortIDMstJourneyPoint = visit[0].MstJourneyPoint.ShortID
 		visitDetail.MstPatient = visit[0].MstPatientInstitution
 		visitDetail.JourneyPoint = visit[0].MstJourneyPoint
 		visitDetail.ServicePoint = visit[0].MstServicePoint
