@@ -13,6 +13,7 @@ run:
 	@go run cmd/api/main.go
 
 app:
+	@cp .env-dist .env
 	@ISLOCAL=1 GO111MODULE=auto realize start -name=medilink
 
 # Create DB container

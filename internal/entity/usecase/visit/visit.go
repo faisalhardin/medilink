@@ -13,10 +13,10 @@ type VisitUC interface {
 	UpdatePatientVisit(ctx context.Context, req model.UpdatePatientVisitRequest) (err error)
 	ListPatientVisitDetailed(ctx context.Context, req model.GetPatientVisitParams) (visitsDetails []model.GetPatientVisitDetailResponse, err error)
 
-	InsertVisitTouchpoint(ctx context.Context, req model.DtlPatientVisitRequest) (dtlPatientVisit model.DtlPatientVisit, err error)
-	UpdateVisitTouchpoint(ctx context.Context, req model.DtlPatientVisitRequest) (dtlPatientVisit model.DtlPatientVisit, err error)
-	UpsertVisitTouchpoint(ctx context.Context, req model.DtlPatientVisitRequest) (dtlPatientVisit model.DtlPatientVisit, err error)
-	GetVisitTouchpoint(ctx context.Context, req model.DtlPatientVisitRequest) (dtlVisit []model.DtlPatientVisit, err error)
+	InsertVisitTouchpoint(ctx context.Context, req model.DtlPatientVisitRequest) (dtlPatientVisit model.DtlPatientVisitWithShortID, err error)
+	UpdateVisitTouchpoint(ctx context.Context, req model.DtlPatientVisitRequest) (dtlPatientVisit model.DtlPatientVisitWithShortID, err error)
+	UpsertVisitTouchpoint(ctx context.Context, req model.DtlPatientVisitRequest) (dtlPatientVisit model.DtlPatientVisitWithShortID, err error)
+	GetVisitTouchpoint(ctx context.Context, req model.DtlPatientVisitRequest) (dtlVisit []model.DtlPatientVisitWithShortID, err error)
 
 	InsertVisitProduct(ctx context.Context, req model.InsertTrxVisitProductRequest) (err error)
 	UpdateVisitProduct(ctx context.Context, req model.InsertTrxVisitProductRequest) (err error)

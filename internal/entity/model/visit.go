@@ -36,7 +36,7 @@ type DtlPatientVisit struct {
 	IDTrxPatientVisit  int64           `xorm:"'id_trx_patient_visit'" json:"id_trx_patient_visit"`
 	IDsTrxPatientVisit []int64         `xorm:"-" json:"-"`
 	JourneyPointName   string          `xorm:"'name_mst_journey_point'" json:"name_mst_journey_point"`
-	IDMstJourneyPoint  int64           `xorm:"id_mst_journey_point" json:"journey_point_id"`
+	IDMstJourneyPoint  int64           `xorm:"id_mst_journey_point" json:"-"`
 	ActionBy           int64           `xorm:"action_by_id_mst_staff" json:"-"`
 	Notes              json.RawMessage `xorm:"'notes'" json:"notes"`
 	Contributors       json.RawMessage `xorm:"'contributors'" json:"contributors"`
@@ -46,11 +46,17 @@ type DtlPatientVisit struct {
 	DeleteTime         *time.Time      `json:"-" xorm:"'delete_time' deleted"`
 }
 
+type DtlPatientVisitWithShortID struct {
+	DtlPatientVisit        `xorm:"extends"`
+	ShortIDMstJourneyPoint string `xorm:"'short_id'" json:"journey_point_id"`
+}
+
 type GetDtlPatientVisitParams struct {
-	IDs                []int64 `xorm:"'id' pk autoincr" json:"id"`
-	IDsTrxPatientVisit []int64 `xorm:"'id_trx_patient_visit'" json:"id_trx_patient_visit"`
-	IDsMstJourneyPoins []int64 `xorm:"id_mst_journey_point" json:"journey_point_id"`
-	IDsMstServicePoint []int64 `xorm:"id_mst_service_point" json:"service_point_id"`
+	IDs                     []int64  `xorm:"'id' pk autoincr" json:"id"`
+	IDsTrxPatientVisit      []int64  `xorm:"'id_trx_patient_visit'" json:"id_trx_patient_visit"`
+	IDsMstJourneyPoins      []int64  `xorm:"id_mst_journey_point" json:"-"`
+	ShortIDsMstJourneyPoins []string `xorm:"'short_id'" json:"journey_point_id"`
+	IDsMstServicePoint      []int64  `xorm:"id_mst_service_point" json:"service_point_id"`
 	CommonRequestPayload
 }
 
@@ -142,7 +148,7 @@ type DtlPatientVisitRequest struct {
 	ID                int64           `json:"id" schema:"id"`
 	IDTrxPatientVisit int64           `json:"id_trx_patient_visit" schema:"id_trx_patient_visit"`
 	JourneyPointName  string          `json:"name_mst_journey_point"`
-	IDMstJourneyPoint int64           `json:"id_mst_journey_point"`
+	IDMstJourneyPoint string          `json:"id_mst_journey_point"`
 	Notes             json.RawMessage `json:"notes"`
 	IDMstServicePoint null.Int64      `json:"id_mst_service_point"`
 }
@@ -156,10 +162,10 @@ type InsertPatientVisitRequest struct {
 
 type GetPatientVisitDetailResponse struct {
 	TrxPatientVisit
-	DtlPatientVisit []DtlPatientVisit     `json:"patient_journeypoints"`
-	MstPatient      MstPatientInstitution `json:"patient"`
-	JourneyPoint    MstJourneyPoint       `json:"journey_point"`
-	ServicePoint    MstServicePoint       `json:"service_point"`
+	DtlPatientVisit []DtlPatientVisitWithShortID `json:"patient_journeypoints"`
+	MstPatient      MstPatientInstitution        `json:"patient"`
+	JourneyPoint    MstJourneyPoint              `json:"journey_point"`
+	ServicePoint    MstServicePoint              `json:"service_point"`
 }
 
 type ArchivePatientVisitRequest struct {

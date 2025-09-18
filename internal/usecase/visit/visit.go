@@ -227,13 +227,13 @@ func (u *VisitUC) ListPatientVisitDetailed(ctx context.Context, req model.GetPat
 		return
 	}
 
-	mapVisitIDtoDtlVisit := map[int64][]model.DtlPatientVisit{}
+	mapVisitIDtoDtlVisit := map[int64][]model.DtlPatientVisitWithShortID{}
 	for _, detailVisit := range dtlVisits {
-		if dtlVisit, ok := mapVisitIDtoDtlVisit[detailVisit.IDTrxPatientVisit]; ok {
+		if dtlVisit, ok := mapVisitIDtoDtlVisit[detailVisit.DtlPatientVisit.IDTrxPatientVisit]; ok {
 			dtlVisit = append(dtlVisit, detailVisit)
-			mapVisitIDtoDtlVisit[detailVisit.IDTrxPatientVisit] = dtlVisit
+			mapVisitIDtoDtlVisit[detailVisit.DtlPatientVisit.IDTrxPatientVisit] = dtlVisit
 		} else {
-			mapVisitIDtoDtlVisit[detailVisit.IDTrxPatientVisit] = []model.DtlPatientVisit{
+			mapVisitIDtoDtlVisit[detailVisit.DtlPatientVisit.IDTrxPatientVisit] = []model.DtlPatientVisitWithShortID{
 				detailVisit,
 			}
 		}
@@ -336,15 +336,15 @@ func (u *VisitUC) ValidatePatientVisitExist(ctx context.Context, req ValidatePat
 	return
 }
 
-func (u *VisitUC) UpsertVisitTouchpoint(ctx context.Context, req model.DtlPatientVisitRequest) (dtlPatientVisit model.DtlPatientVisit, err error) {
-	if req.ID > 0 {
+func (u *VisitUC) UpsertVisitTouchpoint(ctx context.Context, req model.DtlPatientVisitRequest) (dtlPatientVisit model.DtlPatientVisitWithShortID, err error) {
+	if req.ID > 0 || req.IDTrxPatientVisit > 0 && len(req.IDMstJourneyPoint) > 0 {
 		return u.UpdateVisitTouchpoint(ctx, req)
 	} else {
 		return u.InsertVisitTouchpoint(ctx, req)
 	}
 }
 
-func (u *VisitUC) InsertVisitTouchpoint(ctx context.Context, req model.DtlPatientVisitRequest) (dtlPatientVisit model.DtlPatientVisit, err error) {
+func (u *VisitUC) InsertVisitTouchpoint(ctx context.Context, req model.DtlPatientVisitRequest) (dtlPatientVisit model.DtlPatientVisitWithShortID, err error) {
 	if _, err = u.ValidatePatientVisitExist(ctx, ValidatePatientVisitExistRequest{
 		IDTrxPatientVisit: req.IDTrxPatientVisit,
 	}); err != nil {
@@ -360,23 +360,26 @@ func (u *VisitUC) InsertVisitTouchpoint(ctx context.Context, req model.DtlPatien
 	}
 
 	mstJourneyPoint, err := u.JourneyDB.GetJourneyPoint(ctx, model.MstJourneyPoint{
-		ID: req.IDMstJourneyPoint,
+		ShortID: req.IDMstJourneyPoint,
 	})
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgInsertVisitTouchpoint)
 		return
 	}
 
-	dtlPatientVisit = model.DtlPatientVisit{
-		JourneyPointName:  mstJourneyPoint.Name,
-		Notes:             req.Notes,
-		IDTrxPatientVisit: req.IDTrxPatientVisit,
-		IDMstJourneyPoint: req.IDMstJourneyPoint,
-		Contributors:      contributors,
-		IDMstServicePoint: req.IDMstServicePoint.Int64,
+	dtlPatientVisit = model.DtlPatientVisitWithShortID{
+		DtlPatientVisit: model.DtlPatientVisit{
+			JourneyPointName:  mstJourneyPoint.Name,
+			Notes:             req.Notes,
+			IDTrxPatientVisit: req.IDTrxPatientVisit,
+			IDMstJourneyPoint: mstJourneyPoint.ID,
+			Contributors:      contributors,
+			IDMstServicePoint: req.IDMstServicePoint.Int64,
+		},
+		ShortIDMstJourneyPoint: mstJourneyPoint.ShortID,
 	}
 
-	err = u.PatientDB.InsertDtlPatientVisit(ctx, &dtlPatientVisit)
+	err = u.PatientDB.InsertDtlPatientVisit(ctx, &dtlPatientVisit.DtlPatientVisit)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgInsertVisitTouchpoint)
 		return
@@ -385,10 +388,11 @@ func (u *VisitUC) InsertVisitTouchpoint(ctx context.Context, req model.DtlPatien
 	return
 }
 
-func (u *VisitUC) UpdateVisitTouchpoint(ctx context.Context, req model.DtlPatientVisitRequest) (dtlPatientVisit model.DtlPatientVisit, err error) {
+func (u *VisitUC) UpdateVisitTouchpoint(ctx context.Context, req model.DtlPatientVisitRequest) (dtlPatientVisit model.DtlPatientVisitWithShortID, err error) {
 
 	session, _ := u.Transaction.Begin(ctx)
 	defer u.Transaction.Finish(session, &err)
+	ctx = xorm.SetDBSession(ctx, session)
 
 	if _, err = u.ValidatePatientVisitExist(ctx, ValidatePatientVisitExistRequest{
 		IDTrxPatientVisit: req.IDTrxPatientVisit,
@@ -397,11 +401,30 @@ func (u *VisitUC) UpdateVisitTouchpoint(ctx context.Context, req model.DtlPatien
 		return
 	}
 
-	oldPatientVisit, err := u.PatientDB.GetDtlPatientVisitByID(ctx, req.ID)
+	queryParams := model.GetDtlPatientVisitParams{}
+
+	if req.ID > 0 {
+		queryParams.IDs = []int64{req.ID}
+	}
+	if req.IDTrxPatientVisit > 0 {
+		queryParams.IDsTrxPatientVisit = []int64{req.IDTrxPatientVisit}
+	}
+	if len(req.IDMstJourneyPoint) > 0 {
+		queryParams.ShortIDsMstJourneyPoins = []string{req.IDMstJourneyPoint}
+	}
+
+	oldPatientVisits, err := u.PatientDB.GetDtlPatientVisit(ctx, queryParams)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgUpdateVisitTouchpoint)
 		return
 	}
+
+	if len(oldPatientVisits) == 0 {
+		err = commonerr.SetNewBadRequest("invalid", "no patient visit found")
+		return
+	}
+
+	oldPatientVisit := oldPatientVisits[0]
 
 	userDetail, found := auth.GetUserDetailFromCtx(ctx)
 	if !found {
@@ -417,7 +440,7 @@ func (u *VisitUC) UpdateVisitTouchpoint(ctx context.Context, req model.DtlPatien
 
 	oldPatientVisit.Notes = req.Notes
 
-	err = u.PatientDB.UpdateDtlPatientVisit(ctx, &oldPatientVisit)
+	err = u.PatientDB.UpdateDtlPatientVisit(ctx, &oldPatientVisit.DtlPatientVisit)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgUpdateVisitTouchpoint)
 		return
@@ -426,7 +449,7 @@ func (u *VisitUC) UpdateVisitTouchpoint(ctx context.Context, req model.DtlPatien
 	return oldPatientVisit, nil
 }
 
-func (u *VisitUC) GetVisitTouchpoint(ctx context.Context, req model.DtlPatientVisitRequest) (dtlVisit []model.DtlPatientVisit, err error) {
+func (u *VisitUC) GetVisitTouchpoint(ctx context.Context, req model.DtlPatientVisitRequest) (dtlVisit []model.DtlPatientVisitWithShortID, err error) {
 
 	if _, err = u.ValidatePatientVisitExist(ctx, ValidatePatientVisitExistRequest{
 		IDTrxPatientVisit: req.IDTrxPatientVisit,
@@ -564,7 +587,7 @@ func (u *VisitUC) InsertVisitProduct(ctx context.Context, req model.InsertTrxVis
 		err = u.PatientDB.InsertTrxVisitProduct(ctx, &model.TrxVisitProduct{
 			IDTrxInstitutionProduct: productItem.ID,
 			IDMstInstitution:        userDetail.InstitutionID,
-			IDTrxPatientVisit:       dtlPatientVisit[0].IDTrxPatientVisit,
+			IDTrxPatientVisit:       dtlPatientVisit[0].DtlPatientVisit.IDTrxPatientVisit,
 			IDDtlPatientVisit:       req.IDTrxPatientVisit,
 			Quantity:                quantity,
 			UnitType:                productItem.UnitType,

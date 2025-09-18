@@ -39,6 +39,7 @@
 
 # ignore docker environment
 .env
+.env-production
 
 # Auto-generated debug binary
 cmd/__debug_bin

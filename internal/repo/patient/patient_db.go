@@ -354,8 +354,8 @@ func (c *Conn) UpdateDtlPatientVisit(ctx context.Context, request *model.DtlPati
 	return
 }
 
-func (c *Conn) GetDtlPatientVisit(ctx context.Context, params model.GetDtlPatientVisitParams) (dtlPatientVisit []model.DtlPatientVisit, err error) {
-	dtlPatientVisit = []model.DtlPatientVisit{}
+func (c *Conn) GetDtlPatientVisit(ctx context.Context, params model.GetDtlPatientVisitParams) (dtlPatientVisit []model.DtlPatientVisitWithShortID, err error) {
+	dtlPatientVisit = []model.DtlPatientVisitWithShortID{}
 
 	session := c.DB.SlaveDB.Table(model.DtlPatientVisitTableName)
 	if len(params.IDsTrxPatientVisit) > 0 {
@@ -364,11 +364,16 @@ func (c *Conn) GetDtlPatientVisit(ctx context.Context, params model.GetDtlPatien
 	if len(params.IDs) > 0 {
 		session.Where("mdpv.id = ANY(?)", pq.Array(params.IDs))
 	}
+	if len(params.ShortIDsMstJourneyPoins) > 0 {
+		session.Where("mmjp.short_id = any(?)", pq.Array(params.ShortIDsMstJourneyPoins))
+	}
 	if params.Limit > 0 {
 		session.Limit(params.Limit, params.Offset)
 	}
 
 	err = session.Alias("mdpv").
+		Join(database.SQLInner, "mdl_mst_journey_point mmjp", "mmjp.id = mdpv.id_mst_journey_point").
+		Select("mdpv.*, mmjp.short_id").
 		Find(&dtlPatientVisit)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgGetDtlPatientVisit)
