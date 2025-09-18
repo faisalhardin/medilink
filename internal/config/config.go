@@ -38,7 +38,8 @@ type Redis struct {
 }
 
 type JWTConfig struct {
-	DurationInMinutes int `yaml:"duration_in_minutes"`
+	DurationInMinutes     int `yaml:"duration_in_minutes"`      // Access token duration (15-30 min)
+	RefreshDurationInDays int `yaml:"refresh_duration_in_days"` // Refresh token duration (7-30 days)
 }
 
 type Server struct {

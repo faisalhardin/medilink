@@ -2,6 +2,8 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"time"
 
 	"github.com/cristalhq/jwt/v5"
@@ -44,7 +46,7 @@ func (opt *Options) CreateJWTToken(ctx context.Context, payload model.UserJWTPay
 	return opt.generateToken(ctx, claims, timeNow, timeExpired)
 }
 
-func (opt *Options) generateToken(ctx context.Context, claims any, timeNow, timeExpired time.Time) (tokenStr string, err error) {
+func (opt *Options) generateToken(_ context.Context, claims any, _, _ time.Time) (tokenStr string, err error) {
 
 	// Build and sign token
 	builder := jwt.NewBuilder(opt.JwtOpt.jwtSigner)
@@ -55,4 +57,55 @@ func (opt *Options) generateToken(ctx context.Context, claims any, timeNow, time
 	}
 
 	return token.String(), nil
+}
+
+func (opt *Options) CreateTokenPair(ctx context.Context, payload model.UserJWTPayload, deviceInfo model.DeviceInfo) (tokenPair model.TokenPair, err error) {
+	now := time.Now()
+
+	// Create access token (short-lived, 15-30 minutes)
+	accessTokenExpiry := now.Add(time.Duration(opt.Cfg.JWTConfig.DurationInMinutes) * time.Minute)
+	accessToken, err := opt.CreateJWTToken(ctx, payload, now, accessTokenExpiry)
+	if err != nil {
+		return tokenPair, err
+	}
+
+	// Create refresh token (long-lived, 7-30 days)
+	refreshTokenExpiry := now.Add(time.Duration(opt.Cfg.JWTConfig.RefreshDurationInDays) * 24 * time.Hour)
+	refreshToken, err := opt.generateRefreshToken()
+	if err != nil {
+		return tokenPair, err
+	}
+
+	// Store refresh token in database
+	refreshTokenRecord := model.RefreshToken{
+		Token:         refreshToken,
+		UserID:        payload.UserID,
+		InstitutionID: payload.InstitutionID,
+		DeviceID:      deviceInfo.DeviceID,
+		UserAgent:     deviceInfo.UserAgent,
+		IPAddress:     deviceInfo.IPAddress,
+		ExpiresAt:     refreshTokenExpiry,
+	}
+
+	err = opt.StoreRefreshToken(ctx, &refreshTokenRecord)
+	if err != nil {
+		return tokenPair, err
+	}
+
+	return model.TokenPair{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		TokenType:    "Bearer",
+		ExpiresIn:    int64(opt.Cfg.JWTConfig.DurationInMinutes * 60),
+	}, nil
+}
+
+func (opt *Options) generateRefreshToken() (string, error) {
+	// Generate a cryptographically secure random token
+	tokenBytes := make([]byte, 32)
+	_, err := rand.Read(tokenBytes)
+	if err != nil {
+		return "", err
+	}
+	return base64.URLEncoding.EncodeToString(tokenBytes), nil
 }

@@ -84,3 +84,30 @@ func (c *Conn) GetUserDetailByEmail(ctx context.Context, email string) (staff mo
 
 	return
 }
+
+// GetUserDetailByID gets user details by ID
+func (c *Conn) GetUserDetailByID(ctx context.Context, userID int64) (staff model.UserDetail, err error) {
+	session := c.DB.SlaveDB.Table("mdl_mst_staff").Alias("mms")
+
+	found, err := session.
+		Join(database.SQLLeft, "mdl_map_role_staff mmrs", "mmrs.id_mst_staff = mms.id").
+		Join(database.SQLLeft, "mdl_mst_role mmr", "mmr.id = mmrs.id_mst_role and mmr.delete_time is null").
+		Select("mms.*, jsonb_agg(json_build_object('role_id',mmr.role_id, 'name', mmr.name)) as roles").
+		Where("mms.id = ?", userID).
+		GroupBy("mms.id").
+		Get(&staff)
+	if err != nil {
+		err = errors.Wrap(err, "GetUserDetailByID")
+		return
+	}
+	if !found {
+		err = commonerr.SetNewBadRequest("User not found", "User with given ID not found")
+		return
+	}
+
+	if len(staff.Roles) == 1 && staff.Roles[0].RoleID == 0 {
+		staff.Roles = []model.MstRole{}
+	}
+
+	return
+}

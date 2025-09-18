@@ -4,12 +4,16 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/faisalhardin/medilink/internal/config"
+	"github.com/faisalhardin/medilink/internal/entity/model"
 	authrepo "github.com/faisalhardin/medilink/internal/entity/repo/auth"
 	authuc "github.com/faisalhardin/medilink/internal/entity/usecase/auth"
 	"github.com/faisalhardin/medilink/internal/entity/user"
+	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
 	commonwriter "github.com/faisalhardin/medilink/internal/library/common/writer"
+	"github.com/faisalhardin/medilink/internal/library/middlewares/auth"
 	"github.com/faisalhardin/medilink/internal/library/util/common/binding"
 	userrepo "github.com/faisalhardin/medilink/internal/repo/staff"
 	authmodel "github.com/faisalhardin/medilink/internal/usecase/auth"
@@ -68,10 +72,6 @@ func (h *AuthHandler) BeginAuthProviderCallback(w http.ResponseWriter, r *http.R
 	r = r.WithContext(context.WithValue(ctx, providerKey, provider))
 	h.AuthRepo.BeginAuthProviderCallback(w, r)
 
-}
-
-func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
-	h.AuthRepo.Logout(w, r)
 }
 
 func (h *AuthHandler) TestAPIRedirect(w http.ResponseWriter, r *http.Request) {
@@ -180,4 +180,78 @@ func (h *AuthHandler) PingAPI(w http.ResponseWriter, r *http.Request) {
 
 	ctx := context.Background()
 	commonwriter.SetOKWithData(ctx, w, "OK")
+}
+
+func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	request := model.RefreshTokenRequest{}
+	err := bindingBind(r, &request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	// Extract device info from request
+	request.DeviceID = r.Header.Get("X-Device-ID")
+	request.UserAgent = r.Header.Get("User-Agent")
+	request.IPAddress = getClientIP(r)
+
+	tokenPair, err := h.AuthUC.RefreshToken(ctx, request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, tokenPair)
+}
+
+func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	request := model.LogoutRequest{}
+	err := bindingBind(r, &request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	err = h.AuthUC.Logout(ctx, request.RefreshToken)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, "logged out successfully")
+}
+
+func (h *AuthHandler) LogoutAllDevices(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	userDetail, found := auth.GetUserDetailFromCtx(ctx)
+	if !found {
+		commonwriter.SetError(ctx, w, commonerr.SetNewUnauthorizedAPICall())
+		return
+	}
+
+	err := h.AuthUC.LogoutAllDevices(ctx, userDetail.UserID)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, "logged out from all devices")
+}
+
+func getClientIP(r *http.Request) string {
+	// Check for forwarded headers first
+	if ip := r.Header.Get("X-Forwarded-For"); ip != "" {
+		return strings.Split(ip, ",")[0]
+	}
+	if ip := r.Header.Get("X-Real-IP"); ip != "" {
+		return ip
+	}
+	// Fall back to remote address
+	ip, _, _ := strings.Cut(r.RemoteAddr, ":")
+	return ip
 }

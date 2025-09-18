@@ -28,9 +28,10 @@ type AuthUC struct {
 type userAuth struct{}
 
 type AuthParams struct {
-	Token    string `json:"token,omitempty"`
-	Email    string `json:"email,omitempty"`
-	TokenKey string `json:"auth_token_key,omitempty"`
+	Token     string          `json:"token,omitempty"`
+	Email     string          `json:"email,omitempty"`
+	TokenKey  string          `json:"auth_token_key,omitempty"`
+	TokenPair model.TokenPair `json:"token_pair,omitempty"`
 }
 
 func New(u *AuthUC) *AuthUC {
@@ -66,25 +67,33 @@ func (u *AuthUC) Login(w http.ResponseWriter, r *http.Request, params AuthParams
 		return
 	}
 
-	currTime := time.Now()
-	expireDuration := time.Duration(u.Cfg.JWTConfig.DurationInMinutes) * time.Minute
-	expiredTime := currTime.Add(expireDuration)
-	token, err := u.AuthRepo.CreateJWTToken(ctx, model.GenerateUserDataJWTInformation(userDetail, authedUser, journeyPoints, servicePoints), currTime, expiredTime)
+	// Extract device information
+	deviceInfo := model.DeviceInfo{
+		DeviceID:  r.Header.Get("X-Device-ID"),
+		UserAgent: r.Header.Get("User-Agent"),
+		IPAddress: getClientIP(r),
+	}
+
+	// Create token pair instead of single JWT
+	tokenPair, err := u.AuthRepo.CreateTokenPair(ctx,
+		model.GenerateUserDataJWTInformation(userDetail, authedUser, journeyPoints, servicePoints),
+		deviceInfo)
 	if err != nil {
 		return
 	}
 
-	sessionPayloadInBytes, err := json.Marshal(model.GenerateUserDetailSessionInformation(userDetail, expiredTime))
+	// Store session information (optional, for additional security)
+	sessionPayloadInBytes, err := json.Marshal(model.GenerateUserDetailSessionInformation(userDetail, time.Now().Add(time.Duration(u.Cfg.JWTConfig.DurationInMinutes)*time.Minute)))
 	if err != nil {
 		return
 	}
 
-	_, err = u.AuthRepo.StoreLoginInformation(ctx, getSessionKey(authedUser.Email, token), string(sessionPayloadInBytes), expireDuration)
+	_, err = u.AuthRepo.StoreLoginInformation(ctx, getSessionKey(authedUser.Email, tokenPair.AccessToken), string(sessionPayloadInBytes), time.Duration(u.Cfg.JWTConfig.DurationInMinutes)*time.Minute)
 	if err != nil {
 		return
 	}
 
-	return AuthParams{Token: token}, nil
+	return AuthParams{TokenPair: tokenPair}, nil
 }
 
 func (u *AuthUC) GetToken(ctx context.Context, params AuthParams) (tokenResponse AuthParams, err error) {
@@ -169,6 +178,75 @@ func consolidateUserAuthWithSession(payload *model.UserJWTPayload, sessionDetail
 	payload.InstitutionID = sessionDetail.IdMstInstitution
 	payload.UserID = sessionDetail.UserID
 	return
+}
+
+func (u *AuthUC) RefreshToken(ctx context.Context, req model.RefreshTokenRequest) (tokenPair model.TokenPair, err error) {
+	// Validate refresh token
+	refreshToken, err := u.AuthRepo.GetRefreshToken(ctx, req.RefreshToken)
+	if err != nil {
+		return tokenPair, commonerr.SetNewUnauthorizedAPICall()
+	}
+
+	// Get user details
+	userDetail, err := u.StaffRepo.GetUserDetailByID(ctx, refreshToken.UserID)
+	if err != nil {
+		return tokenPair, err
+	}
+
+	// Get journey points and service points
+	journeyPoints, err := u.JourneyRepo.GetJourneyPointMappedByStaff(ctx, model.MstStaff{ID: userDetail.Staff.ID})
+	if err != nil {
+		return tokenPair, err
+	}
+
+	servicePoints, err := u.JourneyRepo.GetServicePointMappedByJourneyPoints(ctx, journeyPoints, model.MstStaff{ID: userDetail.Staff.ID})
+	if err != nil {
+		return tokenPair, err
+	}
+
+	// Generate new token pair
+	newTokenPair, err := u.AuthRepo.CreateTokenPair(ctx,
+		model.GenerateUserDataJWTInformation(userDetail, model.GoogleUser{}, journeyPoints, servicePoints),
+		model.DeviceInfo{
+			DeviceID:  req.DeviceID,
+			UserAgent: req.UserAgent,
+			IPAddress: req.IPAddress,
+		})
+	if err != nil {
+		return tokenPair, err
+	}
+
+	// Revoke old refresh token
+	err = u.AuthRepo.RevokeRefreshToken(ctx, req.RefreshToken)
+	if err != nil {
+		return tokenPair, err
+	}
+
+	return newTokenPair, nil
+}
+
+func (u *AuthUC) Logout(ctx context.Context, refreshToken string) error {
+	if refreshToken != "" {
+		return u.AuthRepo.RevokeRefreshToken(ctx, refreshToken)
+	}
+	return nil
+}
+
+func (u *AuthUC) LogoutAllDevices(ctx context.Context, userID int64) error {
+	return u.AuthRepo.RevokeAllUserRefreshTokens(ctx, userID)
+}
+
+func getClientIP(r *http.Request) string {
+	// Check for forwarded headers first
+	if ip := r.Header.Get("X-Forwarded-For"); ip != "" {
+		return strings.Split(ip, ",")[0]
+	}
+	if ip := r.Header.Get("X-Real-IP"); ip != "" {
+		return ip
+	}
+	// Fall back to remote address
+	ip, _, _ := strings.Cut(r.RemoteAddr, ":")
+	return ip
 }
 
 func getSessionKey(userIdentifier, token string) string {

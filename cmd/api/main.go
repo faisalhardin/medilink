@@ -110,6 +110,7 @@ func main() {
 	authRepo, err := auth.New(&auth.Options{
 		Cfg:     cfg,
 		Storage: redis,
+		DB:      db,
 	})
 	if err != nil {
 		log.Fatal(err)

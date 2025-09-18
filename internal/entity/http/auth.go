@@ -9,6 +9,8 @@ type AuthHandler interface {
 	BeginAuthProviderCallback(w http.ResponseWriter, r *http.Request)
 	GetTokenFromTokenKey(w http.ResponseWriter, r *http.Request)
 	Logout(w http.ResponseWriter, r *http.Request)
+	LogoutAllDevices(w http.ResponseWriter, r *http.Request)
+	RefreshToken(w http.ResponseWriter, r *http.Request)
 	PseudoLogin(w http.ResponseWriter, r *http.Request)
 	GetLoginByToken(w http.ResponseWriter, r *http.Request)
 	GetUserFromToken(w http.ResponseWriter, r *http.Request)

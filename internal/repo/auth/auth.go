@@ -12,6 +12,7 @@ import (
 	"github.com/cristalhq/jwt/v5"
 	"github.com/faisalhardin/medilink/internal/config"
 	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
+	xormlib "github.com/faisalhardin/medilink/internal/library/db/xorm"
 
 	"github.com/faisalhardin/medilink/internal/entity/model"
 	redisrepo "github.com/faisalhardin/medilink/internal/entity/repo/redis"
@@ -26,6 +27,7 @@ type Options struct {
 	Cfg        *config.Config
 	Storage    redisrepo.Redis
 	GoogleAuth *oauth2.Config
+	DB         *xormlib.DBConnect
 
 	JwtOpt JwtOpt
 }
