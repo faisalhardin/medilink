@@ -9,7 +9,7 @@ import (
 type JourneyDB interface {
 	InsertNewJourneyBoard(ctx context.Context, journeyBoard *model.MstJourneyBoard) (err error)
 	ListJourneyBoard(ctx context.Context, params model.GetJourneyBoardParams) (journeyBoards []model.MstJourneyBoard, err error)
-	GetJourneyBoardByID(ctx context.Context, id int64) (resp model.MstJourneyBoard, err error)
+	GetJourneyBoardByParams(ctx context.Context, params model.MstJourneyBoard) (resp model.MstJourneyBoard, err error)
 	GetJourneyBoardByJourneyPoint(ctx context.Context, journeyPoint model.MstJourneyPoint) (resp model.MstJourneyBoard, err error)
 	GetJourneyBoardDetail(ctx context.Context, params model.GetJourneyBoardParams) (resp model.JourneyBoardJoinJourneyPoint, found bool, err error)
 	UpdateJourneyBoard(ctx context.Context, journeyBoard *model.MstJourneyBoard) (err error)

@@ -86,11 +86,15 @@ func (c *JourneyDB) ListJourneyBoard(ctx context.Context, params model.GetJourne
 	return
 }
 
-func (c *JourneyDB) GetJourneyBoardByID(ctx context.Context, id int64) (resp model.MstJourneyBoard, err error) {
+func (c *JourneyDB) GetJourneyBoardByParams(ctx context.Context, params model.MstJourneyBoard) (resp model.MstJourneyBoard, err error) {
 	session := c.DB.SlaveDB.Table(database.MstJourneyBoardTable)
 
+	if params.IDMstInstitution > 0 {
+		session.Where("id_mst_institution = ?", params.IDMstInstitution)
+	}
+
 	found, err := session.
-		ID(id).
+		ID(params.ID).
 		Get(&resp)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgGetJourneyBoardByID)

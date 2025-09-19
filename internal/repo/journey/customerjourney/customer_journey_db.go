@@ -61,8 +61,16 @@ func (c *UserJourneyDB) InsertNewJourneyBoard(ctx context.Context, journeyBoard 
 
 }
 
-func (c *UserJourneyDB) GetJourneyBoardByID(ctx context.Context, id int64) (resp model.MstJourneyBoard, err error) {
-	return c.JourneyDB.GetJourneyBoardByID(ctx, id)
+func (c *UserJourneyDB) GetJourneyBoardByParams(ctx context.Context, params model.MstJourneyBoard) (resp model.MstJourneyBoard, err error) {
+	userDetail, found := auth.GetUserDetailFromCtx(ctx)
+	if !found {
+		err = commonerr.SetNewUnauthorizedAPICall()
+		return
+	}
+
+	params.IDMstInstitution = userDetail.InstitutionID
+
+	return c.JourneyDB.GetJourneyBoardByParams(ctx, params)
 }
 
 func (c *UserJourneyDB) GetJourneyBoardByJourneyPoint(ctx context.Context, journeyPoint model.MstJourneyPoint) (resp model.MstJourneyBoard, err error) {

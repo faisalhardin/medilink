@@ -71,7 +71,9 @@ func (u *JourneyUC) GetJourneyBoardDetail(ctx context.Context, params model.GetJ
 		return
 	}
 
-	journeyBoard, err := u.JourneyDB.GetJourneyBoardByID(ctx, params.ID[0])
+	journeyBoard, err := u.JourneyDB.GetJourneyBoardByParams(ctx, model.MstJourneyBoard{
+		ID: params.ID[0],
+	})
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgGetJourneyBoardDetail)
 		return
@@ -116,7 +118,9 @@ func (u *JourneyUC) DeleteJourneyBoard(ctx context.Context, journeyBoard *model.
 
 func (u *JourneyUC) validateJourneyBoardOwnership(ctx context.Context, userDetail model.UserJWTPayload, boardID int64) (err error) {
 
-	mstJourneyBoard, err := u.JourneyDB.GetJourneyBoardByID(ctx, boardID)
+	mstJourneyBoard, err := u.JourneyDB.GetJourneyBoardByParams(ctx, model.MstJourneyBoard{
+		ID: boardID,
+	})
 	if err != nil {
 		return
 	}
