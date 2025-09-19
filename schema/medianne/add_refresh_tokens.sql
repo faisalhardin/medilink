@@ -37,6 +37,12 @@ COMMENT ON TABLE mdl_refresh_tokens IS 'Stores refresh tokens for JWT authentica
 COMMENT ON COLUMN mdl_refresh_tokens.token IS 'Unique refresh token string';
 COMMENT ON COLUMN mdl_refresh_tokens.user_id IS 'Reference to staff user who owns the token';
 COMMENT ON COLUMN mdl_refresh_tokens.institution_id IS 'Reference to institution for data isolation';
-COMMENT ON COLUMN mdl_refresh_tokens.device_id IS 'Device identifier for multi-device support';
+COMMENT ON COLUMN mdl_refresh_tokens.device_id IS 'Device identifier for single device login support';
 COMMENT ON COLUMN mdl_refresh_tokens.is_revoked IS 'Flag indicating if token has been revoked';
 COMMENT ON COLUMN mdl_refresh_tokens.expires_at IS 'Token expiration timestamp';
+
+-- Add unique constraint to ensure only one active token per user per device
+-- This enforces single device login at the database level
+CREATE UNIQUE INDEX idx_refresh_tokens_user_device_unique 
+ON mdl_refresh_tokens(user_id, device_id) 
+WHERE is_revoked = false AND expires_at > NOW();

@@ -74,13 +74,58 @@ func (u *AuthUC) Login(w http.ResponseWriter, r *http.Request, params AuthParams
 		IPAddress: getClientIP(r),
 	}
 
+	// Check for existing active session on this device (single device login)
+	if deviceInfo.DeviceID != "" {
+		existingTokens, checkErr := u.AuthRepo.GetActiveRefreshTokensByDevice(ctx, userDetail.Staff.ID, deviceInfo.DeviceID)
+		if checkErr != nil {
+			err = checkErr
+			return
+		}
+
+		// If there are existing active tokens for this device, revoke them
+		if len(existingTokens) > 0 {
+			revokeErr := u.AuthRepo.RevokeRefreshTokensByDevice(ctx, userDetail.Staff.ID, deviceInfo.DeviceID)
+			if revokeErr != nil {
+				err = revokeErr
+				return
+			}
+		}
+	}
+
 	// Create token pair instead of single JWT
 	tokenPair, err := u.AuthRepo.CreateTokenPair(ctx,
 		model.GenerateUserDataJWTInformation(userDetail, authedUser, journeyPoints, servicePoints),
 		deviceInfo)
 	if err != nil {
+		// Record failed login attempt
+		u.recordLoginAttempt(ctx, model.LoginRequest{
+			UserID:        userDetail.Staff.ID,
+			InstitutionID: userDetail.Staff.IdMstInstitution,
+			DeviceID:      deviceInfo.DeviceID,
+			UserAgent:     deviceInfo.UserAgent,
+			IPAddress:     deviceInfo.IPAddress,
+			LoginType:     "google_oauth",
+			SessionID:     "",
+			Status:        "failed",
+			FailureReason: "token_creation_failed",
+			ExpiresAt:     time.Now(),
+		})
 		return
 	}
+
+	// Record successful login attempt
+	u.recordLoginAttempt(ctx, model.LoginRequest{
+		UserID:        userDetail.Staff.ID,
+		InstitutionID: userDetail.Staff.IdMstInstitution,
+		DeviceID:      deviceInfo.DeviceID,
+		UserAgent:     deviceInfo.UserAgent,
+		IPAddress:     deviceInfo.IPAddress,
+		LoginType:     "google_oauth",
+		SessionID:     tokenPair.RefreshToken,
+		Status:        "success",
+		FailureReason: "",
+		ExpiresAt:     time.Now().Add(time.Duration(u.Cfg.JWTConfig.RefreshDurationInDays) * 24 * time.Hour),
+	})
 
 	// Store session information (optional, for additional security)
 	sessionPayloadInBytes, err := json.Marshal(model.GenerateUserDetailSessionInformation(userDetail, time.Now().Add(time.Duration(u.Cfg.JWTConfig.DurationInMinutes)*time.Minute)))
@@ -204,6 +249,15 @@ func (u *AuthUC) RefreshToken(ctx context.Context, req model.RefreshTokenRequest
 		return tokenPair, err
 	}
 
+	// Ensure single device login - revoke any other tokens for this device
+	if req.DeviceID != "" && req.DeviceID != refreshToken.DeviceID {
+		// Device ID changed, revoke old tokens for this device
+		err = u.AuthRepo.RevokeRefreshTokensByDevice(ctx, userDetail.Staff.ID, req.DeviceID)
+		if err != nil {
+			return tokenPair, err
+		}
+	}
+
 	// Generate new token pair
 	newTokenPair, err := u.AuthRepo.CreateTokenPair(ctx,
 		model.GenerateUserDataJWTInformation(userDetail, model.GoogleUser{}, journeyPoints, servicePoints),
@@ -234,6 +288,16 @@ func (u *AuthUC) Logout(ctx context.Context, refreshToken string) error {
 
 func (u *AuthUC) LogoutAllDevices(ctx context.Context, userID int64) error {
 	return u.AuthRepo.RevokeAllUserRefreshTokens(ctx, userID)
+}
+
+func (u *AuthUC) recordLoginAttempt(ctx context.Context, loginReq model.LoginRequest) {
+	// Record login attempt asynchronously to avoid blocking the main flow
+	go func() {
+		if err := u.AuthRepo.RecordLoginAttempt(ctx, loginReq); err != nil {
+			// Log error but don't fail the main operation
+			fmt.Printf("Failed to record login attempt: %v\n", err)
+		}
+	}()
 }
 
 func getClientIP(r *http.Request) string {
