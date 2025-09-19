@@ -8,6 +8,7 @@ import (
 	"github.com/faisalhardin/medilink/internal/config"
 	"github.com/faisalhardin/medilink/internal/entity/model"
 	authuc "github.com/faisalhardin/medilink/internal/entity/usecase/auth"
+	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
 	commonwriter "github.com/faisalhardin/medilink/internal/library/common/writer"
 	authusecase "github.com/faisalhardin/medilink/internal/usecase/auth"
 )
@@ -74,7 +75,10 @@ func (m *Module) AuthHandler(next http.Handler) http.Handler {
 		}
 
 		userDetail, err := m.AuthUC.HandleAuthMiddleware(ctx, token)
-		if err != nil {
+		if err != nil && errors.Is(err, commonerr.SetNewTokenExpiredError()) {
+			http.Redirect(w, r, "/token-expired", http.StatusFound)
+			return
+		} else if err != nil {
 			handleError(ctx, w, r, err)
 			return
 		}

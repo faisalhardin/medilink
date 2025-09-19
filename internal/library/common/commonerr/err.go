@@ -17,6 +17,7 @@ const (
 
 var (
 	Err404 = SetNewError(http.StatusNotFound, "404", "404 not found")
+	Err401 = SetNewError(http.StatusUnauthorized, "401", "401 unauthorized")
 )
 
 // DefaultInputBody return bad request for bad body request
