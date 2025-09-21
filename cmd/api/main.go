@@ -8,7 +8,6 @@ import (
 
 	ilog "github.com/faisalhardin/medilink/cmd/log"
 	"github.com/faisalhardin/medilink/internal/repo/auth"
-	"github.com/faisalhardin/medilink/internal/repo/cache"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
 
@@ -16,6 +15,7 @@ import (
 
 	"github.com/faisalhardin/medilink/internal/config"
 	xormlib "github.com/faisalhardin/medilink/internal/library/db/xorm"
+	inmemory "github.com/faisalhardin/medilink/internal/repo/cache/inmemory"
 	institutionrepo "github.com/faisalhardin/medilink/internal/repo/institution"
 	journeyrepo "github.com/faisalhardin/medilink/internal/repo/journey"
 	custjourneyrepo "github.com/faisalhardin/medilink/internal/repo/journey/customerjourney"
@@ -90,7 +90,12 @@ func main() {
 		auth.GoogleProvider(cfg),
 	)
 
-	redis := cache.New(cfg)
+	inMemoryCaching := inmemory.New(inmemory.Options{
+		MaxIdle:   cfg.Redis.MaxIdle,
+		MaxActive: cfg.Redis.MaxActive,
+		Timeout:   cfg.Redis.TimeOutInSecond,
+		Wait:      true,
+	})
 
 	// repo block start
 	transaction := xormlib.NewTransaction(db)
@@ -109,7 +114,7 @@ func main() {
 
 	authRepo, err := auth.New(&auth.Options{
 		Cfg:     cfg,
-		Storage: redis,
+		Storage: inMemoryCaching,
 	})
 	if err != nil {
 		log.Fatal(err)
