@@ -736,13 +736,15 @@ func (u *VisitUC) orderProduct(ctx context.Context,
 
 	// if existing quantity > requested quantity => stock replenished
 	// if existing qunatity < reuqested quantity => stock reduced
-	if existingStock.Quantity < 0 {
+	if existingStock.Quantity < 0 && productStock.IsItem {
 		return commonerr.SetNewBadRequest("stock issue", fmt.Sprintf("product %s stock is not enough", productStock.Name))
 	}
 
-	err = u.InstitutionRepo.UpdateDtlInstitutionProductStock(ctx, &existingStock)
-	if err != nil {
-		return errors.Wrap(err, "orderNewProductForVisit")
+	if productStock.IsItem {
+		err = u.InstitutionRepo.UpdateDtlInstitutionProductStock(ctx, &existingStock)
+		if err != nil {
+			return errors.Wrap(err, "orderNewProductForVisit")
+		}
 	}
 
 	existingProduct.Quantity = productRequest.Quantity
