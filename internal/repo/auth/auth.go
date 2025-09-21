@@ -14,7 +14,7 @@ import (
 	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
 
 	"github.com/faisalhardin/medilink/internal/entity/model"
-	redisrepo "github.com/faisalhardin/medilink/internal/entity/repo/redis"
+	"github.com/faisalhardin/medilink/internal/entity/repo/cache"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
 	"github.com/markbates/goth/providers/google"
@@ -24,7 +24,7 @@ import (
 
 type Options struct {
 	Cfg        *config.Config
-	Storage    redisrepo.Redis
+	Storage    cache.Caching
 	GoogleAuth *oauth2.Config
 
 	JwtOpt JwtOpt
