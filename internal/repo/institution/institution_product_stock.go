@@ -88,6 +88,7 @@ func (c *Conn) FindTrxInstitutionProductJoinStockByParams(ctx context.Context, r
 		Where("id_mst_institution = ?", request.IDMstInstitution).
 		Select(`mtip.id, mtip.name, mtip.id_mst_product, mtip.price, 
 		mtip.is_item, mtip.is_treatment, mdips.quantity, mdips.unit_type`).
+		OrderBy("mtip.id DESC").
 		Find(&products)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgFindTrxInstitutionProductJoinStockByParams)

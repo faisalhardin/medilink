@@ -75,13 +75,13 @@ type TrxInstitutionProductJoinStock struct {
 }
 
 type InsertInstitutionProductRequest struct {
-	Name         string     `json:"name"`
+	Name         string     `json:"name" validate:"required"`
 	IDMstProduct null.Int64 `json:"id_mst_product"`
 	Price        float64    `json:"price"`
 	IsItem       bool       `json:"is_item"`
 	IsTreatment  bool       `json:"is_treatment"`
-	Quantity     int64      `json:"quantity"`
-	UnitType     string     `json:"unit_type"`
+	Quantity     int64      `json:"quantity" validate:"gte=0"`
+	UnitType     string     `json:"unit_type" validate:"required"`
 }
 
 type UpdateInstitutionProductRequest struct {

@@ -27,6 +27,11 @@ func (uc *InstitutionUC) InserInstitutionProduct(ctx context.Context, request mo
 		IsItem:           request.IsItem,
 		IsTreatment:      request.IsTreatment,
 	}
+
+	if !request.IsItem {
+		request.Quantity = 1
+	}
+
 	err = uc.InstitutionRepo.InsertInstitutionProduct(ctx, &product)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgInserInstitutionProduct)
