@@ -13,4 +13,8 @@ type AuthHandler interface {
 	GetLoginByToken(w http.ResponseWriter, r *http.Request)
 	GetUserFromToken(w http.ResponseWriter, r *http.Request)
 	PingAPI(w http.ResponseWriter, r *http.Request)
+	RefreshToken(w http.ResponseWriter, r *http.Request)
+	LogoutSession(w http.ResponseWriter, r *http.Request)
+	LogoutAllSessions(w http.ResponseWriter, r *http.Request)
+	GetUserSessions(w http.ResponseWriter, r *http.Request)
 }

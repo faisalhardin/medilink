@@ -152,9 +152,13 @@ func main() {
 		JourneyDB:       customerJourneyDB,
 	})
 
+	// Create session repository
+	sessionRepo := auth.NewSessionRepository(db)
+
 	authUC := authUC.New(&authUC.AuthUC{
 		Cfg:         *cfg,
 		AuthRepo:    *authRepo,
+		SessionRepo: sessionRepo,
 		StaffRepo:   staffDB,
 		JourneyRepo: journeyDB,
 	})
@@ -185,9 +189,10 @@ func main() {
 	})
 
 	authHandler := authHandler.New(&authHandler.AuthHandler{
-		Cfg:      cfg,
-		AuthUC:   authUC,
-		AuthRepo: authRepo,
+		Cfg:         cfg,
+		AuthUC:      authUC,
+		AuthRepo:    authRepo,
+		SessionRepo: sessionRepo,
 	})
 
 	productHandler := producthandler.New(&producthandler.ProductHandler{

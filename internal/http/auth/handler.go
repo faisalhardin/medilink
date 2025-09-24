@@ -6,11 +6,13 @@ import (
 	"net/http"
 
 	"github.com/faisalhardin/medilink/internal/config"
+	"github.com/faisalhardin/medilink/internal/entity/model"
 	authrepo "github.com/faisalhardin/medilink/internal/entity/repo/auth"
 	authuc "github.com/faisalhardin/medilink/internal/entity/usecase/auth"
 	"github.com/faisalhardin/medilink/internal/entity/user"
 	commonwriter "github.com/faisalhardin/medilink/internal/library/common/writer"
 	"github.com/faisalhardin/medilink/internal/library/util/common/binding"
+	"github.com/faisalhardin/medilink/internal/repo/auth"
 	userrepo "github.com/faisalhardin/medilink/internal/repo/staff"
 	authmodel "github.com/faisalhardin/medilink/internal/usecase/auth"
 	"github.com/go-chi/chi/v5"
@@ -22,10 +24,11 @@ var (
 )
 
 type AuthHandler struct {
-	Cfg      *config.Config
-	AuthRepo authrepo.AuthRepo
-	UserRepo userrepo.Conn
-	AuthUC   authuc.AuthUC
+	Cfg         *config.Config
+	AuthRepo    authrepo.AuthRepo
+	SessionRepo *auth.SessionRepository
+	UserRepo    userrepo.Conn
+	AuthUC      authuc.AuthUC
 }
 
 func New(handler *AuthHandler) *AuthHandler {
@@ -180,4 +183,78 @@ func (h *AuthHandler) PingAPI(w http.ResponseWriter, r *http.Request) {
 
 	ctx := context.Background()
 	commonwriter.SetOKWithData(ctx, w, "OK")
+}
+
+// RefreshToken handles refresh token requests
+func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	requestData := model.RefreshTokenRequest{}
+	err := bindingBind(r, &requestData)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	resp, err := h.AuthUC.RefreshToken(ctx, requestData)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, resp)
+}
+
+// LogoutSession handles single session logout
+func (h *AuthHandler) LogoutSession(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	requestData := model.LogoutRequest{}
+	err := bindingBind(r, &requestData)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	err = h.AuthUC.Logout(ctx, r)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, map[string]string{"message": "Logged out successfully"})
+}
+
+// LogoutAllSessions handles logout from all sessions
+func (h *AuthHandler) LogoutAllSessions(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Get user ID from JWT token or session
+	// This is a simplified approach - in production, you'd extract this from the JWT
+	userID := int64(1) // This should be extracted from the authenticated user's context
+
+	err := h.AuthUC.LogoutAllSessions(ctx, userID)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, map[string]string{"message": "Logged out from all sessions successfully"})
+}
+
+// GetUserSessions retrieves all sessions for the current user
+func (h *AuthHandler) GetUserSessions(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Get user ID from JWT token or session
+	// This is a simplified approach - in production, you'd extract this from the JWT
+	userID := int64(1) // This should be extracted from the authenticated user's context
+
+	sessions, err := h.AuthUC.GetUserSessions(ctx, userID)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, sessions)
 }

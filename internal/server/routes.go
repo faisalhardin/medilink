@@ -96,6 +96,13 @@ func RegisterRoutes(m *module) http.Handler {
 			auth.Get("/{provider}", m.httpHandler.AuthHandler.BeginAuthProviderCallback)
 			auth.Get("/jwt", m.httpHandler.AuthHandler.GetTokenFromTokenKey)
 			auth.Post("/pseudologin", m.httpHandler.AuthHandler.PseudoLogin)
+
+			// New authentication endpoints
+			auth.Post("/refresh", m.httpHandler.AuthHandler.RefreshToken)
+			auth.Post("/logout", m.httpHandler.AuthHandler.LogoutSession)
+			auth.Post("/logout-all", m.httpHandler.AuthHandler.LogoutAllSessions)
+			auth.Get("/sessions", m.httpHandler.AuthHandler.GetUserSessions)
+
 			auth.Group(func(authenticate chi.Router) {
 				authenticate.Post("/get-login", m.httpHandler.AuthHandler.GetLoginByToken)
 				authenticate.Get("/verify", m.httpHandler.AuthHandler.GetUserFromToken)
