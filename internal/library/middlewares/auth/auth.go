@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"strings"
 
@@ -10,6 +9,7 @@ import (
 	"github.com/faisalhardin/medilink/internal/entity/model"
 	authuc "github.com/faisalhardin/medilink/internal/entity/usecase/auth"
 	commonwriter "github.com/faisalhardin/medilink/internal/library/common/writer"
+	authusecase "github.com/faisalhardin/medilink/internal/usecase/auth"
 )
 
 const (
@@ -67,7 +67,7 @@ func (m *Module) AuthHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		bearerToken := r.Header.Get("Authorization")
-		token, err := GetBearerToken(bearerToken)
+		token, err := authusecase.GetBearerToken(bearerToken)
 		if err != nil {
 			handleError(ctx, w, r, err)
 			return
@@ -100,15 +100,6 @@ func (m *Module) CorsHandler(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
-}
-
-func GetBearerToken(token string) (string, error) {
-	splitToken := strings.Split(token, "Bearer ")
-	if len(splitToken) != 2 {
-		return "", errors.New("invalid token")
-	}
-
-	return splitToken[1], nil
 }
 
 func SetUserDetailToCtx(ctx context.Context, data model.UserJWTPayload) context.Context {

@@ -2,6 +2,8 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"time"
 
 	"github.com/cristalhq/jwt/v5"
@@ -29,10 +31,19 @@ func (claims Claims) Verify() (err error) {
 	return nil
 }
 
-func (opt *Options) CreateJWTToken(ctx context.Context, payload model.UserJWTPayload, timeNow, timeExpired time.Time) (tokenStr string, err error) {
+func GenerateSessionID() (string, error) {
+	bytes := make([]byte, 32)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
+}
+
+func (opt *Options) CreateJWTToken(ctx context.Context, sessionID string, payload model.UserJWTPayload, timeNow, timeExpired time.Time) (tokenStr string, err error) {
 
 	claims := Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        sessionID,
 			Issuer:    opt.Cfg.Server.Host,
 			Audience:  jwt.Audience{opt.Cfg.Server.Host},
 			ExpiresAt: jwt.NewNumericDate(timeExpired),
@@ -41,10 +52,15 @@ func (opt *Options) CreateJWTToken(ctx context.Context, payload model.UserJWTPay
 		Payload: payload,
 	}
 
-	return opt.generateToken(ctx, claims, timeNow, timeExpired)
+	token, err := opt.generateToken(ctx, claims, timeNow, timeExpired)
+	if err != nil {
+		return "", err
+	}
+
+	return token, nil
 }
 
-func (opt *Options) generateToken(ctx context.Context, claims any, timeNow, timeExpired time.Time) (tokenStr string, err error) {
+func (opt *Options) generateToken(_ context.Context, claims any, _, _ time.Time) (tokenStr string, err error) {
 
 	// Build and sign token
 	builder := jwt.NewBuilder(opt.JwtOpt.jwtSigner)
