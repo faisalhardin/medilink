@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
 	"time"
 
 	"github.com/faisalhardin/medilink/internal/entity/model"
@@ -129,13 +128,11 @@ func (r *SessionRepository) GetUserSessions(ctx context.Context, userID int64) (
 // CleanupExpiredSessions marks expired sessions as expired
 func (r *SessionRepository) CleanupExpiredSessions(ctx context.Context) error {
 	now := time.Now()
+	nowStr := now.Format(time.RFC3339)
 	_, err := r.db.MasterDB.Context(ctx).Table(model.MstUserSession).
 		Where("status = ? AND (expires_at < ? OR refresh_expires_at < ?) AND deleted_at IS NULL",
-			string(model.SessionStatusActive), now, now).
-		Update(map[string]interface{}{
-			"status":     string(model.SessionStatusExpired),
-			"updated_at": now,
-		})
+			string(model.SessionStatusActive), nowStr, nowStr).
+		Update(&model.UserSession{Status: string(model.SessionStatusExpired)})
 	if err != nil {
 		return errors.Wrap(err, "CleanupExpiredSessions")
 	}
@@ -146,7 +143,8 @@ func (r *SessionRepository) CleanupExpiredSessions(ctx context.Context) error {
 func (r *SessionRepository) DeleteExpiredSessions(ctx context.Context) error {
 	cutoffDate := time.Now().AddDate(0, 0, -30) // 30 days ago
 	_, err := r.db.MasterDB.Context(ctx).Table(model.MstUserSession).
-		Where("status = ? AND updated_at < ?", string(model.SessionStatusExpired), cutoffDate).
+		Where("(status = ? OR status = ?) AND updated_at < ?", string(model.SessionStatusExpired), string(model.SessionStatusRevoked), cutoffDate.Format(time.RFC3339)).
+		Unscoped().
 		Delete(&model.UserSession{})
 	if err != nil {
 		return errors.Wrap(err, "DeleteExpiredSessions")
@@ -167,14 +165,4 @@ func GenerateRefreshToken() (string, error) {
 		return "", errors.Wrap(err, "GenerateRefreshToken")
 	}
 	return hex.EncodeToString(bytes), nil
-}
-
-// GenerateSessionKey creates a unique session key
-func GenerateSessionKey(userEmail, accessToken string) string {
-	// Use the last 8 characters of the access token signature for consistency
-	var subToken string
-	if len(accessToken) > 8 {
-		subToken = accessToken[len(accessToken)-8:]
-	}
-	return fmt.Sprintf("%s:%s", userEmail, subToken)
 }
