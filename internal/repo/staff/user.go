@@ -56,6 +56,7 @@ func (c *Conn) GetUserByParams(ctx context.Context, params user.User) (resp user
 // FROM "mdl_mst_staff" AS "mms"
 // LEFT JOIN mdl_map_role_staff mmrs ON mmrs.id_mst_staff = mms.id
 // LEFT JOIN mdl_mst_role mmr ON mmr.id = mmrs.id_mst_role and mmr.delete_time is null
+// INNER JOIN mdl_mst_institution mmi ON mmi.id = mms.id_mst_institution and mmi.delete_time is null
 // WHERE ("mms"."delete_time" IS NULL)
 // WHERE ("mms"."email" = ?)
 // group by mms.id;
@@ -65,9 +66,10 @@ func (c *Conn) GetUserDetailByEmail(ctx context.Context, email string) (staff mo
 	found, err := session.
 		Join(database.SQLLeft, "mdl_map_role_staff mmrs", "mmrs.id_mst_staff = mms.id").
 		Join(database.SQLLeft, "mdl_mst_role mmr", "mmr.id = mmrs.id_mst_role and mmr.delete_time is null").
-		Select("mms.*, jsonb_agg(json_build_object('role_id',mmr.role_id, 'name', mmr.name)) as roles").
+		Join(database.SQLInner, "mdl_mst_institution mmi", "mmi.id = mms.id_mst_institution and mmi.delete_time is null").
+		Select("mms.*, mmi.name, jsonb_agg(json_build_object('role_id',mmr.role_id, 'name', mmr.name)) as roles").
 		Where("mms.email = ?", email).
-		GroupBy("mms.id").
+		GroupBy("mms.id, mmi.id").
 		Get(&staff)
 	if err != nil {
 		err = errors.Wrap(err, "GetUserDetailByEmail")
@@ -92,6 +94,7 @@ func (c *Conn) GetUserDetailByID(ctx context.Context, userID int64) (staff model
 	found, err := session.
 		Join(database.SQLLeft, "mdl_map_role_staff mmrs", "mmrs.id_mst_staff = mms.id").
 		Join(database.SQLLeft, "mdl_mst_role mmr", "mmr.id = mmrs.id_mst_role and mmr.delete_time is null").
+		Join(database.SQLInner, "mdl_mst_institution mmi", "mmi.id = mms.id_mst_institution and mmi.delete_time is null").
 		Select("mms.*, jsonb_agg(json_build_object('role_id',mmr.role_id, 'name', mmr.name)) as roles").
 		Where("mms.id = ?", userID).
 		GroupBy("mms.id").

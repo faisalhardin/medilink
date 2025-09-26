@@ -65,8 +65,9 @@ type RoleStaffMapping struct {
 }
 
 type UserDetail struct {
-	Staff MstStaff  `json:"staff" xorm:"extends"`
-	Roles []MstRole `json:"roles" xorm:"roles"`
+	Staff       MstStaff    `json:"staff" xorm:"extends"`
+	Institution Institution `json:"institution" xorm:"extends"`
+	Roles       []MstRole   `json:"roles" xorm:"roles"`
 }
 
 func GenerateUserDetailSessionInformation(u UserDetail, expiredTime time.Time) UserSessionDetail {
@@ -89,13 +90,14 @@ func GenerateUserDataJWTInformation(internalUserDetail UserDetail, externalUserD
 		})
 	}
 	return UserJWTPayload{
-		UUID:           internalUserDetail.Staff.UUID,
-		Name:           internalUserDetail.Staff.Name,
-		Email:          internalUserDetail.Staff.Email,
-		Roles:          userRoles,
-		ImageURL:       externalUserDetail.Picture,
-		ProviderUserID: externalUserDetail.ID,
-		JourneyPoints:  journeyPoints,
-		ServicePoints:  servicePoints,
+		UUID:            internalUserDetail.Staff.UUID,
+		Name:            internalUserDetail.Staff.Name,
+		Email:           internalUserDetail.Staff.Email,
+		Roles:           userRoles,
+		InstitutionName: internalUserDetail.Institution.Name,
+		ImageURL:        externalUserDetail.Picture,
+		ProviderUserID:  externalUserDetail.ID,
+		JourneyPoints:   journeyPoints,
+		ServicePoints:   servicePoints,
 	}
 }

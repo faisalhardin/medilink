@@ -1,12 +1,15 @@
 package main
 
 import (
-	"fmt"
-	"log"
+	"context"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
-	ilog "github.com/faisalhardin/medilink/cmd/log"
+	logSetup "github.com/faisalhardin/medilink/cmd/log"
+	log "github.com/faisalhardin/medilink/internal/library/common/log"
 	"github.com/faisalhardin/medilink/internal/repo/auth"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
@@ -23,6 +26,7 @@ import (
 	productrepo "github.com/faisalhardin/medilink/internal/repo/product"
 	staffrepo "github.com/faisalhardin/medilink/internal/repo/staff"
 
+	authCleanup "github.com/faisalhardin/medilink/internal/usecase/auth"
 	authUC "github.com/faisalhardin/medilink/internal/usecase/auth"
 	institutionUC "github.com/faisalhardin/medilink/internal/usecase/institution"
 	journeyuc "github.com/faisalhardin/medilink/internal/usecase/journey"
@@ -67,7 +71,7 @@ func main() {
 
 	cfg.Vault = vault.Data
 
-	ilog.SetupLogging(cfg)
+	logSetup.SetupLogging(cfg)
 
 	db, err := xormlib.NewDBConnection(cfg)
 	if err != nil {
@@ -224,9 +228,43 @@ func main() {
 
 	server := server.NewServer(server.RegisterRoutes(modules))
 
-	err = server.ListenAndServe()
-	if err != nil {
-		panic(fmt.Sprintf("cannot start server: %s", err))
+	// Create cancellable context for graceful shutdown
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Start cleanup job
+	cleanupUC := authCleanup.NewCleanupUC(sessionRepo)
+	go cleanupUC.RunCleanupJob(ctx)
+
+	// Handle graceful shutdown
+	shutdownChan := make(chan os.Signal, 1)
+	signal.Notify(shutdownChan, os.Interrupt, syscall.SIGTERM)
+
+	// Start server in goroutine
+	serverErr := make(chan error, 1)
+	go func() {
+		log.Info("Starting server...")
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			serverErr <- err
+		}
+	}()
+
+	// Wait for shutdown signal or server error
+	select {
+	case err := <-serverErr:
+		log.Error("Server error: %v", err)
+		cancel() // Stop cleanup job
+		cleanupUC.Stop()
+		os.Exit(1)
+	case sig := <-shutdownChan:
+		log.Info("Received signal: %v. Shutting down gracefully...", sig)
+		cancel() // Stop cleanup job
+		cleanupUC.Stop()
+
+		// Give cleanup job time to finish
+		time.Sleep(2 * time.Second)
+
+		log.Info("Server stopped")
 	}
 }
 
