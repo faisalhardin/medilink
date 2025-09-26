@@ -13,6 +13,7 @@ import (
 	"github.com/faisalhardin/medilink/internal/library/middlewares/auth"
 	customtime "github.com/faisalhardin/medilink/pkg/type/time"
 	"github.com/pkg/errors"
+	"github.com/volatiletech/null/v8"
 )
 
 const (
@@ -152,7 +153,7 @@ func (u *JourneyUC) validateJourneyPointOwnership(ctx context.Context, journeyPo
 	return nil
 }
 
-func (u *JourneyUC) ListJourneyPoints(ctx context.Context, params model.GetJourneyPointParams) (servicePoint []model.MstJourneyPoint, err error) {
+func (u *JourneyUC) ListJourneyPoints(ctx context.Context, params model.GetJourneyPointParams) (servicePoint []model.ListJourneyPointResponse, err error) {
 	servicePoint, _, err = u.JourneyDB.ListJourneyPoints(ctx, params)
 	if err != nil && errors.Is(err, constant.ErrorNoAffectedRow) {
 		return nil, nil
@@ -165,7 +166,7 @@ func (u *JourneyUC) ListJourneyPoints(ctx context.Context, params model.GetJourn
 	return
 }
 
-func (u *JourneyUC) InsertNewJourneyPoint(ctx context.Context, journeyPoint *model.MstJourneyPoint) (err error) {
+func (u *JourneyUC) InsertNewJourneyPoint(ctx context.Context, journeyPoint *model.MstJourneyPoint) (response model.InsertJourneyPointResponse, err error) {
 
 	userDetail, found := auth.GetUserDetailFromCtx(ctx)
 	if !found {
@@ -202,7 +203,10 @@ func (u *JourneyUC) InsertNewJourneyPoint(ctx context.Context, journeyPoint *mod
 		return
 	}
 
-	return
+	response.IsOwned = null.BoolFrom(true)
+	response.MstJourneyPoint = *insertJourneyPointRequest.MstJourneyPoint
+
+	return response, nil
 }
 
 func (u *JourneyUC) UpdateJourneyPoint(ctx context.Context, journeyPoint *model.MstJourneyPoint) (err error) {

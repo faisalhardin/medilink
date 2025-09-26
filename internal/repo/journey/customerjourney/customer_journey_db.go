@@ -168,7 +168,7 @@ func (c *UserJourneyDB) InsertNewJourneyPoint(ctx context.Context, journeyPoint 
 	return c.JourneyDB.InsertNewJourneyPoint(ctx, journeyPoint)
 }
 
-func (c *UserJourneyDB) ListJourneyPoints(ctx context.Context, params model.GetJourneyPointParams) (resp []model.MstJourneyPoint, count int64, err error) {
+func (c *UserJourneyDB) ListJourneyPoints(ctx context.Context, params model.GetJourneyPointParams) (resp []model.ListJourneyPointResponse, count int64, err error) {
 
 	defer func() {
 		if err != nil {
@@ -183,6 +183,7 @@ func (c *UserJourneyDB) ListJourneyPoints(ctx context.Context, params model.GetJ
 	}
 
 	params.IDMstInstitution = userDetail.InstitutionID
+	params.StaffID = userDetail.UserID
 
 	return c.JourneyDB.ListJourneyPoints(ctx, params)
 }

@@ -161,13 +161,13 @@ func (h *JourneyHandler) InsertNewJourneyPoint(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	err = h.JourneyUC.InsertNewJourneyPoint(ctx, request)
+	resp, err := h.JourneyUC.InsertNewJourneyPoint(ctx, request)
 	if err != nil {
 		commonwriter.SetError(ctx, w, err)
 		return
 	}
 
-	commonwriter.SetOKWithData(ctx, w, request)
+	commonwriter.SetOKWithData(ctx, w, resp)
 }
 
 func (h *JourneyHandler) UpdateJourneyPoint(w http.ResponseWriter, r *http.Request) {

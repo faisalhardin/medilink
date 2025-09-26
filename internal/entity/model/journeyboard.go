@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/faisalhardin/medilink/internal/library/util/shortid"
+	"github.com/volatiletech/null/v8"
 )
 
 // model for mdl_mst_journey_board
@@ -34,6 +35,16 @@ type MstJourneyPoint struct {
 	CreateTime time.Time  `xorm:"'create_time' created" json:"create_time"`
 	UpdateTime time.Time  `xorm:"'update_time' updated" json:"update_time"`
 	DeleteTime *time.Time `xorm:"'delete_time' deleted" json:"-" `
+}
+
+type ListJourneyPointResponse struct {
+	MstJourneyPoint `xorm:"extends"`
+	IsOwned         null.Bool `json:"is_owned"`
+}
+
+type InsertJourneyPointResponse struct {
+	MstJourneyPoint `xorm:"extends"`
+	IsOwned         null.Bool `json:"is_owned"`
 }
 
 // BeforeInsert generates a short ID before inserting the journey point
@@ -75,12 +86,13 @@ type GetJourneyPointParams struct {
 	Name             []string `schema:"name"`
 	IDMstBoard       int64    `schema:"board_id"`
 	IDMstInstitution int64
+	StaffID          int64
 	CommonRequestPayload
 }
 
 type JourneyBoardJoinJourneyPoint struct {
 	MstJourneyBoard `xorm:"extends"`
-	JourneyPoints   []MstJourneyPoint `xorm:"mst_journey_point" json:"journey_points"`
+	JourneyPoints   []ListJourneyPointResponse `xorm:"mst_journey_point" json:"journey_points"`
 }
 
 type GetServicePointParams struct {

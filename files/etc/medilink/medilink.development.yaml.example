@@ -13,7 +13,8 @@ google_auth_config:
   homepage_redirect: "http://127.0.0.1:5173"
 
 jwt_config:
-  duration_in_minutes: 480 #set 480 in prod
+  duration_in_minutes: 15 #set 480 in prod
+  refresh_duration_in_days: 7 #set 480 in prod
 
 redis:
   address: "127.0.0.1:6379"

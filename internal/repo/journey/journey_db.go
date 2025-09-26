@@ -248,8 +248,8 @@ func (c *JourneyDB) InsertNewJourneyPoint(ctx context.Context, journeyPoint *mod
 	return
 }
 
-func (c *JourneyDB) ListJourneyPoints(ctx context.Context, params model.GetJourneyPointParams) (resp []model.MstJourneyPoint, count int64, err error) {
-	session := c.DB.SlaveDB.Table(database.MstJourneyPointTable)
+func (c *JourneyDB) ListJourneyPoints(ctx context.Context, params model.GetJourneyPointParams) (resp []model.ListJourneyPointResponse, count int64, err error) {
+	session := c.DB.SlaveDB.Table(database.MstJourneyPointTable).Alias("mjp")
 
 	if params.ID > 0 {
 		session.Where("id = ?", params.ID)
@@ -263,6 +263,18 @@ func (c *JourneyDB) ListJourneyPoints(ctx context.Context, params model.GetJourn
 		}
 		session.Where("name = ANY(?)", pq.Array(substringNames))
 	}
+	if params.StaffID > 0 {
+		session.
+			Join(database.SQLLeft, database.MapStaffJourneyPoint+" msjp", "msjp.id_mst_journey_point = mjp.id")
+	}
+
+	// for select logic statement
+	if params.StaffID > 0 {
+		session.Select("mjp.*, msjp.id_mst_staff is not null as is_owned")
+	} else {
+		session.Select("mjp.*, false as is_owned")
+	}
+
 	count, err = session.
 		Where("id_mst_journey_board = ?", params.IDMstBoard).
 		FindAndCount(&resp)
