@@ -17,6 +17,9 @@ const (
 
 var (
 	Err404 = SetNewError(http.StatusNotFound, "404", "404 not found")
+	Err401 = SetNewError(http.StatusUnauthorized, "401", "401 unauthorized")
+
+	ErrRevokedSession = SetNewUnauthorizedError("session revoked", "Your session has been revoked")
 )
 
 // DefaultInputBody return bad request for bad body request
@@ -168,4 +171,8 @@ func SetNewTokenExpiredError() *ErrorMessage {
 
 func SetNewUnauthorizedAPICall() *ErrorMessage {
 	return SetNewUnauthorizedError("api call is unauthorized", "api is unauthorized for user")
+}
+
+func SetNewRevokedSessionError() *ErrorMessage {
+	return ErrRevokedSession
 }
