@@ -3,14 +3,14 @@ package auth
 import (
 	"context"
 	"net/http"
-	"strings"
+	"os"
 
 	"github.com/faisalhardin/medilink/internal/config"
 	"github.com/faisalhardin/medilink/internal/entity/model"
 	authuc "github.com/faisalhardin/medilink/internal/entity/usecase/auth"
-	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
 	commonwriter "github.com/faisalhardin/medilink/internal/library/common/writer"
 	authusecase "github.com/faisalhardin/medilink/internal/usecase/auth"
+	"github.com/go-chi/cors"
 )
 
 const (
@@ -75,10 +75,7 @@ func (m *Module) AuthHandler(next http.Handler) http.Handler {
 		}
 
 		userDetail, err := m.AuthUC.HandleAuthMiddleware(ctx, token)
-		if err != nil && errors.Is(err, commonerr.SetNewTokenExpiredError()) {
-			http.Redirect(w, r, "/token-expired", http.StatusFound)
-			return
-		} else if err != nil {
+		if err != nil {
 			handleError(ctx, w, r, err)
 			return
 		}
@@ -91,19 +88,17 @@ func (m *Module) AuthHandler(next http.Handler) http.Handler {
 }
 
 func (m *Module) CorsHandler(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Methods", strings.Join(AllowedMethodRequest, ", "))
-		w.Header().Set("Access-Control-Allow-Headers", strings.Join(AllowedHeaders, ", "))
-		w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
-		w.Header().Set("Access-Control-Allow-Credentials", "true")
-
-		// handle preflight
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
-		next.ServeHTTP(w, r)
+	allowedOrigins := []string{m.Cfg.WebConfig.Host}
+	c := cors.New(cors.Options{
+		AllowedOrigins:   allowedOrigins,
+		AllowedMethods:   AllowedMethodRequest,
+		AllowedHeaders:   AllowedHeaders,
+		AllowCredentials: true,
+		ExposedHeaders:   []string{"Cross-Origin-Opener-Policy", "X-Redirect-To"},
+		Debug:            os.Getenv("ENVIRONMENT") == "development",
 	})
+
+	return c.Handler(next)
 }
 
 func SetUserDetailToCtx(ctx context.Context, data model.UserJWTPayload) context.Context {

@@ -8,6 +8,7 @@ require (
 	github.com/cristalhq/jwt/v5 v5.4.0
 	github.com/friendsofgo/errors v0.9.2
 	github.com/go-chi/chi/v5 v5.0.12
+	github.com/go-chi/cors v1.2.2
 	github.com/go-playground/locales v0.14.1
 	github.com/go-playground/universal-translator v0.18.1
 	github.com/go-xorm/xorm v0.7.9

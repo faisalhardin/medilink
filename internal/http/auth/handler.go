@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -10,6 +11,7 @@ import (
 	authrepo "github.com/faisalhardin/medilink/internal/entity/repo/auth"
 	authuc "github.com/faisalhardin/medilink/internal/entity/usecase/auth"
 	"github.com/faisalhardin/medilink/internal/entity/user"
+	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
 	commonwriter "github.com/faisalhardin/medilink/internal/library/common/writer"
 	"github.com/faisalhardin/medilink/internal/library/util/common/binding"
 	"github.com/faisalhardin/medilink/internal/repo/auth"
@@ -197,7 +199,11 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp, err := h.AuthUC.RefreshToken(ctx, requestData)
-	if err != nil {
+	if err != nil && errors.Is(err, commonerr.SetNewRevokedSessionError()) {
+		w.Header().Set("X-Redirect-To", "/token-expired")
+		commonwriter.SetError(ctx, w, err)
+		return
+	} else if err != nil {
 		commonwriter.SetError(ctx, w, err)
 		return
 	}

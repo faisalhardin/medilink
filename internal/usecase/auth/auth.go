@@ -138,20 +138,19 @@ func (u *AuthUC) RefreshToken(ctx context.Context, req model.RefreshTokenRequest
 	// 1. Validate refresh token
 	session, err := u.SessionRepo.GetSessionByRefreshToken(ctx, authRepo.HashToken(req.RefreshToken))
 	if err != nil {
-		err = commonerr.SetNewUnauthorizedError("invalid refresh token", "The provided refresh token is invalid")
 		return
 	}
 
 	// 2. Check if session is active and refresh token not expired
 	if session.Status != string(model.SessionStatusActive) {
-		err = commonerr.SetNewUnauthorizedError("session revoked", "Your session has been revoked")
+		err = commonerr.SetNewRevokedSessionError()
 		return
 	}
 
 	if time.Now().After(session.RefreshExpiresAt) {
 		// Mark session as expired
 		u.SessionRepo.UpdateSessionStatus(ctx, session.SessionKey, string(model.SessionStatusExpired))
-		err = commonerr.SetNewTokenExpiredError()
+		err = commonerr.SetNewRevokedSessionError()
 		return
 	}
 

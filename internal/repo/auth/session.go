@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/faisalhardin/medilink/internal/entity/model"
+	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
 	"github.com/faisalhardin/medilink/internal/library/db/xorm"
 	"github.com/pkg/errors"
 )
@@ -54,7 +55,7 @@ func (r *SessionRepository) GetSessionByRefreshToken(ctx context.Context, refres
 		return nil, errors.Wrap(err, "GetSessionByRefreshToken")
 	}
 	if !has {
-		return nil, errors.New("session not found")
+		return nil, commonerr.SetNewRevokedSessionError()
 	}
 	return &session, nil
 }
