@@ -91,7 +91,7 @@ func RegisterRoutes(m *module) http.Handler {
 		})
 
 		v1.Route("/auth", func(auth chi.Router) {
-
+			auth.Use(m.middlewareModule.CorsHandler)
 			auth.Get("/{provider}/callback", m.httpHandler.AuthHandler.GetAuthCallbackFunction)
 			auth.Get("/{provider}", m.httpHandler.AuthHandler.BeginAuthProviderCallback)
 			auth.Get("/jwt", m.httpHandler.AuthHandler.GetTokenFromTokenKey)
