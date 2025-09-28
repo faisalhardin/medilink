@@ -338,7 +338,7 @@ func (u *VisitUC) ValidatePatientVisitExist(ctx context.Context, req ValidatePat
 }
 
 func (u *VisitUC) UpsertVisitTouchpoint(ctx context.Context, req model.DtlPatientVisitRequest) (dtlPatientVisit model.DtlPatientVisitWithShortID, err error) {
-	if req.ID > 0 || req.IDTrxPatientVisit > 0 && len(req.IDMstJourneyPoint) > 0 {
+	if req.ID > 0 {
 		return u.UpdateVisitTouchpoint(ctx, req)
 	} else {
 		return u.InsertVisitTouchpoint(ctx, req)
