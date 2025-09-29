@@ -14,5 +14,5 @@ type InstitutionUC interface {
 	InserInstitutionProduct(ctx context.Context, newProduct model.InsertInstitutionProductRequest) (product model.TrxInstitutionProduct, err error)
 	FindInstitutionProductByParams(ctx context.Context, params model.FindTrxInstitutionProductParams) (products []model.GetInstitutionProductResponse, err error)
 	UpdateInstitutionProduct(ctx context.Context, request model.UpdateInstitutionProductRequest) (err error)
-	UpdateInstitutionProductStock(ctx context.Context, product model.DtlInstitutionProductStock) (err error)
+	UpdateInstitutionProductStock(ctx context.Context, request model.ProductStockResupplyRequest) (err error)
 }

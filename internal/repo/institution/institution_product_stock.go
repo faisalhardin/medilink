@@ -7,6 +7,7 @@ import (
 	"github.com/faisalhardin/medilink/internal/entity/constant/database"
 	"github.com/faisalhardin/medilink/internal/entity/model"
 	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
+	"github.com/faisalhardin/medilink/internal/library/db/xorm"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 )
@@ -16,10 +17,15 @@ const (
 
 	WrapMsgFindTrxInstitutionProductJoinStockByParams = "FindTrxInstitutionProductJoinStockByParams"
 	WrapMsgUpdateDtlInstitutionProductStock           = "UpdateDtlInstitutionProductStock"
+	WrapMsgUpdateDtlInstitutionProduct                = "UpdateDtlInstitutionProduct"
 )
 
 func (c *Conn) InsertInstitutionProductStock(ctx context.Context, product *model.DtlInstitutionProductStock) (err error) {
-	session := c.DB.MasterDB.Table(DtlInstitutionProductStock)
+	session := xorm.GetDBSession(ctx)
+	if session == nil {
+		session = c.DB.MasterDB.Context(ctx)
+	}
+	session = session.Table(DtlInstitutionProductStock)
 
 	_, err = session.InsertOne(product)
 	if err != nil {
@@ -99,7 +105,11 @@ func (c *Conn) FindTrxInstitutionProductJoinStockByParams(ctx context.Context, r
 }
 
 func (c *Conn) UpdateDtlInstitutionProductStock(ctx context.Context, request *model.DtlInstitutionProductStock) (err error) {
-	session := c.DB.MasterDB.Table(DtlInstitutionProductStock)
+	session := xorm.GetDBSession(ctx)
+	if session == nil {
+		session = c.DB.MasterDB.Context(ctx)
+	}
+	session = session.Table(DtlInstitutionProductStock)
 
 	if request.ID == 0 && request.IDTrxInstitutionProduct == 0 {
 		err = errors.New("invalid parameter: id or id_trx_institution_product must be defined")
@@ -127,11 +137,15 @@ func (c *Conn) UpdateDtlInstitutionProductStock(ctx context.Context, request *mo
 }
 
 func (c *Conn) UpdateDtlInstitutionProduct(ctx context.Context, request *model.DtlInstitutionProductStock) (err error) {
-	session := c.DB.MasterDB.Table(DtlInstitutionProductStock)
+	session := xorm.GetDBSession(ctx)
+	if session == nil {
+		session = c.DB.MasterDB.Context(ctx)
+	}
+	session = session.Table(DtlInstitutionProductStock)
 
 	if request.ID == 0 && request.IDTrxInstitutionProduct == 0 {
 		err = errors.New("invalid parameter: id or id_trx_institution_product must be defined")
-		err = errors.Wrap(err, WrapMsgUpdateDtlInstitutionProductStock)
+		err = errors.Wrap(err, WrapMsgUpdateDtlInstitutionProduct)
 		return
 	}
 
@@ -147,7 +161,7 @@ func (c *Conn) UpdateDtlInstitutionProduct(ctx context.Context, request *model.D
 		Omit("quantity").
 		Update(request)
 	if err != nil {
-		err = errors.Wrap(err, WrapMsgUpdateDtlInstitutionProductStock)
+		err = errors.Wrap(err, WrapMsgUpdateDtlInstitutionProduct)
 		return
 	}
 
@@ -171,7 +185,10 @@ func (c *Conn) RestockDtlInstitutionProductStock(ctx context.Context, request *m
 		session.Where("id_trx_institution_product = ? ", request.IDTrxInstitutionProduct)
 	}
 
-	_, err = session.Incr("quantity", request.Quantity).Update(&model.DtlInstitutionProductStock{})
+	_, err = session.
+		Incr("quantity", request.Quantity).
+		Cols("quantity").
+		Update(request)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgUpdateDtlInstitutionProductStock)
 		return

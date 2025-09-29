@@ -69,6 +69,15 @@ type DtlInstitutionProductStock struct {
 	DeleteTime              *time.Time `json:"-" xorm:"'delete_time' deleted"`
 }
 
+type ProductStockResupplyItem struct {
+	IDTrxInstitutionProduct int64 `json:"product_id" validate:"required"`
+	Quantity                int64 `json:"quantity" validate:"required,ne=0"` // not equal 0
+}
+
+type ProductStockResupplyRequest struct {
+	Products []ProductStockResupplyItem `json:"products" validate:"dive,required"`
+}
+
 type TrxInstitutionProductJoinStock struct {
 	TrxInstitutionProduct      TrxInstitutionProduct      `xorm:"extends"`
 	DtlInstitutionProductStock DtlInstitutionProductStock `xorm:"extends"`
