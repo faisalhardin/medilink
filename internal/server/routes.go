@@ -27,8 +27,8 @@ func RegisterRoutes(m *module) http.Handler {
 				institution.Route("/product", func(product chi.Router) {
 					product.Get("/", m.httpHandler.InstitutionHandler.FindInstitutionProducts)
 					product.Post("/", m.httpHandler.InstitutionHandler.InsertInstitutionProduct)
+					product.Patch("/", m.httpHandler.InstitutionHandler.UpdateInstitutionProduct)
 					product.Patch("/{id}/stock", m.httpHandler.InstitutionHandler.UpdateInstitutionProductStock)
-					product.Patch("/{id}", m.httpHandler.InstitutionHandler.UpdateInstitutionProduct)
 				})
 			})
 			authed.Route("/patient", func(patient chi.Router) {

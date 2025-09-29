@@ -72,16 +72,32 @@ func (c *Conn) FindTrxInstitutionProductByParams(ctx context.Context, request mo
 	return
 }
 
-func (c *Conn) UpdateTrxInstitutionProduct(ctx context.Context, request *model.TrxInstitutionProduct) (err error) {
+func (c *Conn) UpdateTrxInstitutionProduct(ctx context.Context, request *model.UpdateInstitutionProductRequest) (resp model.TrxInstitutionProduct, err error) {
 	session := xorm.GetDBSession(ctx)
 	if session == nil {
 		session = c.DB.MasterDB.Context(ctx)
 	}
 
+	trxProduct := &model.TrxInstitutionProduct{
+		ID:           request.ID,
+		Name:         request.Name,
+		IDMstProduct: request.IDMstProduct,
+		Price:        request.Price,
+		IsItem:       request.IsItem.Bool,
+		IsTreatment:  request.IsTreatment.Bool,
+	}
+
+	if request.IsItem.Valid {
+		session.UseBool("is_item")
+	}
+	if request.IsTreatment.Valid {
+		session.UseBool("is_treatment")
+	}
+
 	_, err = session.
 		Table(TrxInstitutionProduct).
 		ID(request.ID).
-		Update(request)
+		Update(trxProduct)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgUpdateTrxInstitutionProduct)
 		return

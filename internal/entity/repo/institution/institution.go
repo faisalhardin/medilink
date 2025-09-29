@@ -12,10 +12,11 @@ type InstitutionDB interface {
 
 	InsertInstitutionProduct(ctx context.Context, product *model.TrxInstitutionProduct) (err error)
 	FindTrxInstitutionProductByParams(ctx context.Context, request model.FindTrxInstitutionProductParams) (products []model.TrxInstitutionProduct, err error)
-	UpdateTrxInstitutionProduct(ctx context.Context, request *model.TrxInstitutionProduct) (err error)
+	UpdateTrxInstitutionProduct(ctx context.Context, request *model.UpdateInstitutionProductRequest) (resp model.TrxInstitutionProduct, err error)
 	InsertInstitutionProductStock(ctx context.Context, product *model.DtlInstitutionProductStock) (err error)
 	FindTrxInstitutionProductStockByParams(ctx context.Context, request model.DtlInstitutionProductStock) (stock []model.DtlInstitutionProductStock, err error)
 	FindTrxInstitutionProductJoinStockByParams(ctx context.Context, request model.FindTrxInstitutionProductParams) (products []model.GetInstitutionProductResponse, err error)
 	UpdateDtlInstitutionProductStock(ctx context.Context, request *model.DtlInstitutionProductStock) (err error)
+	UpdateDtlInstitutionProduct(ctx context.Context, request *model.DtlInstitutionProductStock) (err error)
 	RestockDtlInstitutionProductStock(ctx context.Context, request *model.DtlInstitutionProductStock) (err error)
 }
