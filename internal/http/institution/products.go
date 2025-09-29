@@ -51,22 +51,13 @@ func (h *InstitutionHandler) InsertInstitutionProduct(w http.ResponseWriter, r *
 func (h *InstitutionHandler) UpdateInstitutionProduct(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	productID := chi.URLParam(r, "id")
-	parsedProductID, err := strconv.ParseInt(productID, 10, 64)
-	if err != nil {
-		errMsg := commonerr.SetNewBadRequest("Product ID", "Invalid Product ID")
-		commonwriter.SetError(ctx, w, errMsg)
-		return
-	}
-
 	request := model.UpdateInstitutionProductRequest{}
-	err = bindingBind(r, &request)
+	err := bindingBind(r, &request)
 	if err != nil {
 		commonwriter.SetError(ctx, w, err)
 		return
 	}
 
-	request.ID = parsedProductID
 	err = h.InstitutionUC.UpdateInstitutionProduct(ctx, request)
 	if err != nil {
 		commonwriter.SetError(ctx, w, err)

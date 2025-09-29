@@ -89,8 +89,8 @@ type UpdateInstitutionProductRequest struct {
 	Name         string      `json:"name"`
 	IDMstProduct null.Int64  `json:"id_mst_product"`
 	Price        float64     `json:"price"`
-	IsItem       bool        `json:"is_item"`
-	IsTreatment  bool        `json:"is_treatment"`
+	IsItem       null.Bool   `json:"is_item"`
+	IsTreatment  null.Bool   `json:"is_treatment"`
 	Quantity     null.Int64  `json:"quantity"`
 	UnitType     null.String `json:"unit_type"`
 }

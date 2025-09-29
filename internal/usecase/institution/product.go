@@ -68,30 +68,21 @@ func (uc *InstitutionUC) UpdateInstitutionProduct(ctx context.Context, request m
 	session, err := uc.Transaction.Begin(ctx)
 	defer uc.Transaction.Finish(session, &err)
 
-	product := model.TrxInstitutionProduct{
-		ID:           request.ID,
-		Name:         request.Name,
-		IDMstProduct: request.IDMstProduct,
-		Price:        request.Price,
-		IsItem:       request.IsItem,
-		IsTreatment:  request.IsTreatment,
-	}
-	err = uc.InstitutionRepo.UpdateTrxInstitutionProduct(ctx, &product)
+	_, err = uc.InstitutionRepo.UpdateTrxInstitutionProduct(ctx, &request)
 	if err != nil {
 		return err
 	}
 
-	if !request.Quantity.Valid || !request.UnitType.Valid {
+	if !request.UnitType.Valid {
 		return nil
 	}
 
 	productStock := model.DtlInstitutionProductStock{
-		IDTrxInstitutionProduct: product.ID,
-		Quantity:                request.Quantity.Int64,
+		IDTrxInstitutionProduct: request.ID,
 		UnitType:                request.UnitType.String,
 	}
 
-	err = uc.InstitutionRepo.UpdateDtlInstitutionProductStock(ctx, &productStock)
+	err = uc.InstitutionRepo.UpdateDtlInstitutionProduct(ctx, &productStock)
 	if err != nil {
 		return err
 	}
