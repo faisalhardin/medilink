@@ -5,6 +5,7 @@ import (
 
 	"github.com/faisalhardin/medilink/internal/entity/model"
 	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
+	"github.com/faisalhardin/medilink/internal/library/db/xorm"
 	"github.com/faisalhardin/medilink/internal/library/middlewares/auth"
 	"github.com/friendsofgo/errors"
 )
@@ -90,6 +91,45 @@ func (uc *InstitutionUC) UpdateInstitutionProduct(ctx context.Context, request m
 	return nil
 }
 
-func (uc *InstitutionUC) UpdateInstitutionProductStock(ctx context.Context, product model.DtlInstitutionProductStock) (err error) {
-	return uc.InstitutionRepo.UpdateDtlInstitutionProductStock(ctx, &product)
+func (uc *InstitutionUC) UpdateInstitutionProductStock(ctx context.Context, request model.ProductStockResupplyRequest) (err error) {
+
+	// check product ownership
+	userDetail, found := auth.GetUserDetailFromCtx(ctx)
+	if !found {
+		err = commonerr.SetNewUnauthorizedAPICall()
+		return
+	}
+
+	productIDs := make([]int64, len(request.Products))
+	for _, product := range request.Products {
+		productIDs = append(productIDs, product.IDTrxInstitutionProduct)
+	}
+
+	productStocks, err := uc.InstitutionRepo.FindTrxInstitutionProductByParams(ctx, model.FindTrxInstitutionProductParams{
+		IDMstProducts:    productIDs,
+		IDMstInstitution: userDetail.InstitutionID,
+	})
+
+	if len(productStocks) == 0 {
+		err = commonerr.SetNewBadRequest("product invalid", "One or more products are invalid")
+		return
+	}
+
+	// update product stock
+	session, err := uc.Transaction.Begin(ctx)
+	defer uc.Transaction.Finish(session, &err)
+	ctx = xorm.SetDBSession(ctx, session)
+
+	for _, product := range request.Products {
+		productStock := model.DtlInstitutionProductStock{
+			IDTrxInstitutionProduct: product.IDTrxInstitutionProduct,
+			Quantity:                product.Quantity,
+		}
+		err = uc.InstitutionRepo.RestockDtlInstitutionProductStock(ctx, &productStock)
+		if err != nil {
+			return err
+		}
+	}
+
+	return
 }
