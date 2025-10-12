@@ -229,6 +229,28 @@ func (u *VisitUC) ListPatientVisitDetailed(ctx context.Context, req model.GetPat
 		return
 	}
 
+	products, err := u.PatientDB.GetTrxVisitProduct(ctx, model.GetVisitProductRequest{
+		VisitIDs:      visitIDs,
+		InstitutionID: userDetail.InstitutionID,
+	})
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgGetPatientVisits)
+		return
+	}
+
+	mapVisitIDtoProducts := map[int64][]model.TrxVisitProduct{}
+	for _, product := range products {
+		if _, ok := mapVisitIDtoProducts[product.IDTrxPatientVisit]; ok {
+			listOfProducts := mapVisitIDtoProducts[product.IDTrxPatientVisit]
+			listOfProducts = append(listOfProducts, product)
+			mapVisitIDtoProducts[product.IDTrxPatientVisit] = listOfProducts
+		} else {
+			mapVisitIDtoProducts[product.IDTrxPatientVisit] = []model.TrxVisitProduct{
+				product,
+			}
+		}
+	}
+
 	mapVisitIDtoDtlVisit := map[int64][]model.DtlPatientVisitWithShortID{}
 	for _, detailVisit := range dtlVisits {
 		if dtlVisit, ok := mapVisitIDtoDtlVisit[detailVisit.DtlPatientVisit.IDTrxPatientVisit]; ok {
@@ -243,6 +265,7 @@ func (u *VisitUC) ListPatientVisitDetailed(ctx context.Context, req model.GetPat
 
 	for i, response := range visitsDetails {
 		response.DtlPatientVisit = mapVisitIDtoDtlVisit[response.ID]
+		response.Products = mapVisitIDtoProducts[response.ID]
 		visitsDetails[i] = response
 	}
 
