@@ -104,7 +104,7 @@ type GetServicePointParams struct {
 }
 
 type RenameJourneyPointRequest struct {
-	ID   int64  `xorm:"'id' pk autoincr" json:"id" validation:"required"`
+	ID   string `xorm:"'id' pk autoincr" json:"id" validation:"required"`
 	Name string `xorm:"'name'" json:"name" validation:"required"`
 }
 
