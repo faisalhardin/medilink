@@ -15,6 +15,7 @@ import (
 	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
 	"github.com/faisalhardin/medilink/internal/library/db/xorm"
 	"github.com/faisalhardin/medilink/internal/library/middlewares/auth"
+	customtime "github.com/faisalhardin/medilink/pkg/type/time"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"github.com/volatiletech/null/v8"
@@ -257,7 +258,11 @@ func (u *VisitUC) ListPatientVisits(ctx context.Context, req model.GetPatientVis
 	}
 
 	req.IDMstInstitution = userDetail.InstitutionID
-
+	if !req.ToTime.IsZero() {
+		req.ToTime = customtime.Time{
+			Time: time.Date(req.ToTime.Year(), req.ToTime.Month(), req.ToTime.Day(), 23, 59, 59, 0, req.ToTime.Location()),
+		}
+	}
 	visits, err := u.PatientDB.GetPatientVisits(ctx, req)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgGetPatientVisits)
