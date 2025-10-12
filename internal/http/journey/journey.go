@@ -203,8 +203,8 @@ func (h *JourneyHandler) RenameJourneyPoint(w http.ResponseWriter, r *http.Reque
 	}
 
 	err = h.JourneyUC.UpdateJourneyPoint(ctx, &model.MstJourneyPoint{
-		ID:   request.ID,
-		Name: request.Name,
+		ShortID: request.ID,
+		Name:    request.Name,
 	})
 	if err != nil {
 		commonwriter.SetError(ctx, w, err)
