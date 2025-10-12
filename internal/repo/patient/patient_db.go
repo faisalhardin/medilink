@@ -469,6 +469,10 @@ func (c *Conn) GetTrxVisitProduct(ctx context.Context, params model.GetVisitProd
 		session.Where("mtvp.id_trx_patient_visit = ?", params.VisitID)
 	}
 
+	if len(params.VisitIDs) > 0 {
+		session.Where("mtvp.id_trx_patient_visit = any(?)", pq.Array(params.VisitIDs))
+	}
+
 	if params.VisitProductID > 0 {
 		session.Where("mtvp.id = ?", params.VisitProductID)
 	}

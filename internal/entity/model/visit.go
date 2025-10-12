@@ -166,6 +166,7 @@ type GetPatientVisitDetailResponse struct {
 	MstPatient      MstPatientInstitution        `json:"patient"`
 	JourneyPoint    MstJourneyPoint              `json:"journey_point"`
 	ServicePoint    MstServicePoint              `json:"service_point"`
+	Products        []TrxVisitProduct            `json:"products"`
 }
 
 type ArchivePatientVisitRequest struct {

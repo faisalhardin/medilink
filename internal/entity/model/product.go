@@ -131,6 +131,7 @@ type GetVisitProductRequest struct {
 	VisitProductID int64 `json:"visit_product_id" schema:"visit_product_id"`
 	VisitID        int64 `json:"visit_id" schema:"visit_id" validate:"required"`
 	InstitutionID  int64
+	VisitIDs       []int64
 }
 
 type PurchasedProduct struct {
