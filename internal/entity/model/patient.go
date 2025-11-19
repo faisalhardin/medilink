@@ -57,6 +57,7 @@ type GetPatientParams struct {
 	InstitutionID int64    `schema:"institution_id"`
 	NIK           string   `schema:"nik"`
 	PhoneNumber   string   `schema:"phone_number"`
+	CommonRequestPayload
 }
 
 type GetPatientResponse struct {
