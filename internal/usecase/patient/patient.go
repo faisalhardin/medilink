@@ -15,6 +15,8 @@ import (
 const (
 	WrapErrMsg                = "PatientUC."
 	WrapMsgRegisterNewPatient = WrapErrMsg + "RegisterNewPatient"
+
+	defaultLimit = 10
 )
 
 type PatientUC struct {
@@ -107,6 +109,10 @@ func (u *PatientUC) ListPatients(ctx context.Context, req model.GetPatientParams
 	if !found {
 		err = commonerr.SetNewUnauthorizedAPICall()
 		return
+	}
+
+	if req.CommonRequestPayload.Limit == 0 {
+		req.CommonRequestPayload.Limit = defaultLimit
 	}
 
 	req.InstitutionID = userDetail.InstitutionID

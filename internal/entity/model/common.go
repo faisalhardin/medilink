@@ -8,6 +8,7 @@ type CommonRequestPayload struct {
 	Page     int             `json:"page" schema:"page"`
 	FromTime customtime.Time `json:"from_time" schema:"from_time"`
 	ToTime   customtime.Time `json:"to_time" schema:"to_time"`
+	OrderBy  string          `json:"order_by" schema:"order_by"`
 }
 
 type RangeFilterPayload struct {

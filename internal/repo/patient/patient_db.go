@@ -130,10 +130,18 @@ func (c *Conn) GetPatients(ctx context.Context, params model.GetPatientParams) (
 		session.Where("mmpi.phone_number ILIKE ?", params.PhoneNumber)
 	}
 
-	_, err = session.
+	if params.Limit > 0 {
+		session.Limit(params.Limit, params.Offset)
+	}
+
+	if params.OrderBy != "" {
+		session.OrderBy("id ASC")
+	}
+
+	err = session.
 		Alias("mmpi").
 		Where("mmpi.id_mst_institution = ?", params.InstitutionID).
-		FindAndCount(&patients)
+		Find(&patients)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgGetPatients)
 		return
