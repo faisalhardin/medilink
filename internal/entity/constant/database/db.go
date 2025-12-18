@@ -17,4 +17,8 @@ const (
 	MapStaffServicePoint        = "mdl_map_staff_service_point"
 
 	MstStaff = "mdl_mst_staff"
+
+	// Odontogram tables
+	HstOdontogramTable        = "mdl_hst_odontogram"
+	MstPatientOdontogramTable = "mdl_mst_patient_odontogram"
 )

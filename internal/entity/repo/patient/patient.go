@@ -12,6 +12,7 @@ type PatientDB interface {
 	GetPatientVisitsRecordByPatientID(ctx context.Context, patientID int64) (mstPatientVisits []model.TrxPatientVisit, err error)
 	GetPatientVisitsByID(ctx context.Context, visitID int64) (mstPatientVisits model.TrxPatientVisit, err error)
 	GetPatientByID(ctx context.Context, patientID int64) (patient model.MstPatientInstitution, err error)
+	GetPatientByParams(ctx context.Context, patientParam model.MstPatientInstitution) (patient model.MstPatientInstitution, err error)
 	GetPatients(ctx context.Context, params model.GetPatientParams) (patients []model.MstPatientInstitution, err error)
 	UpdatePatient(ctx context.Context, request *model.UpdatePatientRequest) (err error)
 	GetPatientVisits(ctx context.Context, params model.GetPatientVisitParams) (trxPatientVisit []model.GetPatientVisitResponse, err error)

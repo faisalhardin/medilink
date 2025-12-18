@@ -98,6 +98,32 @@ func (c *Conn) GetPatientByID(ctx context.Context, patientID int64) (patient mod
 	return
 }
 
+func (c *Conn) GetPatientByParams(ctx context.Context, patientParam model.MstPatientInstitution) (patient model.MstPatientInstitution, err error) {
+	session := c.DB.SlaveDB.Table(model.MstPatientInstitutionTableName)
+
+	if patientParam.ID == 0 && patientParam.UUID == "" {
+		err = errors.Wrap(errors.New("id or uuid is required"), WrapMsgGetPatientByID)
+		return
+	}
+
+	if patientParam.ID > 0 {
+		session.Where("id = ?", patientParam.ID)
+	}
+	if len(patientParam.UUID) > 0 {
+		session.Where("uuid = ?", patientParam.UUID)
+	}
+
+	_, err = session.
+		Where("id_mst_institution = ?", patientParam.InstitutionID).
+		Get(&patient)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgGetPatientByID)
+		return
+	}
+
+	return
+}
+
 func (c *Conn) GetPatients(ctx context.Context, params model.GetPatientParams) (patients []model.MstPatientInstitution, err error) {
 	patients = []model.MstPatientInstitution{}
 

@@ -19,6 +19,7 @@ func (uc *InstitutionUC) InserInstitutionProduct(ctx context.Context, request mo
 
 	session, err := uc.Transaction.Begin(ctx)
 	defer uc.Transaction.Finish(session, &err)
+	ctx = xorm.SetDBSession(ctx, session)
 
 	product := model.TrxInstitutionProduct{
 		Name:             request.Name,

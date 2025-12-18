@@ -88,6 +88,12 @@ func RegisterRoutes(m *module) http.Handler {
 					servicePoint.Delete("/{id}", m.httpHandler.JourneyHandler.ArchiveServicePoint)
 				})
 			})
+
+			authed.Route("/odontogram", func(odontogram chi.Router) {
+				odontogram.Post("/logs", m.httpHandler.OdontogramHandler.CreateEvents)
+				odontogram.Get("/logs", m.httpHandler.OdontogramHandler.GetEvents)
+				odontogram.Get("/", m.httpHandler.OdontogramHandler.GetSnapshot)
+			})
 		})
 
 		v1.Route("/auth", func(auth chi.Router) {

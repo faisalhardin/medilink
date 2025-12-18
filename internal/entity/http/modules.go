@@ -6,4 +6,5 @@ type Handlers struct {
 	AuthHandler        AuthHandler
 	ProductHandler     ProductHandler
 	JourneyHandler     JourneyHandler
+	OdontogramHandler  OdontogramHandler
 }
