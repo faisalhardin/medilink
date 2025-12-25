@@ -88,6 +88,7 @@ type CreateOdontogramEventsResponse struct {
 type GetOdontogramEventsParams struct {
 	InstitutionID int64  `schema:"institution_id"`
 	PatientUUID   string `schema:"patient_uuid" validate:"required"`
+	PatientID     int64
 	EventID       string `schema:"event_id"`
 	ToothID       string `schema:"tooth_id"`
 	EventType     string `schema:"event_type"`
@@ -100,7 +101,8 @@ type GetOdontogramEventsParams struct {
 // GetOdontogramSnapshotParams represents query parameters for getting snapshot
 type GetOdontogramSnapshotParams struct {
 	PatientUUID    string `schema:"patient_uuid" validate:"required"`
-	SequenceNumber int64  `schema:"sequence_number" validate:"gte=0"`
+	SequenceNumber int64  `schema:"sequence_number"`
+	VisitID        int64  `schema:"visit_id"`
 }
 
 // OdontogramSnapshot represents the EditorJS format snapshot
@@ -165,6 +167,7 @@ type GetEventsByPatientParams struct {
 	InstitutionID int64 `schema:"institution_id"`
 	FromSequence  int64 `schema:"from_sequence"`
 	ToSequence    int64 `schema:"to_sequence"`
+	VisitID       int64 `schema:"visit_id"`
 	Limit         int   `schema:"limit"`
 	Offset        int   `schema:"offset"`
 }

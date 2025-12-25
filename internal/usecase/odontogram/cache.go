@@ -34,8 +34,8 @@ func NewSnapshotCache(cache cache.Caching) *SnapshotCache {
 }
 
 // Get retrieves a snapshot from cache
-func (sc *SnapshotCache) Get(ctx context.Context, patientUUID string) (*CachedSnapshot, error) {
-	key := getCacheKey(patientUUID)
+func (sc *SnapshotCache) Get(ctx context.Context, patientUUID string, visitID int64) (*CachedSnapshot, error) {
+	key := getCacheKey(patientUUID, visitID)
 
 	data, err := sc.cache.Get(key)
 	if err != nil {
@@ -51,8 +51,8 @@ func (sc *SnapshotCache) Get(ctx context.Context, patientUUID string) (*CachedSn
 }
 
 // Set stores a snapshot in cache
-func (sc *SnapshotCache) Set(ctx context.Context, patientUUID string, snapshot model.OdontogramSnapshot, maxLogicalTimestamp, maxSequenceNumber, lastUpdated int64) error {
-	key := getCacheKey(patientUUID)
+func (sc *SnapshotCache) Set(ctx context.Context, patientUUID string, visitID int64, snapshot model.OdontogramSnapshot, maxLogicalTimestamp, maxSequenceNumber, lastUpdated int64) error {
+	key := getCacheKey(patientUUID, visitID)
 
 	cached := CachedSnapshot{
 		Snapshot:            snapshot,
@@ -75,8 +75,8 @@ func (sc *SnapshotCache) Set(ctx context.Context, patientUUID string, snapshot m
 }
 
 // Invalidate removes a snapshot from cache
-func (sc *SnapshotCache) Invalidate(ctx context.Context, patientUUID string) error {
-	key := getCacheKey(patientUUID)
+func (sc *SnapshotCache) Invalidate(ctx context.Context, patientUUID string, visitID int64) error {
+	key := getCacheKey(patientUUID, visitID)
 	_, err := sc.cache.Del(key)
 	if err != nil {
 		return err
@@ -86,6 +86,6 @@ func (sc *SnapshotCache) Invalidate(ctx context.Context, patientUUID string) err
 }
 
 // getCacheKey generates a cache key for a patient
-func getCacheKey(patientUUID string) string {
-	return fmt.Sprintf("%s%s", cacheKeyPrefix, patientUUID)
+func getCacheKey(patientUUID string, visitID int64) string {
+	return fmt.Sprintf("%s:patient_uuid:%s:visit_id:%d", cacheKeyPrefix, patientUUID, visitID)
 }

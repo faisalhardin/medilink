@@ -55,12 +55,6 @@ const (
 
 func main() {
 
-	loc, err := time.LoadLocation("Asia/Jakarta")
-	if err != nil {
-		log.Fatalf("failed to load location: %v", err)
-	}
-	time.Local = loc
-
 	// init config
 	cfg, err := config.New(repoName)
 	if err != nil {

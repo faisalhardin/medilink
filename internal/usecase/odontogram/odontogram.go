@@ -114,7 +114,7 @@ func (uc *OdontogramUC) CreateEvents(ctx context.Context, requests []model.Creat
 	}
 
 	// Invalidate cache
-	if err := uc.Cache.Invalidate(ctx, patientUUID); err != nil {
+	if err := uc.Cache.Invalidate(ctx, patientUUID, requests[0].VisitID); err != nil {
 		// Log but don't fail - cache invalidation is not critical
 		log.Errorf("failed to invalidate cache for patient %s: %v", patientUUID, err)
 	}
@@ -241,11 +241,11 @@ func (uc *OdontogramUC) GetSnapshot(ctx context.Context, params model.GetOdontog
 
 	// Check if requesting historical snapshot
 	if params.SequenceNumber > 0 {
-		return uc.getHistoricalSnapshot(ctx, mstPatient.ID, params.SequenceNumber)
+		return uc.getHistoricalSnapshot(ctx, mstPatient.ID, userDetail.InstitutionID, params.SequenceNumber)
 	}
 
 	// Try L1 cache (in-memory)
-	cached, err := uc.Cache.Get(ctx, params.PatientUUID)
+	cached, err := uc.Cache.Get(ctx, params.PatientUUID, params.VisitID)
 	if err == nil {
 		return &model.GetOdontogramSnapshotResponse{
 			Snapshot:            cached.Snapshot,
@@ -277,7 +277,7 @@ func (uc *OdontogramUC) GetSnapshot(ctx context.Context, params model.GetOdontog
 	g.Go(func() error {
 		var err error
 		snapshot, err = uc.OdontogramDB.GetSnapshot(gctx, userDetail.InstitutionID, mstPatient.ID)
-		if err != nil {
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return errors.Wrap(err, "failed to get snapshot")
 		}
 		return nil
@@ -289,11 +289,10 @@ func (uc *OdontogramUC) GetSnapshot(ctx context.Context, params model.GetOdontog
 	}
 
 	if snapshot != nil && snapshot.LastEventSequence == maxSeq {
-		// Parse snapshot
 		var snapshotData model.OdontogramSnapshot
 		if err := json.Unmarshal([]byte(snapshot.Snapshot), &snapshotData); err == nil {
-			// Update L1 cache
-			uc.Cache.Set(ctx, params.PatientUUID, snapshotData, snapshot.MaxLogicalTimestamp, snapshot.LastEventSequence, snapshot.LastUpdated)
+
+			uc.Cache.Set(ctx, params.PatientUUID, params.VisitID, snapshotData, snapshot.MaxLogicalTimestamp, snapshot.LastEventSequence, snapshot.LastUpdated)
 
 			return &model.GetOdontogramSnapshotResponse{
 				Snapshot:            snapshotData,
@@ -302,16 +301,27 @@ func (uc *OdontogramUC) GetSnapshot(ctx context.Context, params model.GetOdontog
 				LastUpdated:         snapshot.LastUpdated,
 			}, nil
 		}
+	} else if snapshot == nil && maxSeq == 0 {
+		return &model.GetOdontogramSnapshotResponse{
+			Snapshot:            model.OdontogramSnapshot{},
+			MaxLogicalTimestamp: 0,
+			MaxSequenceNumber:   0,
+			LastUpdated:         0,
+		}, nil
 	}
 
-	// Rebuild from events
-	return uc.rebuildAndCacheSnapshot(ctx, mstPatient.ID, userDetail.InstitutionID, params.PatientUUID)
+	return uc.rebuildAndCacheSnapshot(ctx, mstPatient.ID, userDetail.InstitutionID, params.PatientUUID, params.VisitID)
 }
 
 // rebuildAndCacheSnapshot rebuilds snapshot from events and updates both L1 and L2 caches
-func (uc *OdontogramUC) rebuildAndCacheSnapshot(ctx context.Context, patientID int64, institutionID int64, patientUUID string) (*model.GetOdontogramSnapshotResponse, error) {
+func (uc *OdontogramUC) rebuildAndCacheSnapshot(ctx context.Context, patientID int64, institutionID int64, patientUUID string, visitID int64) (*model.GetOdontogramSnapshotResponse, error) {
 	// Rebuild from events
-	snapshotData, maxTimestamp, maxSeq, err := uc.BuildSnapshot(ctx, patientID, 0)
+	snapshotData, maxTimestamp, maxSeq, err := uc.BuildSnapshot(ctx, model.GetEventsByPatientParams{
+		PatientID:     patientID,
+		InstitutionID: institutionID,
+		FromSequence:  0,
+		ToSequence:    0,
+	})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to build snapshot")
 	}
@@ -333,7 +343,7 @@ func (uc *OdontogramUC) rebuildAndCacheSnapshot(ctx context.Context, patientID i
 	}
 
 	// Update L1 cache
-	_ = uc.Cache.Set(ctx, patientUUID, *snapshotData, maxTimestamp, maxSeq, lastUpdated)
+	_ = uc.Cache.Set(ctx, patientUUID, visitID, *snapshotData, maxTimestamp, maxSeq, lastUpdated)
 
 	return &model.GetOdontogramSnapshotResponse{
 		Snapshot:            *snapshotData,
@@ -344,20 +354,24 @@ func (uc *OdontogramUC) rebuildAndCacheSnapshot(ctx context.Context, patientID i
 }
 
 // BuildSnapshot builds a snapshot from events up to a specific sequence number
-func (uc *OdontogramUC) BuildSnapshot(ctx context.Context, patientID int64, upToSequence int64) (*model.OdontogramSnapshot, int64, int64, error) {
+func (uc *OdontogramUC) BuildSnapshot(ctx context.Context, params model.GetEventsByPatientParams) (*model.OdontogramSnapshot, int64, int64, error) {
 
-	userDetail, ok := authmodule.GetUserDetailFromCtx(ctx)
-	if !ok {
-		return nil, 0, 0, commonerr.SetNewUnauthorizedError("unauthorized", "User not authenticated")
+	if params.InstitutionID == 0 {
+		userDetail, ok := authmodule.GetUserDetailFromCtx(ctx)
+		if !ok {
+			return nil, 0, 0, commonerr.SetNewUnauthorizedError("unauthorized", "User not authenticated")
+		}
+		params.InstitutionID = userDetail.InstitutionID
 	}
 
 	// Get all events up to sequence number
-	events, err := uc.OdontogramDB.GetEventsByPatient(ctx, model.GetEventsByPatientParams{
-		PatientID:     patientID,
-		InstitutionID: userDetail.InstitutionID,
-		FromSequence:  0,
-		ToSequence:    upToSequence,
-	})
+	events, err := uc.OdontogramDB.GetEventsByPatientFiltered(ctx, model.GetOdontogramEventsParams{
+		InstitutionID: params.InstitutionID,
+		PatientID:     params.PatientID,
+		FromSequence:  params.FromSequence,
+		ToSequence:    params.ToSequence,
+		VisitID:       params.VisitID,
+	}, params.PatientID)
 	if err != nil {
 		return nil, 0, 0, errors.Wrap(err, "failed to get events")
 	}
@@ -384,8 +398,13 @@ func (uc *OdontogramUC) BuildSnapshot(ctx context.Context, patientID int64, upTo
 }
 
 // getHistoricalSnapshot gets a snapshot at a specific point in time
-func (uc *OdontogramUC) getHistoricalSnapshot(ctx context.Context, patientID int64, sequenceNumber int64) (*model.GetOdontogramSnapshotResponse, error) {
-	snapshot, maxTimestamp, maxSeq, err := uc.BuildSnapshot(ctx, patientID, sequenceNumber)
+func (uc *OdontogramUC) getHistoricalSnapshot(ctx context.Context, patientID int64, institutionID int64, sequenceNumber int64) (*model.GetOdontogramSnapshotResponse, error) {
+	snapshot, maxTimestamp, maxSeq, err := uc.BuildSnapshot(ctx, model.GetEventsByPatientParams{
+		PatientID:     patientID,
+		InstitutionID: institutionID,
+		FromSequence:  sequenceNumber,
+		ToSequence:    sequenceNumber,
+	})
 	if err != nil {
 		return nil, err
 	}

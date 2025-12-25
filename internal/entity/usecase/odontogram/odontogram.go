@@ -18,5 +18,5 @@ type OdontogramUC interface {
 	GetSnapshot(ctx context.Context, params model.GetOdontogramSnapshotParams) (*model.GetOdontogramSnapshotResponse, error)
 
 	// BuildSnapshot builds a snapshot from events up to a specific sequence number
-	BuildSnapshot(ctx context.Context, patientID int64, upToSequence int64) (*model.OdontogramSnapshot, int64, int64, error)
+	BuildSnapshot(ctx context.Context, params model.GetEventsByPatientParams) (*model.OdontogramSnapshot, int64, int64, error)
 }
