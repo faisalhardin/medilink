@@ -22,6 +22,7 @@ import (
 	institutionrepo "github.com/faisalhardin/medilink/internal/repo/institution"
 	journeyrepo "github.com/faisalhardin/medilink/internal/repo/journey"
 	custjourneyrepo "github.com/faisalhardin/medilink/internal/repo/journey/customerjourney"
+	odontogramrepo "github.com/faisalhardin/medilink/internal/repo/odontogram"
 	patientrepo "github.com/faisalhardin/medilink/internal/repo/patient"
 	productrepo "github.com/faisalhardin/medilink/internal/repo/product"
 	staffrepo "github.com/faisalhardin/medilink/internal/repo/staff"
@@ -30,6 +31,7 @@ import (
 	authUC "github.com/faisalhardin/medilink/internal/usecase/auth"
 	institutionUC "github.com/faisalhardin/medilink/internal/usecase/institution"
 	journeyuc "github.com/faisalhardin/medilink/internal/usecase/journey"
+	odontogramuc "github.com/faisalhardin/medilink/internal/usecase/odontogram"
 	patientUC "github.com/faisalhardin/medilink/internal/usecase/patient"
 	productuc "github.com/faisalhardin/medilink/internal/usecase/product"
 	visituc "github.com/faisalhardin/medilink/internal/usecase/visit"
@@ -37,6 +39,7 @@ import (
 	authHandler "github.com/faisalhardin/medilink/internal/http/auth"
 	institutionHandler "github.com/faisalhardin/medilink/internal/http/institution"
 	journeyhandler "github.com/faisalhardin/medilink/internal/http/journey"
+	odontogramhandler "github.com/faisalhardin/medilink/internal/http/odontogram"
 	patientHandler "github.com/faisalhardin/medilink/internal/http/patient"
 	producthandler "github.com/faisalhardin/medilink/internal/http/product"
 
@@ -52,12 +55,6 @@ const (
 
 func main() {
 
-	loc, err := time.LoadLocation("Asia/Jakarta")
-	if err != nil {
-		log.Fatalf("failed to load location: %v", err)
-	}
-	time.Local = loc
-
 	// init config
 	cfg, err := config.New(repoName)
 	if err != nil {
@@ -72,6 +69,10 @@ func main() {
 	cfg.Vault = vault.Data
 
 	logSetup.SetupLogging(cfg)
+
+	// Create cancellable context for graceful shutdown
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	db, err := xormlib.NewDBConnection(cfg)
 	if err != nil {
@@ -94,7 +95,7 @@ func main() {
 		auth.GoogleProvider(cfg),
 	)
 
-	inMemoryCaching := inmemory.New(inmemory.Options{
+	inMemoryCaching := inmemory.New(ctx, inmemory.Options{
 		MaxIdle:   cfg.Redis.MaxIdle,
 		MaxActive: cfg.Redis.MaxActive,
 		Timeout:   cfg.Redis.TimeOutInSecond,
@@ -137,6 +138,8 @@ func main() {
 		JourneyDB: journeyDB,
 	})
 
+	odontogramDB := odontogramrepo.NewOdontogramDB(db)
+
 	// repo block end
 
 	// usecase block start
@@ -177,6 +180,13 @@ func main() {
 		Transaction: transaction,
 	})
 
+	odontogramUC := odontogramuc.New(odontogramuc.OdontogramUC{
+		OdontogramDB: odontogramDB,
+		PatientDB:    patientDB,
+		Cache:        odontogramuc.NewSnapshotCache(inMemoryCaching),
+		Transaction:  transaction,
+	})
+
 	// usecase block end
 
 	// httphandler block start
@@ -206,6 +216,10 @@ func main() {
 	journeyHandler := journeyhandler.New(&journeyhandler.JourneyHandler{
 		JourneyUC: journeyUC,
 	})
+
+	odontogramHandler := odontogramhandler.New(&odontogramhandler.OdontogramHandler{
+		OdontogramUC: odontogramUC,
+	})
 	// httphandler block end
 
 	// module block start
@@ -222,15 +236,12 @@ func main() {
 			AuthHandler:        authHandler,
 			ProductHandler:     productHandler,
 			JourneyHandler:     journeyHandler,
+			OdontogramHandler:  odontogramHandler,
 		},
 		middlewareModule,
 	)
 
 	server := server.NewServer(server.RegisterRoutes(modules))
-
-	// Create cancellable context for graceful shutdown
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	// Start cleanup job
 	cleanupUC := authCleanup.NewCleanupUC(sessionRepo)
@@ -255,12 +266,13 @@ func main() {
 		log.Error("Server error: %v", err)
 		cancel() // Stop cleanup job
 		cleanupUC.Stop()
+		inMemoryCaching.Close()
 		os.Exit(1)
 	case sig := <-shutdownChan:
 		log.Info("Received signal: %v. Shutting down gracefully...", sig)
 		cancel() // Stop cleanup job
 		cleanupUC.Stop()
-
+		inMemoryCaching.Close()
 		// Give cleanup job time to finish
 		time.Sleep(2 * time.Second)
 

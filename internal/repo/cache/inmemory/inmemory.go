@@ -1,7 +1,7 @@
 package inmemory
 
 import (
-	"errors"
+	"context"
 	"strings"
 	"sync"
 	"time"
@@ -24,6 +24,8 @@ type Inmemory struct {
 	Options Options
 	mu      sync.RWMutex
 	cache   map[string]*cacheItem
+	ctx     context.Context
+	cancel  context.CancelFunc
 }
 
 var (
@@ -32,14 +34,17 @@ var (
 )
 
 // GetInstance returns a singleton instance of Inmemory cache
-func GetInstance(options Options) *Inmemory {
+func GetInstance(ctx context.Context, options Options) *Inmemory {
 	if instance == nil {
 		mu.Lock()
 		defer mu.Unlock()
 		if instance == nil {
+			ctx, cancel := context.WithCancel(ctx)
 			instance = &Inmemory{
 				Options: options,
 				cache:   make(map[string]*cacheItem),
+				ctx:     ctx,
+				cancel:  cancel,
 			}
 			// Start cleanup goroutine
 			go instance.startCleanup()
@@ -49,8 +54,8 @@ func GetInstance(options Options) *Inmemory {
 }
 
 // New is kept for backward compatibility but now returns singleton
-func New(options Options) *Inmemory {
-	return GetInstance(options)
+func New(ctx context.Context, options Options) *Inmemory {
+	return GetInstance(ctx, options)
 }
 
 func (i *Inmemory) Get(key string) (string, error) {
@@ -59,12 +64,13 @@ func (i *Inmemory) Get(key string) (string, error) {
 
 	item, ok := i.cache[key]
 	if !ok {
-		return "", errors.New("key not found")
+		return "", ErrKeyNotFound
 	}
 
 	// Check if expired
 	if !item.expiresAt.IsZero() && time.Now().After(item.expiresAt) {
-		return "", errors.New("key expired")
+		defer i.Del(key)
+		return "", ErrKeyExpired
 	}
 
 	return item.value, nil
@@ -109,8 +115,13 @@ func (i *Inmemory) startCleanup() {
 	ticker := time.NewTicker(1 * time.Minute) // Clean every minute
 	defer ticker.Stop()
 
-	for range ticker.C {
-		i.cleanupExpired()
+	for {
+		select {
+		case <-i.ctx.Done():
+			return
+		case <-ticker.C:
+			i.cleanupExpired()
+		}
 	}
 }
 
@@ -145,5 +156,12 @@ func (i *Inmemory) Clear() error {
 	defer i.mu.Unlock()
 
 	i.cache = make(map[string]*cacheItem)
+	return nil
+}
+
+func (i *Inmemory) Close() error {
+	if i.cancel != nil {
+		i.cancel()
+	}
 	return nil
 }
