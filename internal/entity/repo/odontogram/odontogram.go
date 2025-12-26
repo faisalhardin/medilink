@@ -20,4 +20,7 @@ type OdontogramRepo interface {
 	// Snapshot operations
 	GetSnapshot(ctx context.Context, institutionID, patientID int64) (*model.MstPatientOdontogram, error)
 	UpsertSnapshot(ctx context.Context, snapshot *model.MstPatientOdontogram) error
+
+	// Visit operations
+	HasEventsForVisit(ctx context.Context, institutionID, visitID int64) (bool, error)
 }

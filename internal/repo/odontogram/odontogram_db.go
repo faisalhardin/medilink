@@ -300,3 +300,18 @@ func (o *OdontogramDB) UpsertSnapshot(ctx context.Context, snapshot *model.MstPa
 
 	return nil
 }
+
+// HasEventsForVisit checks if odontogram events exist for a given visit
+func (o *OdontogramDB) HasEventsForVisit(ctx context.Context, institutionID, visitID int64) (bool, error) {
+	session := o.DB.SlaveDB
+
+	count, err := session.
+		Where("institution_id = ?", institutionID).
+		And("visit_id = ?", visitID).
+		Count(&model.HstOdontogram{})
+	if err != nil {
+		return false, errors.Wrap(err, WrapErrMsgPrefix+"HasEventsForVisit")
+	}
+
+	return count > 0, nil
+}

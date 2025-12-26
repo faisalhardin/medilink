@@ -211,8 +211,8 @@ func (c *Conn) GetPatientVisitsRecordByPatientID(ctx context.Context, patientID 
 func (c *Conn) GetPatientVisitsByID(ctx context.Context, visitID int64) (mstPatientVisits model.TrxPatientVisit, err error) {
 	session := c.DB.SlaveDB.Table(model.TrxPatientVisitTableName).Alias("mtpv")
 
-	err = session.Where("mtpv.id = ?", visitID).
-		Find(&mstPatientVisits)
+	_, err = session.Where("mtpv.id = ?", visitID).
+		Get(&mstPatientVisits)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgGetPatientVisitsByID)
 		return
@@ -516,6 +516,38 @@ func (c *Conn) GetTrxVisitProduct(ctx context.Context, params model.GetVisitProd
 		Find(&trxVisitProduct)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgGetDtlPatientVisit)
+		return
+	}
+
+	return
+}
+
+func (c *Conn) ListDtlPatientVisitWithOdontogram(ctx context.Context, limit, offset int) (dtlPatientVisit []model.DtlPatientVisit, err error) {
+	dtlPatientVisit = []model.DtlPatientVisit{}
+
+	session := c.DB.SlaveDB.Table(model.DtlPatientVisitTableName)
+
+	// Use EXISTS with jsonb_array_elements to find records with odontogram blocks
+	// This avoids the issue with ? being interpreted as a parameter placeholder
+	session.Where("notes IS NOT NULL")
+	session.Where("notes::text != 'null'")
+	session.Where(`EXISTS (
+		SELECT 1
+		FROM jsonb_array_elements(notes->'blocks') AS block
+		WHERE block->>'type' = 'odontogram'
+	)`)
+	session.Where("delete_time IS NULL")
+
+	// Order by create_time ASC to process from earliest
+	session.OrderBy("create_time ASC")
+
+	if limit > 0 {
+		session.Limit(limit, offset)
+	}
+
+	err = session.Find(&dtlPatientVisit)
+	if err != nil {
+		err = errors.Wrap(err, WrapErrMsgPrefix+"ListDtlPatientVisitWithOdontogram")
 		return
 	}
 

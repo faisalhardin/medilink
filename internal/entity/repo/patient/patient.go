@@ -27,4 +27,5 @@ type PatientDB interface {
 	UpsertTrxVisitProduct(ctx context.Context, request *model.TrxVisitProduct) (err error)
 	DeleteTrxVisitProduct(ctx context.Context, request *model.TrxVisitProduct) (err error)
 	GetTrxVisitProduct(ctx context.Context, params model.GetVisitProductRequest) (trxVisitProduct []model.TrxVisitProduct, err error)
+	ListDtlPatientVisitWithOdontogram(ctx context.Context, limit, offset int) (dtlPatientVisit []model.DtlPatientVisit, err error)
 }
