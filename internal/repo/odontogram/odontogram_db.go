@@ -178,12 +178,9 @@ func (o *OdontogramDB) GetEventsByPatientFiltered(ctx context.Context, params mo
 
 	query = query.OrderBy("logical_timestamp ASC, created_by_staff_id ASC")
 
-	limit := params.Limit
-	if limit <= 0 {
-		limit = 100 // Default limit
+	if params.Limit > 0 {
+		query = query.Limit(params.Limit, params.Offset)
 	}
-
-	query = query.Limit(limit, params.Offset)
 
 	var events []model.HstOdontogram
 	err := query.Find(&events)
