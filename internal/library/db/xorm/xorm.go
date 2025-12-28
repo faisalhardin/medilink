@@ -63,6 +63,7 @@ func generateXormEngineInstance(dsn string) (*xorm.Engine, error) {
 		return nil, fmt.Errorf("failed to create engine: %v", err)
 	}
 
+	engine.SetMaxIdleConns(4)
 	engine.ShowSQL(true)
 
 	// Ping the database to verify the connection
