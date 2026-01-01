@@ -43,6 +43,7 @@ func (u *PatientUC) RegisterNewPatient(ctx context.Context, req model.RegisterNe
 		PlaceOfBirth:  req.PlaceOfBirth,
 		Address:       req.Address,
 		Religion:      req.Religion,
+		PhoneNumber:   req.PhoneNumber,
 		InstitutionID: userDetail.InstitutionID,
 	}
 
