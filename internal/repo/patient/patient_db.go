@@ -153,7 +153,7 @@ func (c *Conn) GetPatients(ctx context.Context, params model.GetPatientParams) (
 	}
 
 	if len(params.PhoneNumber) > 0 {
-		session.Where("mmpi.phone_number ILIKE ?", params.PhoneNumber)
+		session.Where("mmpi.phone_number ILIKE ?", fmt.Sprintf("%%%s%%", params.PhoneNumber))
 	}
 
 	if params.Limit > 0 {

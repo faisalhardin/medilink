@@ -98,6 +98,7 @@ func (u *PatientUC) GetPatients(ctx context.Context, patientUUID string) (patien
 		Address:      mstPatients[0].Address,
 		Religion:     mstPatients[0].Religion,
 		Sex:          mstPatients[0].Sex,
+		PhoneNumber:  mstPatients[0].PhoneNumber,
 	}
 
 	return
