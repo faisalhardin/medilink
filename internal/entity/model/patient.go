@@ -82,4 +82,5 @@ type UpdatePatientRequest struct {
 	DateOfBirth  Time   `json:"date_of_birth" xorm:"'date_of_birth'"`
 	Address      string `json:"address" xorm:"'address'"`
 	Religion     string `json:"religion" xorm:"'religion'"`
+	PhoneNumber  string `json:"phone_number" xorm:"'phone_number'"`
 }
