@@ -43,6 +43,7 @@ func (u *PatientUC) RegisterNewPatient(ctx context.Context, req model.RegisterNe
 		PlaceOfBirth:  req.PlaceOfBirth,
 		Address:       req.Address,
 		Religion:      req.Religion,
+		PhoneNumber:   req.PhoneNumber,
 		InstitutionID: userDetail.InstitutionID,
 	}
 
@@ -98,6 +99,7 @@ func (u *PatientUC) GetPatients(ctx context.Context, patientUUID string) (patien
 		Address:      mstPatients[0].Address,
 		Religion:     mstPatients[0].Religion,
 		Sex:          mstPatients[0].Sex,
+		PhoneNumber:  mstPatients[0].PhoneNumber,
 	}
 
 	return

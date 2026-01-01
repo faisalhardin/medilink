@@ -47,6 +47,7 @@ type RegisterNewPatientRequest struct {
 	PlaceOfBirth string `json:"place_of_birth"`
 	DateOfBirth  Time   `json:"date_of_birth" validate:"required"`
 	Address      string `json:"address"`
+	PhoneNumber  string `json:"phone_number"`
 	Religion     string `json:"religion"`
 }
 
@@ -81,4 +82,5 @@ type UpdatePatientRequest struct {
 	DateOfBirth  Time   `json:"date_of_birth" xorm:"'date_of_birth'"`
 	Address      string `json:"address" xorm:"'address'"`
 	Religion     string `json:"religion" xorm:"'religion'"`
+	PhoneNumber  string `json:"phone_number" xorm:"'phone_number'"`
 }
