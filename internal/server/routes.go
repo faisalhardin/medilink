@@ -33,7 +33,7 @@ func RegisterRoutes(m *module) http.Handler {
 			})
 			authed.Route("/patient", func(patient chi.Router) {
 				patient.Post("/", m.httpHandler.PatientHandler.RegisterNewPatient)
-				patient.Patch("/", m.httpHandler.PatientHandler.UpdatePatient)
+				patient.Put("/", m.httpHandler.PatientHandler.UpdatePatient)
 				patient.Get("/", m.httpHandler.PatientHandler.ListPatient)
 				patient.Route("/{uuid}", func(patient chi.Router) {
 					patient.Get("/", m.httpHandler.PatientHandler.GetPatient)
