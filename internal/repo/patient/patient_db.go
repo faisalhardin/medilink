@@ -55,9 +55,20 @@ func (c *Conn) RegisterNewPatient(ctx context.Context, patient *model.MstPatient
 
 	sqlResult, err := session.SQL(`
 		INSERT INTO mdl_mst_patient_institution 
-		(nik, name, sex, place_of_birth, date_of_birth, address, religion, phone_number, id_mst_institution, create_time, update_time)
+		(nik, name, sex, place_of_birth, date_of_birth, address, religion, phone_number, id_mst_institution, occupation, create_time, update_time)
 		VALUES (
-		?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+		?, -- nik
+		?, -- name
+		?, -- sex
+		?, -- place_of_birth
+		?, -- date_of_birth
+		?, -- address
+		?, -- religion
+		?, -- phone_number
+		?, -- id_mst_institution
+		?, -- occupation
+		NOW(), -- create_time
+		NOW()) -- update_time
 		RETURNING id, uuid, create_time, update_time
 	`,
 		patient.NIK,
@@ -69,6 +80,7 @@ func (c *Conn) RegisterNewPatient(ctx context.Context, patient *model.MstPatient
 		patient.Religion,
 		patient.PhoneNumber,
 		patient.InstitutionID,
+		patient.Occupation,
 	).QueryInterface()
 
 	if err != nil {

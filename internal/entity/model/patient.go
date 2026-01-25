@@ -22,6 +22,7 @@ type MstPatientInstitution struct {
 	Address       string     `json:"address" xorm:"'address'"`
 	Religion      string     `json:"religion" xorm:"'religion'"`
 	PhoneNumber   string     `json:"phone_number" xorm:"phone_number"`
+	Occupation    string     `json:"occupation" xorm:"'occupation'"`
 	InstitutionID int64      `json:"institution_id" xorm:"'id_mst_institution'"`
 	CreateTime    time.Time  `json:"-" xorm:"'create_time' created"`
 	UpdateTime    time.Time  `json:"-" xorm:"'update_time' updated"`
@@ -49,6 +50,7 @@ type RegisterNewPatientRequest struct {
 	Address      string `json:"address"`
 	PhoneNumber  string `json:"phone_number"`
 	Religion     string `json:"religion"`
+	Occupation   string `json:"occupation"`
 }
 
 type GetPatientParams struct {
@@ -71,6 +73,7 @@ type GetPatientResponse struct {
 	Religion     string    `json:"religion" xorm:"'religion'"`
 	PhoneNumber  string    `json:"phone_number"`
 	Sex          string    `json:"sex" xorm:"'sex'"`
+	Occupation   string    `json:"occupation" xorm:"occupation"`
 }
 
 type UpdatePatientRequest struct {
@@ -83,4 +86,5 @@ type UpdatePatientRequest struct {
 	Address      string `json:"address" xorm:"'address'"`
 	Religion     string `json:"religion" xorm:"'religion'"`
 	PhoneNumber  string `json:"phone_number" xorm:"'phone_number'"`
+	Occupation   string `json:"occupation" xorm:"'occupation'"`
 }
