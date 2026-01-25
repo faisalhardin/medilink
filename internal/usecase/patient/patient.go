@@ -45,6 +45,7 @@ func (u *PatientUC) RegisterNewPatient(ctx context.Context, req model.RegisterNe
 		Religion:      req.Religion,
 		PhoneNumber:   req.PhoneNumber,
 		InstitutionID: userDetail.InstitutionID,
+		Occupation:    req.Occupation,
 	}
 
 	err = u.PatientDB.RegisterNewPatient(ctx, &newPatient)
@@ -63,6 +64,7 @@ func (u *PatientUC) RegisterNewPatient(ctx context.Context, req model.RegisterNe
 		Religion:     newPatient.Religion,
 		PhoneNumber:  newPatient.PhoneNumber,
 		Sex:          newPatient.Sex,
+		Occupation:   newPatient.Occupation,
 	}
 
 	return newPatientResponse, nil
@@ -100,6 +102,7 @@ func (u *PatientUC) GetPatients(ctx context.Context, patientUUID string) (patien
 		Religion:     mstPatients[0].Religion,
 		Sex:          mstPatients[0].Sex,
 		PhoneNumber:  mstPatients[0].PhoneNumber,
+		Occupation:   mstPatients[0].Occupation,
 	}
 
 	return
@@ -135,6 +138,7 @@ func (u *PatientUC) ListPatients(ctx context.Context, req model.GetPatientParams
 			Religion:     patient.Religion,
 			PhoneNumber:  patient.PhoneNumber,
 			Sex:          patient.Sex,
+			Occupation:   patient.Occupation,
 		})
 	}
 
