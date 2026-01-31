@@ -35,6 +35,8 @@ const (
 	WrapMsgInsertTrxVisitProduct            = WrapErrMsgPrefix + "InsertTrxVisitProduct"
 	WrapMsgUpdateTrxVisitProduct            = WrapErrMsgPrefix + "UpdateTrxVisitProduct"
 	WrapMsgDeleteTrxVisitProduct            = WrapErrMsgPrefix + "DeleteTrxVisitProduct"
+
+	defaultLimit = 5
 )
 
 type Conn struct {
@@ -261,6 +263,10 @@ func (c *Conn) GetPatientVisits(ctx context.Context, params model.GetPatientVisi
 	if len(params.ShortIDMstJourneyPoint) > 0 {
 		session.Where("mmjp.short_id = ?", params.ShortIDMstJourneyPoint)
 	}
+	if params.Limit == 0 {
+		params.Limit = defaultLimit
+	}
+	session.Limit(params.Limit, params.Offset)
 
 	session.
 		Join(database.SQLInner, "mdl_mst_patient_institution mmpi", "mtpv.id_mst_patient = mmpi.id and mmpi.delete_time is null").
