@@ -20,12 +20,23 @@ type OperationOutcomeIssue struct {
 	Expression  []string         `json:"expression,omitempty"`  // FHIRPath of element(s) related to issue
 }
 
-// TokenResponse - OAuth2 token response for authentication
+// TokenResponse - OAuth2 token response for Satu Sehat authentication
+// Based on https://satusehat.kemkes.go.id/platform/docs/id/api-catalogue/authentication/
 type TokenResponse struct {
-	AccessToken string `json:"access_token"` // The access token
-	TokenType   string `json:"token_type"`   // Type of token (usually "Bearer")
-	ExpiresIn   int    `json:"expires_in"`   // Seconds until the token expires
-	Scope       string `json:"scope,omitempty"` // The scope of the token
+	AccessToken            string   `json:"access_token"`                      // The access token (REQUIRED)
+	TokenType              string   `json:"token_type"`                        // Type of token (usually "Bearer")
+	ExpiresIn              int      `json:"expires_in"`                        // Seconds until the token expires
+	IssuedAt               string   `json:"issued_at,omitempty"`               // Token issuance timestamp (Unix milliseconds as string)
+	ClientID               string   `json:"client_id,omitempty"`               // Client ID that requested the token
+	OrganizationName       string   `json:"organization_name,omitempty"`       // Name of the organization
+	DeveloperEmail         string   `json:"developer.email,omitempty"`         // Developer email
+	APIProductList         string   `json:"api_product_list,omitempty"`        // Comma-separated list of API products
+	APIProductListJSON     []string `json:"api_product_list_json,omitempty"`   // JSON array of API products
+	RefreshTokenExpiresIn  string   `json:"refresh_token_expires_in,omitempty"` // Refresh token expiry (not used in client_credentials)
+	Scope                  string   `json:"scope,omitempty"`                   // The scope of the token
+	RefreshCount           string   `json:"refresh_count,omitempty"`           // Number of times token has been refreshed
+	Status                 string   `json:"status,omitempty"`                  // Token status (e.g., "approved")
+	ApplicationName        string   `json:"application_name,omitempty"`        // Name of the application
 }
 
 // ErrorResponse - Standard error response wrapper

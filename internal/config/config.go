@@ -17,6 +17,7 @@ type Config struct {
 	Redis             Redis             `yaml:"redis"`
 	AuthSessionConfig AuthSessionConfig `yaml:"auth_session_config"`
 	WebConfig         WebConfig         `yaml:"web_config"`
+	SatuSehatConfig   SatuSehatConfig   `yaml:"satusehat_config"`
 }
 
 type WebConfig struct {
@@ -59,6 +60,7 @@ type Vault struct {
 	DBSlave       DBConfig         `json:"db_slave"`
 	JWTCredential JWTCredential    `json:"jwt_credential"`
 	Redis         RedisCredentials `json:"redis_credentials"`
+	SatuSehatAuth SatuSehatAuth    `json:"satusehat_auth"`
 }
 
 type RedisCredentials struct {
@@ -96,6 +98,18 @@ type GoogleAuthConfig struct {
 	HttpOnly         bool   `yaml:"http_only"`
 	CookiePath       string `yaml:"cookie_path"`
 	HomepageRedirect string `yaml:"homepage_redirect"`
+}
+
+type SatuSehatConfig struct {
+	BaseURL        string `yaml:"base_url"`         // FHIR API base URL (sandbox or production)
+	OAuth2URL      string `yaml:"oauth2_url"`       // OAuth2 token endpoint URL
+	OrganizationID string `yaml:"organization_id"`  // IHS organization number from Master Sarana Index
+	Enabled        bool   `yaml:"enabled"`          // Feature flag to enable/disable Satu Sehat integration
+}
+
+type SatuSehatAuth struct {
+	ClientID     string `json:"client_id"`     // Client ID from Kementerian Kesehatan
+	ClientSecret string `json:"client_secret"` // Client Secret from Kementerian Kesehatan
 }
 
 func New(repoName string) (*Config, error) {
