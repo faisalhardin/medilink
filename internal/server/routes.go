@@ -94,6 +94,14 @@ func RegisterRoutes(m *module) http.Handler {
 				odontogram.Get("/logs", m.httpHandler.OdontogramHandler.GetEvents)
 				odontogram.Get("/", m.httpHandler.OdontogramHandler.GetSnapshot)
 			})
+
+			// Recall: doctor reminder for next scheduled control or appointment
+			authed.Route("/recall", func(recall chi.Router) {
+				recall.Post("/", m.httpHandler.RecallHandler.CreateRecall)
+				recall.Get("/", m.httpHandler.RecallHandler.ListRecalls)
+				recall.Get("/patient/{uuid}/next", m.httpHandler.RecallHandler.GetNextRecallByPatient)
+				recall.Patch("/", m.httpHandler.RecallHandler.UpdateRecall)
+			})
 		})
 
 		v1.Route("/auth", func(auth chi.Router) {
