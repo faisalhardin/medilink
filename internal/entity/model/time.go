@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/json"
 	"reflect"
 	"time"
 )
@@ -19,18 +20,12 @@ func TimeConverter(value string) reflect.Value {
 	}
 
 	if v, err := time.Parse("2006-01-02 15:04:05", value); err == nil {
-		// Set default location to avoid "missing Location" error
-		if v.Location() == time.UTC {
-			v = v.In(time.Local)
-		}
+
 		return reflect.ValueOf(v)
 	}
 
 	if v, err := time.Parse("2006-01-02", value); err == nil {
-		// Set default location to avoid "missing Location" error
-		if v.Location() == time.UTC {
-			v = v.In(time.Local)
-		}
+
 		return reflect.ValueOf(v)
 	}
 
@@ -38,20 +33,21 @@ func TimeConverter(value string) reflect.Value {
 }
 
 func (t *Time) UnmarshalJSON(b []byte) (err error) {
-	date, err := time.Parse(`"2006-01-02T15:04:05.000-0700"`, string(b))
-	if err == nil {
-		*t = Time(date)
-		return
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return err
 	}
 
-	date, err = time.Parse(`"2006-01-02"`, string(b))
+	date, err := time.Parse(time.RFC3339, s)
 	if err == nil {
-		// Set default location to avoid "missing Location" error
-		if date.Location() == time.UTC {
-			date = date.In(time.Local)
-		}
 		*t = Time(date)
-		return
+		return nil
+	}
+
+	date, err = time.Parse("2006-01-02", s)
+	if err == nil {
+		*t = Time(date)
+		return nil
 	}
 	return err
 }

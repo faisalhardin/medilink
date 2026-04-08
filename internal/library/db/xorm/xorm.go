@@ -3,6 +3,7 @@ package xorm
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/faisalhardin/medilink/internal/config"
 	"github.com/go-xorm/xorm"
@@ -63,6 +64,7 @@ func generateXormEngineInstance(dsn string) (*xorm.Engine, error) {
 		return nil, fmt.Errorf("failed to create engine: %v", err)
 	}
 
+	engine.SetTZDatabase(time.UTC)
 	engine.SetMaxIdleConns(4)
 	engine.ShowSQL(true)
 

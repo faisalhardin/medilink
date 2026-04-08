@@ -7,4 +7,5 @@ type Handlers struct {
 	ProductHandler     ProductHandler
 	JourneyHandler     JourneyHandler
 	OdontogramHandler  OdontogramHandler
+	RecallHandler      RecallHandler
 }

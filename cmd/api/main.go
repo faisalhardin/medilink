@@ -25,6 +25,7 @@ import (
 	odontogramrepo "github.com/faisalhardin/medilink/internal/repo/odontogram"
 	patientrepo "github.com/faisalhardin/medilink/internal/repo/patient"
 	productrepo "github.com/faisalhardin/medilink/internal/repo/product"
+	recallrepo "github.com/faisalhardin/medilink/internal/repo/recall"
 	staffrepo "github.com/faisalhardin/medilink/internal/repo/staff"
 
 	authCleanup "github.com/faisalhardin/medilink/internal/usecase/auth"
@@ -34,6 +35,7 @@ import (
 	odontogramuc "github.com/faisalhardin/medilink/internal/usecase/odontogram"
 	patientUC "github.com/faisalhardin/medilink/internal/usecase/patient"
 	productuc "github.com/faisalhardin/medilink/internal/usecase/product"
+	recalluc "github.com/faisalhardin/medilink/internal/usecase/recall"
 	visituc "github.com/faisalhardin/medilink/internal/usecase/visit"
 
 	authHandler "github.com/faisalhardin/medilink/internal/http/auth"
@@ -42,6 +44,7 @@ import (
 	odontogramhandler "github.com/faisalhardin/medilink/internal/http/odontogram"
 	patientHandler "github.com/faisalhardin/medilink/internal/http/patient"
 	producthandler "github.com/faisalhardin/medilink/internal/http/product"
+	recallhandler "github.com/faisalhardin/medilink/internal/http/recall"
 
 	mwmodule "github.com/faisalhardin/medilink/internal/library/middlewares/auth"
 	"github.com/faisalhardin/medilink/internal/server"
@@ -52,6 +55,10 @@ import (
 const (
 	repoName = "medilink"
 )
+
+func init() {
+	time.Local = time.UTC
+}
 
 func main() {
 
@@ -140,6 +147,8 @@ func main() {
 
 	odontogramDB := odontogramrepo.NewOdontogramDB(db)
 
+	recallDB := recallrepo.NewRecallDB(&recallrepo.Conn{DB: db})
+
 	// repo block end
 
 	// usecase block start
@@ -187,6 +196,11 @@ func main() {
 		Transaction:  transaction,
 	})
 
+	recallUC := recalluc.NewRecallUC(&recalluc.RecallUC{
+		RecallDB:  recallDB,
+		PatientDB: patientDB,
+	})
+
 	// usecase block end
 
 	// httphandler block start
@@ -220,6 +234,10 @@ func main() {
 	odontogramHandler := odontogramhandler.New(&odontogramhandler.OdontogramHandler{
 		OdontogramUC: odontogramUC,
 	})
+
+	recallHandler := recallhandler.New(&recallhandler.RecallHandler{
+		RecallUC: recallUC,
+	})
 	// httphandler block end
 
 	// module block start
@@ -237,6 +255,7 @@ func main() {
 			ProductHandler:     productHandler,
 			JourneyHandler:     journeyHandler,
 			OdontogramHandler:  odontogramHandler,
+			RecallHandler:      recallHandler,
 		},
 		middlewareModule,
 	)
