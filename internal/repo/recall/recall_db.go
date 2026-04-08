@@ -27,9 +27,28 @@ func NewRecallDB(conn *Conn) *Conn {
 }
 
 func (c *Conn) Insert(ctx context.Context, r *model.TrxRecall) error {
-	_, err := c.DB.MasterDB.Table(model.TrxRecallTableName).InsertOne(r)
+	result, err := c.DB.MasterDB.SQL(`
+		INSERT INTO mdl_trx_recall
+		(id_mst_patient, id_mst_institution, scheduled_at, recall_type, notes, created_by_id_mst_staff, id_trx_patient_visit, create_time, update_time)
+		VALUES (?, ?, ?::timestamptz, ?, ?, ?, ?, NOW(), NOW())
+		RETURNING id, create_time, update_time
+	`,
+		r.IDMstPatient,
+		r.IDMstInstitution,
+		r.ScheduledAt.Time().UTC().Format(time.RFC3339),
+		r.RecallType,
+		r.Notes,
+		r.CreatedByIDMstStaff,
+		r.IDTrxPatientVisit,
+	).QueryInterface()
 	if err != nil {
 		return errors.Wrap(err, wrapMsgInsert)
+	}
+	if len(result) > 0 {
+		row := result[0]
+		r.ID = row["id"].(int64)
+		r.CreateTime = row["create_time"].(time.Time)
+		r.UpdateTime = row["update_time"].(time.Time)
 	}
 	return nil
 }
@@ -41,7 +60,7 @@ func (c *Conn) Update(ctx context.Context, id int64, institutionID int64, req mo
 
 	updates := make(map[string]interface{})
 	if req.ScheduledAt != nil {
-		updates["scheduled_at"] = req.ScheduledAt.Time().Format(time.RFC3339)
+		updates["scheduled_at"] = req.ScheduledAt.Time().UTC().Format(time.RFC3339)
 	}
 	if req.RecallType != nil {
 		updates["recall_type"] = *req.RecallType

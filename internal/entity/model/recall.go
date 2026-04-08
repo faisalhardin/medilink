@@ -18,7 +18,7 @@ type TrxRecall struct {
 	ID                  int64      `xorm:"'id' pk autoincr" json:"id"`
 	IDMstPatient        int64      `xorm:"'id_mst_patient' notnull" json:"-"`
 	IDMstInstitution    int64      `xorm:"'id_mst_institution' notnull" json:"-"`
-	ScheduledAt         time.Time  `xorm:"'scheduled_at' notnull" json:"scheduled_at"`
+	ScheduledAt         Time       `xorm:"'scheduled_at' notnull" json:"scheduled_at"`
 	RecallType          string     `xorm:"'recall_type' notnull" json:"recall_type"` // control, appointment, other
 	Notes               string     `xorm:"'notes'" json:"notes"`
 	CreatedByIDMstStaff int64      `xorm:"'created_by_id_mst_staff' notnull" json:"-"`

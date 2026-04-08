@@ -56,6 +56,10 @@ const (
 	repoName = "medilink"
 )
 
+func init() {
+	time.Local = time.UTC
+}
+
 func main() {
 
 	// init config
