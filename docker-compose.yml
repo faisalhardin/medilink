@@ -2,13 +2,14 @@ version: '3.8'
 
 services:
   psql:
-    image: postgres:latest
+    image: timescale/timescaledb:latest-pg15
+    command: postgres -c shared_preload_libraries=timescaledb
     environment:
-      POSTGRES_DB: ${DB_DATABASE}
-      POSTGRES_USER: ${DB_USERNAME}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD:
     ports:
-      - "${DB_PORT}:5432"
+      - "5432:5432"
     volumes:
       - psql_volume:/var/lib/postgresql/data
 
