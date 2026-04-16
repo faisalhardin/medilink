@@ -3,6 +3,7 @@ package xorm
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/faisalhardin/medilink/internal/config"
@@ -65,8 +66,12 @@ func generateXormEngineInstance(dsn string) (*xorm.Engine, error) {
 	}
 
 	engine.SetTZDatabase(time.UTC)
+	engine.SetTZLocation(time.UTC)
 	engine.SetMaxIdleConns(4)
-	engine.ShowSQL(true)
+	env := os.Getenv("ENVIRONMENT")
+	if env == "development" {
+		engine.ShowSQL(true)
+	}
 
 	// Ping the database to verify the connection
 	if err := engine.Ping(); err != nil {
