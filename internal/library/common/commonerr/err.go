@@ -127,6 +127,18 @@ func SetNewBadRequest(errorName, errDesc string) *ErrorMessage {
 	return SetNewError(http.StatusBadRequest, errorName, errDesc)
 }
 
+// SetNewUnprocessableEntityError returns a 422 Unprocessable Entity error, following the
+// same (errorName, errDesc) convention as SetNewBadRequest and SetNewUnauthorizedError.
+func SetNewUnprocessableEntityError(errorName, errDesc string) *ErrorMessage {
+	return SetNewError(http.StatusUnprocessableEntity, errorName, errDesc)
+}
+
+// SetUnprocessableEntity set error as unprocessable entity code 422
+func (errorMessage *ErrorMessage) SetUnprocessableEntity() *ErrorMessage {
+	errorMessage.Code = http.StatusUnprocessableEntity
+	return errorMessage
+}
+
 // SetBadRequest set error as bad request code 400
 func (errorMessage *ErrorMessage) SetBadRequest() *ErrorMessage {
 	errorMessage.Code = http.StatusBadRequest

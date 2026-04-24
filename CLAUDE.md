@@ -26,6 +26,7 @@ Medianne is a Go 1.19 digital health record / healthcare API (patients, visits, 
 * **No Laziness:** Identify and fix root causes. No "band-aid" fixes. Senior developer standards.
 * **Minimal Impact:** Touch only what is necessary. Avoid accidental refactors to prevent regressions.
 * **Demand Elegance:** For non-trivial changes, ask: *"Is there a more elegant way?"* If a fix feels hacky, implement the elegant solution. (Skip for simple/obvious fixes).
+* **Data Reference:** Do not use REFERENCE on database table row. Avoid using ON DELETE query.
 
 ---
 
