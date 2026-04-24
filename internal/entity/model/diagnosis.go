@@ -1,6 +1,10 @@
 package model
 
-import "time"
+import (
+	"time"
+
+	"github.com/volatiletech/null/v8"
+)
 
 const (
 	TRX_DIAGNOSIS_TABLE = "mdl_trx_diagnosis"
@@ -18,20 +22,22 @@ type TrxDiagnosis struct {
 	ClinicalStatus       string     `xorm:"'clinical_status'" json:"clinical_status"`
 	VerificationStatus   string     `xorm:"'verification_status'" json:"verification_status"`
 	Prognosis            string     `xorm:"'prognosis'" json:"prognosis"`
-	Note                 string     `xorm:"'note'" json:"note,omitempty"`
-	OnsetDate            *time.Time `xorm:"'onset_date' null" json:"onset_date,omitempty"`
-	SatuSehatConditionID string     `xorm:"'satusehat_condition_id'" json:"satusehat_condition_id,omitempty"`
+	Note                 null.String `xorm:"'note' null" json:"note"`
+	OnsetDate            *time.Time  `xorm:"'onset_date' null" json:"onset_date,omitempty"`
+	SatuSehatConditionID null.String `xorm:"'satusehat_condition_id' null" json:"satusehat_condition_id"`
 	DeletedAt            *time.Time `xorm:"'deleted_at' null" json:"deleted_at,omitempty"`
 	CreatedAt            time.Time  `xorm:"'created_at' created" json:"created_at"`
 	UpdatedAt            time.Time  `xorm:"'updated_at' updated" json:"updated_at"`
 }
 
 // TrxDiagnosisWithDoctor is the join result used in GET /v1/visit/:visit_id/diagnosis.
+// Doctor/ICD-10 fields come from LEFT JOINs, so they are null.String to survive
+// missing reference rows without a scan error.
 type TrxDiagnosisWithDoctor struct {
 	TrxDiagnosis  `xorm:"extends"`
-	DoctorName    string `xorm:"'doctor_name'" json:"doctor_name"`
-	ICD10Display  string `xorm:"'icd10_display'" json:"icd10_display"`
-	ICD10Category string `xorm:"'icd10_category'" json:"icd10_category,omitempty"`
+	DoctorName    null.String `xorm:"'doctor_name' null" json:"doctor_name"`
+	ICD10Display  null.String `xorm:"'icd10_display' null" json:"icd10_display"`
+	ICD10Category null.String `xorm:"'icd10_category' null" json:"icd10_category"`
 }
 
 // TrxDiagnosisHistory is used for paginated history queries across visits.

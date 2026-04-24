@@ -18,14 +18,19 @@ import (
 
 	"github.com/faisalhardin/medilink/internal/config"
 	xormlib "github.com/faisalhardin/medilink/internal/library/db/xorm"
+	anamnesarepo "github.com/faisalhardin/medilink/internal/repo/anamnesa"
 	inmemory "github.com/faisalhardin/medilink/internal/repo/cache/inmemory"
+	diagnosisrepo "github.com/faisalhardin/medilink/internal/repo/diagnosis"
+	icd10repo "github.com/faisalhardin/medilink/internal/repo/icd10"
 	institutionrepo "github.com/faisalhardin/medilink/internal/repo/institution"
 	journeyrepo "github.com/faisalhardin/medilink/internal/repo/journey"
 	custjourneyrepo "github.com/faisalhardin/medilink/internal/repo/journey/customerjourney"
 	odontogramrepo "github.com/faisalhardin/medilink/internal/repo/odontogram"
 	patientrepo "github.com/faisalhardin/medilink/internal/repo/patient"
+	practitionerrepo "github.com/faisalhardin/medilink/internal/repo/practitioner"
 	productrepo "github.com/faisalhardin/medilink/internal/repo/product"
 	recallrepo "github.com/faisalhardin/medilink/internal/repo/recall"
+	satusehatqueuerepo "github.com/faisalhardin/medilink/internal/repo/satusehat"
 	staffrepo "github.com/faisalhardin/medilink/internal/repo/staff"
 
 	authCleanup "github.com/faisalhardin/medilink/internal/usecase/auth"
@@ -149,6 +154,21 @@ func main() {
 
 	recallDB := recallrepo.NewRecallDB(&recallrepo.Conn{DB: db})
 
+	// Phase 1 repositories — wired here so Phase 2 can inject them into
+	// visit/diagnosis/anamnesa usecases without further plumbing churn.
+	// Currently unreferenced (silenced below); remove the blank assignments
+	// once the usecases land.
+	icd10DB := icd10repo.NewICD10DB(db)
+	practitionerDB := practitionerrepo.NewPractitionerDB(db)
+	diagnosisDB := diagnosisrepo.NewDiagnosisDB(db)
+	anamnesaDB := anamnesarepo.NewAnamnesaDB(db)
+	satusehatQueueDB := satusehatqueuerepo.NewQueueDB(db)
+
+	_ = icd10DB
+	_ = practitionerDB
+	_ = diagnosisDB
+	_ = anamnesaDB
+	_ = satusehatQueueDB
 	// repo block end
 
 	// usecase block start
