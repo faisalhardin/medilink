@@ -102,6 +102,13 @@ func RegisterRoutes(m *module) http.Handler {
 				recall.Get("/patient/{uuid}/next", m.httpHandler.RecallHandler.GetNextRecallByPatient)
 				recall.Patch("/", m.httpHandler.RecallHandler.UpdateRecall)
 			})
+
+			// Lookup endpoints (BACKEND_SPEC §4) — autocomplete sources for the
+			// diagnosis / anamnesa forms. ICD-10 is global reference data; doctor
+			// and nurse searches are scoped by the caller's institution.
+			authed.Get("/icd10/search", m.httpHandler.ICD10Handler.Search)
+			authed.Get("/doctor/search", m.httpHandler.PractitionerHandler.SearchDoctors)
+			authed.Get("/nurse/search", m.httpHandler.PractitionerHandler.SearchNurses)
 		})
 
 		v1.Route("/auth", func(auth chi.Router) {

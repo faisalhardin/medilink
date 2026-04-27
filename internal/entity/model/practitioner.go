@@ -67,3 +67,24 @@ type NurseSearchResult struct {
 	Role      string      `xorm:"'role'" json:"role"`
 	StaffUUID null.String `xorm:"'staff_uuid' null" json:"staff_uuid"`
 }
+
+// ICD10SearchRequest binds the GET /v1/icd10/search query string.
+// Validation runs through binding.Bind → validatorURL; failures surface as 422.
+type ICD10SearchRequest struct {
+	Query string `schema:"q" validate:"required,min=2,max=100"`
+	Limit int    `schema:"limit" validate:"omitempty,min=1,max=50"`
+}
+
+// DoctorSearchRequest binds the GET /v1/doctor/search query string.
+type DoctorSearchRequest struct {
+	Query string `schema:"q" validate:"required,min=2,max=100"`
+	Limit int    `schema:"limit" validate:"omitempty,min=1,max=50"`
+}
+
+// NurseSearchRequest binds the GET /v1/nurse/search query string.
+// Role is optional; when blank the usecase passes nil to the repo.
+type NurseSearchRequest struct {
+	Query string `schema:"q" validate:"required,min=2,max=100"`
+	Role  string `schema:"role" validate:"omitempty,oneof=nurse midwife paramedic"`
+	Limit int    `schema:"limit" validate:"omitempty,min=1,max=50"`
+}

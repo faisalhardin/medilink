@@ -35,19 +35,23 @@ import (
 
 	authCleanup "github.com/faisalhardin/medilink/internal/usecase/auth"
 	authUC "github.com/faisalhardin/medilink/internal/usecase/auth"
+	icd10uc "github.com/faisalhardin/medilink/internal/usecase/icd10"
 	institutionUC "github.com/faisalhardin/medilink/internal/usecase/institution"
 	journeyuc "github.com/faisalhardin/medilink/internal/usecase/journey"
 	odontogramuc "github.com/faisalhardin/medilink/internal/usecase/odontogram"
 	patientUC "github.com/faisalhardin/medilink/internal/usecase/patient"
+	practitioneruc "github.com/faisalhardin/medilink/internal/usecase/practitioner"
 	productuc "github.com/faisalhardin/medilink/internal/usecase/product"
 	recalluc "github.com/faisalhardin/medilink/internal/usecase/recall"
 	visituc "github.com/faisalhardin/medilink/internal/usecase/visit"
 
 	authHandler "github.com/faisalhardin/medilink/internal/http/auth"
+	icd10handler "github.com/faisalhardin/medilink/internal/http/icd10"
 	institutionHandler "github.com/faisalhardin/medilink/internal/http/institution"
 	journeyhandler "github.com/faisalhardin/medilink/internal/http/journey"
 	odontogramhandler "github.com/faisalhardin/medilink/internal/http/odontogram"
 	patientHandler "github.com/faisalhardin/medilink/internal/http/patient"
+	practitionerhandler "github.com/faisalhardin/medilink/internal/http/practitioner"
 	producthandler "github.com/faisalhardin/medilink/internal/http/product"
 	recallhandler "github.com/faisalhardin/medilink/internal/http/recall"
 
@@ -154,18 +158,15 @@ func main() {
 
 	recallDB := recallrepo.NewRecallDB(&recallrepo.Conn{DB: db})
 
-	// Phase 1 repositories — wired here so Phase 2 can inject them into
-	// visit/diagnosis/anamnesa usecases without further plumbing churn.
-	// Currently unreferenced (silenced below); remove the blank assignments
-	// once the usecases land.
+	// Phase 1 repositories. icd10DB and practitionerDB are consumed by the
+	// Phase 2a lookup usecases below; the remaining three are reserved for
+	// later phases (diagnosis CRUD, anamnesa CRUD, SatuSehat outbox worker).
 	icd10DB := icd10repo.NewICD10DB(db)
 	practitionerDB := practitionerrepo.NewPractitionerDB(db)
 	diagnosisDB := diagnosisrepo.NewDiagnosisDB(db)
 	anamnesaDB := anamnesarepo.NewAnamnesaDB(db)
 	satusehatQueueDB := satusehatqueuerepo.NewQueueDB(db)
 
-	_ = icd10DB
-	_ = practitionerDB
 	_ = diagnosisDB
 	_ = anamnesaDB
 	_ = satusehatQueueDB
@@ -221,6 +222,14 @@ func main() {
 		PatientDB: patientDB,
 	})
 
+	icd10UC := icd10uc.NewICD10UC(&icd10uc.ICD10UC{
+		ICD10DB: icd10DB,
+	})
+
+	practitionerUC := practitioneruc.NewPractitionerUC(&practitioneruc.PractitionerUC{
+		PractitionerDB: practitionerDB,
+	})
+
 	// usecase block end
 
 	// httphandler block start
@@ -258,6 +267,14 @@ func main() {
 	recallHandler := recallhandler.New(&recallhandler.RecallHandler{
 		RecallUC: recallUC,
 	})
+
+	icd10Handler := icd10handler.New(&icd10handler.ICD10Handler{
+		ICD10UC: icd10UC,
+	})
+
+	practitionerHandler := practitionerhandler.New(&practitionerhandler.PractitionerHandler{
+		PractitionerUC: practitionerUC,
+	})
 	// httphandler block end
 
 	// module block start
@@ -269,13 +286,15 @@ func main() {
 
 	modules := server.LoadModules(cfg,
 		&httpHandler.Handlers{
-			InstitutionHandler: institutionHandler,
-			PatientHandler:     patientHandler,
-			AuthHandler:        authHandler,
-			ProductHandler:     productHandler,
-			JourneyHandler:     journeyHandler,
-			OdontogramHandler:  odontogramHandler,
-			RecallHandler:      recallHandler,
+			InstitutionHandler:  institutionHandler,
+			PatientHandler:      patientHandler,
+			AuthHandler:         authHandler,
+			ProductHandler:      productHandler,
+			JourneyHandler:      journeyHandler,
+			OdontogramHandler:   odontogramHandler,
+			RecallHandler:       recallHandler,
+			ICD10Handler:        icd10Handler,
+			PractitionerHandler: practitionerHandler,
 		},
 		middlewareModule,
 	)
