@@ -12,11 +12,12 @@ const (
 
 // TrxDiagnosis is the persisted diagnosis record for a visit.
 type TrxDiagnosis struct {
-	ID                   string     `xorm:"'id' pk" json:"id"`
+	ID                   int64      `xorm:"'id' pk autoincr" json:"id"`
 	VisitID              int64      `xorm:"'visit_id'" json:"visit_id"`
 	InstitutionID        int64      `xorm:"'institution_id'" json:"institution_id"`
 	DoctorID             string     `xorm:"'doctor_id'" json:"doctor_id"`
 	ICD10Code            string     `xorm:"'icd10_code'" json:"icd10_code"`
+	Rank                 int16      `xorm:"'rank'" json:"rank"`
 	Type                 string     `xorm:"'type'" json:"type"`
 	Case                 string     `xorm:"'case'" json:"case"`
 	ClinicalStatus       string     `xorm:"'clinical_status'" json:"clinical_status"`
@@ -70,9 +71,9 @@ const (
 	VerificationStatusRefuted        = "refuted"
 	VerificationStatusEnteredInError = "entered_in_error"
 
-	PrognosisExcellent = "excellent"
-	PrognosisGood      = "good"
-	PrognosisFair      = "fair"
-	PrognosisPoor      = "poor"
-	PrognosisUnknown   = "unknown"
+	PrognosisSanam        = "sanam"
+	PrognosisBonam        = "bonam"
+	PrognosisMalam        = "malam"
+	PrognosisDubiaAdSanam = "dubia_ad_sanam"
+	PrognosisDubiaAdMalam = "dubia_ad_malam"
 )

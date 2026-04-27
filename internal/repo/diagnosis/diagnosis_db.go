@@ -8,18 +8,16 @@ import (
 	diagnosisrepo "github.com/faisalhardin/medilink/internal/entity/repo/diagnosis"
 	xormlib "github.com/faisalhardin/medilink/internal/library/db/xorm"
 	"github.com/go-xorm/xorm"
-	"github.com/gofrs/uuid"
 	"github.com/pkg/errors"
 )
 
 const (
-	WrapErrMsgPrefix    = "DiagnosisDB."
-	WrapMsgGetActive    = WrapErrMsgPrefix + "GetActiveByVisitID"
-	WrapMsgSoftDelIDs   = WrapErrMsgPrefix + "SoftDeleteByIDs"
-	WrapMsgSoftDelOne   = WrapErrMsgPrefix + "SoftDeleteByID"
-	WrapMsgBulkInsert   = WrapErrMsgPrefix + "BulkInsert"
-	WrapMsgBulkUpdate   = WrapErrMsgPrefix + "BulkUpdate"
-	WrapMsgGenerateUUID = WrapErrMsgPrefix + "GenerateUUID"
+	WrapErrMsgPrefix  = "DiagnosisDB."
+	WrapMsgGetActive  = WrapErrMsgPrefix + "GetActiveByVisitID"
+	WrapMsgSoftDelIDs = WrapErrMsgPrefix + "SoftDeleteByIDs"
+	WrapMsgSoftDelOne = WrapErrMsgPrefix + "SoftDeleteByID"
+	WrapMsgBulkInsert = WrapErrMsgPrefix + "BulkInsert"
+	WrapMsgBulkUpdate = WrapErrMsgPrefix + "BulkUpdate"
 )
 
 type Conn struct {
@@ -74,7 +72,7 @@ func (c *Conn) GetActiveByVisitID(ctx context.Context, institutionID, visitID in
 // SoftDeleteByIDs flips deleted_at = NOW() for a batch of ids, scoped by
 // (institution_id, visit_id). Rows already soft-deleted are filtered by the
 // partial WHERE so this is idempotent.
-func (c *Conn) SoftDeleteByIDs(ctx context.Context, institutionID, visitID int64, ids []string) error {
+func (c *Conn) SoftDeleteByIDs(ctx context.Context, institutionID, visitID int64, ids []int64) error {
 	if len(ids) == 0 {
 		return nil
 	}
@@ -103,7 +101,7 @@ func (c *Conn) SoftDeleteByIDs(ctx context.Context, institutionID, visitID int64
 
 // SoftDeleteByID is the single-row variant used by the DELETE endpoint.
 // Returns found=false for idempotency when the row is missing or already deleted.
-func (c *Conn) SoftDeleteByID(ctx context.Context, institutionID, visitID int64, diagnosisID string) (bool, error) {
+func (c *Conn) SoftDeleteByID(ctx context.Context, institutionID, visitID int64, diagnosisID int64) (bool, error) {
 	const sql = `
 		UPDATE mdl_trx_diagnosis
 		SET deleted_at = NOW(), updated_at = NOW()
@@ -124,10 +122,6 @@ func (c *Conn) SoftDeleteByID(ctx context.Context, institutionID, visitID int64,
 	return affected > 0, nil
 }
 
-// BulkInsert persists new diagnosis rows. Ids are generated in Go so the
-// usecase can return them alongside the FHIR outbox payload without needing
-// a RETURNING round-trip in an already-transactional path.
-//
 // `case` is a SQL reserved word — we always double-quote the column.
 func (c *Conn) BulkInsert(ctx context.Context, rows []model.TrxDiagnosis) error {
 	if len(rows) == 0 {
@@ -140,23 +134,15 @@ func (c *Conn) BulkInsert(ctx context.Context, rows []model.TrxDiagnosis) error 
 
 	for i := range rows {
 		r := &rows[i]
-		if r.ID == "" {
-			newID, err := uuid.NewV4()
-			if err != nil {
-				return errors.Wrap(err, WrapMsgGenerateUUID)
-			}
-			r.ID = newID.String()
-		}
-
 		placeholders = append(placeholders,
 			"(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
 		)
 		args = append(args,
-			r.ID,
 			r.VisitID,
 			r.InstitutionID,
 			r.DoctorID,
 			r.ICD10Code,
+			r.Rank,
 			r.Type,
 			r.Case,
 			r.ClinicalStatus,
@@ -169,7 +155,7 @@ func (c *Conn) BulkInsert(ctx context.Context, rows []model.TrxDiagnosis) error 
 
 	sql := `
 		INSERT INTO mdl_trx_diagnosis
-		(id, visit_id, institution_id, doctor_id, icd10_code,
+		(visit_id, institution_id, doctor_id, icd10_code, rank,
 		 type, "case", clinical_status, verification_status, prognosis,
 		 note, onset_date, created_at, updated_at)
 		VALUES ` + strings.Join(placeholders, ", ")
@@ -192,6 +178,7 @@ func (c *Conn) BulkUpdate(ctx context.Context, rows []model.TrxDiagnosis) error 
 	const sql = `
 		UPDATE mdl_trx_diagnosis
 		SET icd10_code          = ?,
+		    rank                = ?,
 		    type                = ?,
 		    "case"              = ?,
 		    clinical_status     = ?,
@@ -211,6 +198,7 @@ func (c *Conn) BulkUpdate(ctx context.Context, rows []model.TrxDiagnosis) error 
 		r := &rows[i]
 		_, err := session.Exec(sql,
 			r.ICD10Code,
+			r.Rank,
 			r.Type,
 			r.Case,
 			r.ClinicalStatus,
@@ -228,10 +216,3 @@ func (c *Conn) BulkUpdate(ctx context.Context, rows []model.TrxDiagnosis) error 
 	}
 	return nil
 }
-
-// func nullTime(t *time.Time) interface{} {
-// 	if t == nil {
-// 		return nil
-// 	}
-// 	return *t
-// }

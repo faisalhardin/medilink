@@ -20,21 +20,22 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
-    CREATE TYPE prognosis_type AS ENUM ('excellent', 'good', 'fair', 'poor', 'unknown');
+    CREATE TYPE prognosis_type AS ENUM ('sanam', 'bonam', 'dubia_ad_sanam', 'dubia_ad_malam', 'malam');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 CREATE TABLE IF NOT EXISTS mdl_trx_diagnosis (
-    id                    UUID                     PRIMARY KEY DEFAULT gen_random_uuid(),
+    id                    BIGSERIAL                PRIMARY KEY,
     visit_id              BIGINT                   NOT NULL,
     institution_id        BIGINT                   NOT NULL,
     doctor_id             UUID                     NOT NULL,
     icd10_code            VARCHAR(10)              NOT NULL,
+    rank                  SMALLINT                 NOT NULL DEFAULT 1 CHECK (rank >= 1),
     type                  diagnosis_type           NOT NULL DEFAULT 'primary',
-    case                  diagnosis_case           NOT NULL DEFAULT 'new',
+    "case"                diagnosis_case           NOT NULL DEFAULT 'new',
     clinical_status       clinical_status_type     NOT NULL DEFAULT 'active',
     verification_status   verification_status_type NOT NULL DEFAULT 'confirmed',
-    prognosis             prognosis_type           NOT NULL DEFAULT 'unknown',
+    prognosis             prognosis_type           NOT NULL DEFAULT 'malam',
     note                  TEXT,
     onset_date            DATE,
     -- SatuSehat
@@ -45,9 +46,31 @@ CREATE TABLE IF NOT EXISTS mdl_trx_diagnosis (
     updated_at            TIMESTAMP                DEFAULT NOW()
 );
 
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'chk_trx_diagnosis_primary_rank'
+          AND conrelid = 'mdl_trx_diagnosis'::regclass
+    ) THEN
+        ALTER TABLE mdl_trx_diagnosis
+            ADD CONSTRAINT chk_trx_diagnosis_primary_rank
+            CHECK (type <> 'primary' OR rank = 1);
+    END IF;
+END $$;
+
 -- Partial index speeds up active-record queries (the common read path)
 CREATE INDEX IF NOT EXISTS idx_trx_diagnosis_visit_active
     ON mdl_trx_diagnosis(institution_id, visit_id) WHERE deleted_at IS NULL;
 
 CREATE INDEX IF NOT EXISTS idx_trx_diagnosis_icd10
     ON mdl_trx_diagnosis(institution_id, icd10_code) WHERE deleted_at IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_trx_diagnosis_primary_unique_active
+    ON mdl_trx_diagnosis (institution_id, visit_id)
+    WHERE type = 'primary' AND deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_trx_diagnosis_inst_id_active
+    ON mdl_trx_diagnosis (institution_id, id)
+    WHERE deleted_at IS NULL;

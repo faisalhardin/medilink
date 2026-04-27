@@ -18,14 +18,13 @@ type DiagnosisDB interface {
 	// SoftDeleteByIDs marks the given ids as deleted_at = NOW() for this visit.
 	// Must be called within a transaction; the caller asserts id ownership by
 	// scoping on (institution_id, visit_id).
-	SoftDeleteByIDs(ctx context.Context, institutionID, visitID int64, ids []string) error
+	SoftDeleteByIDs(ctx context.Context, institutionID, visitID int64, ids []int64) error
 
 	// SoftDeleteByID is the single-row variant used by DELETE /v1/visit/:visit_id/diagnosis/:id.
 	// Returns found=false when the id is already deleted or does not exist for this tenant.
-	SoftDeleteByID(ctx context.Context, institutionID, visitID int64, diagnosisID string) (found bool, err error)
+	SoftDeleteByID(ctx context.Context, institutionID, visitID int64, diagnosisID int64) (found bool, err error)
 
-	// BulkInsert persists new diagnosis rows; ids are generated in Go when empty
-	// so the usecase can return the id list alongside the outbox payload.
+	// BulkInsert persists new diagnosis rows and lets DB autoincrement assign IDs.
 	BulkInsert(ctx context.Context, rows []model.TrxDiagnosis) error
 
 	// BulkUpdate overwrites the mutable columns (type, case, clinical_status,
