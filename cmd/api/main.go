@@ -35,6 +35,7 @@ import (
 
 	authCleanup "github.com/faisalhardin/medilink/internal/usecase/auth"
 	authUC "github.com/faisalhardin/medilink/internal/usecase/auth"
+	diagnosisuc "github.com/faisalhardin/medilink/internal/usecase/diagnosis"
 	icd10uc "github.com/faisalhardin/medilink/internal/usecase/icd10"
 	institutionUC "github.com/faisalhardin/medilink/internal/usecase/institution"
 	journeyuc "github.com/faisalhardin/medilink/internal/usecase/journey"
@@ -46,6 +47,7 @@ import (
 	visituc "github.com/faisalhardin/medilink/internal/usecase/visit"
 
 	authHandler "github.com/faisalhardin/medilink/internal/http/auth"
+	diagnosishandler "github.com/faisalhardin/medilink/internal/http/diagnosis"
 	icd10handler "github.com/faisalhardin/medilink/internal/http/icd10"
 	institutionHandler "github.com/faisalhardin/medilink/internal/http/institution"
 	journeyhandler "github.com/faisalhardin/medilink/internal/http/journey"
@@ -167,7 +169,6 @@ func main() {
 	anamnesaDB := anamnesarepo.NewAnamnesaDB(db)
 	satusehatQueueDB := satusehatqueuerepo.NewQueueDB(db)
 
-	_ = diagnosisDB
 	_ = anamnesaDB
 	_ = satusehatQueueDB
 	// repo block end
@@ -230,6 +231,14 @@ func main() {
 		PractitionerDB: practitionerDB,
 	})
 
+	diagnosisUC := diagnosisuc.NewDiagnosisUC(&diagnosisuc.DiagnosisUC{
+		DiagnosisDB:    diagnosisDB,
+		PatientDB:      patientDB,
+		ICD10DB:        icd10DB,
+		PractitionerDB: practitionerDB,
+		Transaction:    transaction,
+	})
+
 	// usecase block end
 
 	// httphandler block start
@@ -275,6 +284,10 @@ func main() {
 	practitionerHandler := practitionerhandler.New(&practitionerhandler.PractitionerHandler{
 		PractitionerUC: practitionerUC,
 	})
+
+	diagnosisHandler := diagnosishandler.New(&diagnosishandler.DiagnosisHandler{
+		DiagnosisUC: diagnosisUC,
+	})
 	// httphandler block end
 
 	// module block start
@@ -295,6 +308,7 @@ func main() {
 			RecallHandler:       recallHandler,
 			ICD10Handler:        icd10Handler,
 			PractitionerHandler: practitionerHandler,
+			DiagnosisHandler:    diagnosisHandler,
 		},
 		middlewareModule,
 	)

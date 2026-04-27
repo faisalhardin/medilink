@@ -10,4 +10,5 @@ type Handlers struct {
 	RecallHandler       RecallHandler
 	ICD10Handler        ICD10Handler
 	PractitionerHandler PractitionerHandler
+	DiagnosisHandler    DiagnosisHandler
 }
