@@ -13,8 +13,9 @@ type ICD10DB interface {
 	// full-text match on the display field. Code-prefix hits come first.
 	Search(ctx context.Context, q string, limit int) ([]model.RefICD10, error)
 
-	// MissingCodes returns the subset of `codes` that do NOT exist in ref_icd10.
-	// An empty return slice means every code was found. Used by the diagnosis
-	// usecase to build per-field 422 messages before opening a transaction.
-	MissingCodes(ctx context.Context, codes []string) ([]string, error)
+	// GetByCodes returns the rows matching the given codes (in any order).
+	// Callers detect missing codes by diffing the result against the request
+	// and use the returned display text to snapshot it onto write-side rows
+	// (e.g. mdl_trx_diagnosis.icd10_display) before opening a transaction.
+	GetByCodes(ctx context.Context, codes []string) ([]model.RefICD10, error)
 }

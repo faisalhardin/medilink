@@ -33,6 +33,7 @@ import (
 	satusehatqueuerepo "github.com/faisalhardin/medilink/internal/repo/satusehat"
 	staffrepo "github.com/faisalhardin/medilink/internal/repo/staff"
 
+	anamnesauc "github.com/faisalhardin/medilink/internal/usecase/anamnesa"
 	authCleanup "github.com/faisalhardin/medilink/internal/usecase/auth"
 	authUC "github.com/faisalhardin/medilink/internal/usecase/auth"
 	diagnosisuc "github.com/faisalhardin/medilink/internal/usecase/diagnosis"
@@ -46,6 +47,7 @@ import (
 	recalluc "github.com/faisalhardin/medilink/internal/usecase/recall"
 	visituc "github.com/faisalhardin/medilink/internal/usecase/visit"
 
+	anamnesahandler "github.com/faisalhardin/medilink/internal/http/anamnesa"
 	authHandler "github.com/faisalhardin/medilink/internal/http/auth"
 	diagnosishandler "github.com/faisalhardin/medilink/internal/http/diagnosis"
 	icd10handler "github.com/faisalhardin/medilink/internal/http/icd10"
@@ -169,7 +171,6 @@ func main() {
 	anamnesaDB := anamnesarepo.NewAnamnesaDB(db)
 	satusehatQueueDB := satusehatqueuerepo.NewQueueDB(db)
 
-	_ = anamnesaDB
 	_ = satusehatQueueDB
 	// repo block end
 
@@ -239,6 +240,13 @@ func main() {
 		Transaction:    transaction,
 	})
 
+	anamnesaUC := anamnesauc.NewAnamnesaUC(&anamnesauc.AnamnesaUC{
+		AnamnesaDB:     anamnesaDB,
+		PatientDB:      patientDB,
+		PractitionerDB: practitionerDB,
+		Transaction:    transaction,
+	})
+
 	// usecase block end
 
 	// httphandler block start
@@ -288,6 +296,10 @@ func main() {
 	diagnosisHandler := diagnosishandler.New(&diagnosishandler.DiagnosisHandler{
 		DiagnosisUC: diagnosisUC,
 	})
+
+	anamnesaHandler := anamnesahandler.New(&anamnesahandler.AnamnesaHandler{
+		AnamnesaUC: anamnesaUC,
+	})
 	// httphandler block end
 
 	// module block start
@@ -309,6 +321,7 @@ func main() {
 			ICD10Handler:        icd10Handler,
 			PractitionerHandler: practitionerHandler,
 			DiagnosisHandler:    diagnosisHandler,
+			AnamnesaHandler:     anamnesaHandler,
 		},
 		middlewareModule,
 	)

@@ -100,19 +100,17 @@ func (u *DiagnosisUC) Save(ctx context.Context, visitID int64, req model.SaveDia
 	}
 
 	codes := keys(codeSet)
-	missingCodes, dbErr := u.ICD10DB.MissingCodes(ctx, codes)
+	icd10Rows, dbErr := u.ICD10DB.GetByCodes(ctx, codes)
 	if dbErr != nil {
 		return resp, errors.Wrap(dbErr, wrapMsgSave)
 	}
-	if len(missingCodes) > 0 {
-		missingSet := make(map[string]struct{}, len(missingCodes))
-		for _, c := range missingCodes {
-			missingSet[c] = struct{}{}
-		}
-		for i, item := range req.Diagnoses {
-			if _, miss := missingSet[item.ICD10Code]; miss {
-				errMsg.Append(fmt.Sprintf("diagnoses[%d].icd10_code", i), "icd10_code not found in reference table")
-			}
+	displayByCode := make(map[string]string, len(icd10Rows))
+	for _, r := range icd10Rows {
+		displayByCode[r.Code] = r.Display
+	}
+	for i, item := range req.Diagnoses {
+		if _, ok := displayByCode[item.ICD10Code]; !ok {
+			errMsg.Append(fmt.Sprintf("diagnoses[%d].icd10_code", i), "icd10_code not found in reference table")
 		}
 	}
 
@@ -153,6 +151,7 @@ func (u *DiagnosisUC) Save(ctx context.Context, visitID int64, req model.SaveDia
 			InstitutionID:      userDetail.InstitutionID,
 			DoctorID:           item.DoctorID,
 			ICD10Code:          item.ICD10Code,
+			ICD10Display:       displayByCode[item.ICD10Code],
 			Rank:               item.Rank,
 			Type:               item.Type,
 			Case:               item.Case,

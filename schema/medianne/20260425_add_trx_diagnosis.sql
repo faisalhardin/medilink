@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS mdl_trx_diagnosis (
     institution_id        BIGINT                   NOT NULL,
     doctor_id             UUID                     NOT NULL,
     icd10_code            VARCHAR(10)              NOT NULL,
+    icd10_display         TEXT                     NOT NULL,
     rank                  SMALLINT                 NOT NULL DEFAULT 1 CHECK (rank >= 1),
     type                  diagnosis_type           NOT NULL DEFAULT 'primary',
     "case"                diagnosis_case           NOT NULL DEFAULT 'new',

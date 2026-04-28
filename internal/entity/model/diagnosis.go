@@ -11,12 +11,16 @@ const (
 )
 
 // TrxDiagnosis is the persisted diagnosis record for a visit.
+// icd10_display is a snapshot of ref_icd10.display captured at write time;
+// the application treats the reference text as immutable, which lets the
+// read path skip the ref_icd10 join entirely.
 type TrxDiagnosis struct {
 	ID                   int64       `xorm:"'id' pk autoincr" json:"id"`
 	VisitID              int64       `xorm:"'visit_id'" json:"visit_id"`
 	InstitutionID        int64       `xorm:"'institution_id'" json:"institution_id"`
 	DoctorID             string      `xorm:"'doctor_id'" json:"doctor_id"`
 	ICD10Code            string      `xorm:"'icd10_code'" json:"icd10_code"`
+	ICD10Display         string      `xorm:"'icd10_display'" json:"icd10_display"`
 	Rank                 int16       `xorm:"'rank'" json:"rank"`
 	Type                 string      `xorm:"'type'" json:"type"`
 	Case                 string      `xorm:"'case'" json:"case"`
@@ -31,14 +35,12 @@ type TrxDiagnosis struct {
 	UpdatedAt            time.Time   `xorm:"'updated_at' updated" json:"updated_at"`
 }
 
-// TrxDiagnosisWithDoctor is the join result used in GET /v1/visit/:visit_id/diagnosis.
-// Doctor/ICD-10 fields come from LEFT JOINs, so they are null.String to survive
-// missing reference rows without a scan error.
+// TrxDiagnosisWithDoctor is the read-model used in GET /v1/visit/:visit_id/diagnosis.
+// Only doctor_name still needs a join; icd10_display is read directly from the
+// snapshot column on the embedded TrxDiagnosis.
 type TrxDiagnosisWithDoctor struct {
-	TrxDiagnosis  `xorm:"extends"`
-	DoctorName    null.String `xorm:"'doctor_name' null" json:"doctor_name"`
-	ICD10Display  null.String `xorm:"'icd10_display' null" json:"icd10_display"`
-	ICD10Category null.String `xorm:"'icd10_category' null" json:"icd10_category"`
+	TrxDiagnosis `xorm:"extends"`
+	DoctorName   null.String `xorm:"'doctor_name' null" json:"doctor_name"`
 }
 
 // TrxDiagnosisHistory is used for paginated history queries across visits.

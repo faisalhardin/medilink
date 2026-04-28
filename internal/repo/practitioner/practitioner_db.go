@@ -15,6 +15,7 @@ const (
 	WrapMsgSearchDoctors   = WrapErrMsgPrefix + "SearchDoctors"
 	WrapMsgSearchNurses    = WrapErrMsgPrefix + "SearchNurses"
 	WrapMsgMissingDoctorID = WrapErrMsgPrefix + "MissingDoctorIDs"
+	WrapMsgMissingNurseID  = WrapErrMsgPrefix + "MissingNurseIDs"
 
 	defaultSearchLimit = 10
 	maxSearchLimit     = 50
@@ -118,6 +119,43 @@ func (c *Conn) MissingDoctorIDs(ctx context.Context, institutionID int64, ids []
 	err := c.DB.SlaveDB.Context(ctx).SQL(sql, args...).Find(&found)
 	if err != nil {
 		return nil, errors.Wrap(err, WrapMsgMissingDoctorID)
+	}
+
+	foundSet := make(map[string]struct{}, len(found))
+	for _, id := range found {
+		foundSet[id] = struct{}{}
+	}
+	var missing []string
+	for _, id := range ids {
+		if _, ok := foundSet[id]; !ok {
+			missing = append(missing, id)
+		}
+	}
+	return missing, nil
+}
+
+func (c *Conn) MissingNurseIDs(ctx context.Context, institutionID int64, ids []string) ([]string, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	args := make([]interface{}, 0, len(ids)+1)
+	args = append(args, institutionID)
+	for _, id := range ids {
+		args = append(args, id)
+	}
+	placeholders := strings.TrimRight(strings.Repeat("?,", len(ids)), ",")
+	sql := `
+		SELECT id FROM mdl_mst_nurse
+		WHERE institution_id = ?
+		  AND active = TRUE
+		  AND id IN (` + placeholders + `)
+	`
+
+	var found []string
+	err := c.DB.SlaveDB.Context(ctx).SQL(sql, args...).Find(&found)
+	if err != nil {
+		return nil, errors.Wrap(err, WrapMsgMissingNurseID)
 	}
 
 	foundSet := make(map[string]struct{}, len(found))

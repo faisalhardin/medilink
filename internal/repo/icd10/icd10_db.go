@@ -11,9 +11,9 @@ import (
 )
 
 const (
-	WrapErrMsgPrefix    = "ICD10DB."
-	WrapMsgSearch       = WrapErrMsgPrefix + "Search"
-	WrapMsgMissingCodes = WrapErrMsgPrefix + "MissingCodes"
+	WrapErrMsgPrefix  = "ICD10DB."
+	WrapMsgSearch     = WrapErrMsgPrefix + "Search"
+	WrapMsgGetByCodes = WrapErrMsgPrefix + "GetByCodes"
 
 	defaultSearchLimit = 10
 	maxSearchLimit     = 50
@@ -59,10 +59,10 @@ func (c *Conn) Search(ctx context.Context, q string, limit int) ([]model.RefICD1
 	return rows, nil
 }
 
-// MissingCodes fetches only the codes that EXIST, then diffs in memory to
-// return those that don't. Avoids per-code round trips and keeps the DB
-// query simple enough for xorm without raw array binding.
-func (c *Conn) MissingCodes(ctx context.Context, codes []string) ([]string, error) {
+// GetByCodes returns the ref_icd10 rows for the requested codes. Callers
+// build the missing-set in memory by diffing against the request and use
+// the display text to snapshot it onto write-side rows.
+func (c *Conn) GetByCodes(ctx context.Context, codes []string) ([]model.RefICD10, error) {
 	if len(codes) == 0 {
 		return nil, nil
 	}
@@ -72,24 +72,12 @@ func (c *Conn) MissingCodes(ctx context.Context, codes []string) ([]string, erro
 		args = append(args, code)
 	}
 	placeholders := strings.TrimRight(strings.Repeat("?,", len(codes)), ",")
-	sql := "SELECT code FROM ref_icd10 WHERE code IN (" + placeholders + ")"
+	sql := "SELECT code, display, category, created_at FROM ref_icd10 WHERE code IN (" + placeholders + ")"
 
-	var found []string
-	err := c.DB.SlaveDB.Context(ctx).SQL(sql, args...).Find(&found)
+	var rows []model.RefICD10
+	err := c.DB.SlaveDB.Context(ctx).SQL(sql, args...).Find(&rows)
 	if err != nil {
-		return nil, errors.Wrap(err, WrapMsgMissingCodes)
+		return nil, errors.Wrap(err, WrapMsgGetByCodes)
 	}
-
-	foundSet := make(map[string]struct{}, len(found))
-	for _, code := range found {
-		foundSet[code] = struct{}{}
-	}
-
-	var missing []string
-	for _, code := range codes {
-		if _, ok := foundSet[code]; !ok {
-			missing = append(missing, code)
-		}
-	}
-	return missing, nil
+	return rows, nil
 }

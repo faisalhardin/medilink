@@ -21,4 +21,7 @@ type PractitionerDB interface {
 	// MissingDoctorIDs returns the subset of `ids` that do NOT exist (active=true)
 	// in the given institution. Used by the diagnosis usecase for pre-TX validation.
 	MissingDoctorIDs(ctx context.Context, institutionID int64, ids []string) ([]string, error)
+
+	// MissingNurseIDs mirrors MissingDoctorIDs for nurse references.
+	MissingNurseIDs(ctx context.Context, institutionID int64, ids []string) ([]string, error)
 }

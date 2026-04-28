@@ -11,4 +11,5 @@ type Handlers struct {
 	ICD10Handler        ICD10Handler
 	PractitionerHandler PractitionerHandler
 	DiagnosisHandler    DiagnosisHandler
+	AnamnesaHandler     AnamnesaHandler
 }

@@ -54,6 +54,8 @@ func RegisterRoutes(m *module) http.Handler {
 					visit.Get("/diagnosis", m.httpHandler.DiagnosisHandler.GetByVisitID)
 					visit.Post("/diagnosis", m.httpHandler.DiagnosisHandler.Save)
 					visit.Delete("/diagnosis/{diagnosis_id}", m.httpHandler.DiagnosisHandler.Delete)
+					visit.Get("/anamnesa", m.httpHandler.AnamnesaHandler.GetByVisitID)
+					visit.Post("/anamnesa", m.httpHandler.AnamnesaHandler.Upsert)
 				})
 				visit.Get("/product", m.httpHandler.PatientHandler.ListVisitProducts)
 				visit.Post("/product", m.httpHandler.PatientHandler.InsertVisitProduct)
