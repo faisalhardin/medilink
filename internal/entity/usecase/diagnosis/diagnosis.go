@@ -8,7 +8,7 @@ import (
 
 // DiagnosisUC is the diagnosis endpoint orchestration contract.
 type DiagnosisUC interface {
-	GetByVisitID(ctx context.Context, visitID int64) ([]model.TrxDiagnosisWithDoctor, error)
+	GetByVisitID(ctx context.Context, visitID int64) ([]model.DiagnosisResponse, error)
 	Save(ctx context.Context, visitID int64, req model.SaveDiagnosesRequest) (model.SaveDiagnosesResponse, error)
 	Delete(ctx context.Context, visitID, diagnosisID int64) error
 }

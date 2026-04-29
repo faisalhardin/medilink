@@ -149,7 +149,7 @@ func (c *Conn) BulkInsert(ctx context.Context, rows []model.TrxDiagnosis) error 
 			r.VerificationStatus,
 			r.Prognosis,
 			r.Note,
-			xormlib.ToTime(r.OnsetDate),
+			r.OnsetDate,
 		)
 	}
 
@@ -207,7 +207,7 @@ func (c *Conn) BulkUpdate(ctx context.Context, rows []model.TrxDiagnosis) error 
 			r.VerificationStatus,
 			r.Prognosis,
 			r.Note,
-			xormlib.ToTime(r.OnsetDate),
+			r.OnsetDate,
 			r.InstitutionID,
 			r.VisitID,
 			r.ID,

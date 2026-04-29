@@ -37,7 +37,7 @@ func NewDiagnosisUC(u *DiagnosisUC) *DiagnosisUC {
 	return u
 }
 
-func (u *DiagnosisUC) GetByVisitID(ctx context.Context, visitID int64) ([]model.TrxDiagnosisWithDoctor, error) {
+func (u *DiagnosisUC) GetByVisitID(ctx context.Context, visitID int64) ([]model.DiagnosisResponse, error) {
 	userDetail, err := u.authorizeVisit(ctx, visitID)
 	if err != nil {
 		return nil, err
@@ -47,10 +47,12 @@ func (u *DiagnosisUC) GetByVisitID(ctx context.Context, visitID int64) ([]model.
 	if dbErr != nil {
 		return nil, errors.Wrap(dbErr, wrapMsgGetByVisitID)
 	}
-	if rows == nil {
-		rows = []model.TrxDiagnosisWithDoctor{}
+
+	resp := make([]model.DiagnosisResponse, len(rows))
+	for i, row := range rows {
+		resp[i] = row.ToResponse()
 	}
-	return rows, nil
+	return resp, nil
 }
 
 func (u *DiagnosisUC) Save(ctx context.Context, visitID int64, req model.SaveDiagnosesRequest) (resp model.SaveDiagnosesResponse, err error) {
@@ -73,17 +75,16 @@ func (u *DiagnosisUC) Save(ctx context.Context, visitID int64, req model.SaveDia
 
 	for i, item := range req.Diagnoses {
 		if item.Type == model.DiagnosisTypePrimary && item.Rank != 1 {
-			errMsg.Append(fmt.Sprintf("diagnoses[%d].rank", i), "primary diagnosis must have rank 1")
+			errMsg.Append(fmt.Sprintf("diagnoses on row %d", i+1), "primary diagnosis must have rank 1")
 		}
-		onset := item.OnsetDate.Time()
-		if !onset.IsZero() && onset.After(now) {
-			errMsg.Append(fmt.Sprintf("diagnoses[%d].onset_date", i), "onset_date cannot be in the future")
+		if item.OnsetDate != nil && !item.OnsetDate.Time.IsZero() && item.OnsetDate.Time.After(now) {
+			errMsg.Append(fmt.Sprintf("diagnoses on row %d", i+1), "onset_date cannot be in the future")
 		}
 		codeSet[item.ICD10Code] = struct{}{}
 		doctorSet[item.DoctorID] = struct{}{}
 		if item.ID != nil {
 			if _, exists := seenUpdateIDs[*item.ID]; exists {
-				errMsg.Append(fmt.Sprintf("diagnoses[%d].id", i), "duplicate diagnosis id in payload")
+				errMsg.Append(fmt.Sprintf("diagnoses on row %d", i+1), "duplicate diagnosis id in payload")
 			}
 			seenUpdateIDs[*item.ID] = struct{}{}
 		}
@@ -138,7 +139,7 @@ func (u *DiagnosisUC) Save(ctx context.Context, visitID int64, req model.SaveDia
 
 	existingMap := make(map[int64]model.TrxDiagnosis, len(existingRows))
 	for _, row := range existingRows {
-		existingMap[row.ID] = row.TrxDiagnosis
+		existingMap[row.ID] = row.AsTrxDiagnosis()
 	}
 
 	toInsert := make([]model.TrxDiagnosis, 0)
@@ -162,9 +163,8 @@ func (u *DiagnosisUC) Save(ctx context.Context, visitID int64, req model.SaveDia
 		if item.Note != nil {
 			row.Note = null.String{String: strings.TrimSpace(*item.Note), Valid: true}
 		}
-		onset := item.OnsetDate.Time()
-		if !onset.IsZero() {
-			t := onset
+		if item.OnsetDate != nil && !item.OnsetDate.Time.IsZero() {
+			t := item.OnsetDate.Time
 			row.OnsetDate = &t
 		}
 
