@@ -11,11 +11,13 @@ import (
 )
 
 const (
-	WrapErrMsgPrefix       = "PractitionerDB."
-	WrapMsgSearchDoctors   = WrapErrMsgPrefix + "SearchDoctors"
-	WrapMsgSearchNurses    = WrapErrMsgPrefix + "SearchNurses"
-	WrapMsgMissingDoctorID = WrapErrMsgPrefix + "MissingDoctorIDs"
-	WrapMsgMissingNurseID  = WrapErrMsgPrefix + "MissingNurseIDs"
+	WrapErrMsgPrefix         = "PractitionerDB."
+	WrapMsgSearchDoctors     = WrapErrMsgPrefix + "SearchDoctors"
+	WrapMsgSearchNurses      = WrapErrMsgPrefix + "SearchNurses"
+	WrapMsgMissingDoctorID   = WrapErrMsgPrefix + "MissingDoctorIDs"
+	WrapMsgMissingNurseID    = WrapErrMsgPrefix + "MissingNurseIDs"
+	WrapMsgGetDoctorNameByID = WrapErrMsgPrefix + "GetDoctorNameByID"
+	WrapMsgGetNurseNameByID  = WrapErrMsgPrefix + "GetNurseNameByID"
 
 	defaultSearchLimit = 10
 	maxSearchLimit     = 50

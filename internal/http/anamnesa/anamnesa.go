@@ -38,6 +38,22 @@ func (h *AnamnesaHandler) GetByVisitID(w http.ResponseWriter, r *http.Request) {
 	commonwriter.SetOKWithData(ctx, w, resp)
 }
 
+func (h *AnamnesaHandler) GetDetailedByVisitID(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	visitID, err := parseInt64Param(r, "id")
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	resp, ucErr := h.AnamnesaUC.GetDetailedByVisitID(ctx, visitID)
+	if ucErr != nil {
+		commonwriter.SetError(ctx, w, ucErr)
+		return
+	}
+	commonwriter.SetOKWithData(ctx, w, resp)
+}
+
 func (h *AnamnesaHandler) Upsert(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	visitID, err := parseInt64Param(r, "id")
