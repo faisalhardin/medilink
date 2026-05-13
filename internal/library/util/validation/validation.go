@@ -8,6 +8,7 @@ import (
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
 	entranslations "github.com/go-playground/validator/v10/translations/en"
+	"github.com/volatiletech/null/v8"
 )
 
 type Validator struct {
@@ -17,7 +18,50 @@ type Validator struct {
 
 func NewValidation(options ...validator.Option) *Validator {
 	validate := validator.New(options...)
+	registerNullV8Types(validate)
 	return &Validator{Validate: validate}
+}
+
+// registerNullV8Types maps github.com/volatiletech/null/v8 types to plain values so
+// tags like max, min, lte apply without "Bad field type null.String" panics.
+func registerNullV8Types(v *validator.Validate) {
+	fn := func(field reflect.Value) interface{} {
+		switch val := field.Interface().(type) {
+		case null.String:
+			if !val.Valid {
+				return ""
+			}
+			return val.String
+		case null.Int16:
+			if !val.Valid {
+				return int64(0)
+			}
+			return int64(val.Int16)
+		case null.Int64:
+			if !val.Valid {
+				return int64(0)
+			}
+			return val.Int64
+		case null.Float32:
+			if !val.Valid {
+				return float64(0)
+			}
+			return float64(val.Float32)
+		case null.Bool:
+			if !val.Valid {
+				return false
+			}
+			return val.Bool
+		default:
+			return nil
+		}
+	}
+	// One registration per concrete type (validator API).
+	v.RegisterCustomTypeFunc(fn, null.String{})
+	v.RegisterCustomTypeFunc(fn, null.Int16{})
+	v.RegisterCustomTypeFunc(fn, null.Int64{})
+	v.RegisterCustomTypeFunc(fn, null.Float32{})
+	v.RegisterCustomTypeFunc(fn, null.Bool{})
 }
 
 func (v *Validator) SetTranslator(translator ut.Translator) {

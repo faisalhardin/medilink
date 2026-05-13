@@ -98,7 +98,7 @@ func Bind(r *http.Request, targetDecode interface{}) error {
 			return commonerr.SetNewBadRequest("invalid body", err.Error())
 		}
 		if err = validatorJSON.Struct(targetDecode); err != nil {
-			return commonerr.NewErrorMessage().SetTranslator(validatorJSON).SetBadRequest().SetErrorValidator(err)
+			return commonerr.NewErrorMessage().SetTranslator(validatorJSON).SetUnprocessableEntity().SetErrorValidator(err)
 		}
 	case ContentFormData:
 		err := r.ParseMultipartForm(32 << 20)
@@ -130,7 +130,7 @@ func BindQuery(value url.Values, targetDecode interface{}) error {
 		return err
 	}
 	if err := validatorURL.Struct(targetDecode); err != nil {
-		return commonerr.NewErrorMessage().SetTranslator(validatorURL).SetBadRequest().SetErrorValidator(err)
+		return commonerr.NewErrorMessage().SetTranslator(validatorURL).SetUnprocessableEntity().SetErrorValidator(err)
 	}
 
 	return nil
