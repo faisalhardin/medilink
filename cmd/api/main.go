@@ -189,6 +189,8 @@ func main() {
 		InstitutionRepo: institutionDB,
 		Transaction:     transaction,
 		JourneyDB:       customerJourneyDB,
+		AnamnesaDB:      anamnesaDB,
+		DiagnosisDB:     diagnosisDB,
 	})
 
 	// Create session repository

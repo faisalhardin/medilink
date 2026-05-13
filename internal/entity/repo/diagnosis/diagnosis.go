@@ -15,6 +15,10 @@ type DiagnosisDB interface {
 	// non-soft-deleted diagnosis for the visit. Uses the slave DB (read path).
 	GetActiveByVisitID(ctx context.Context, institutionID, visitID int64) ([]model.TrxDiagnosisWithDoctor, error)
 
+	// GetActiveByVisitIDs returns non-soft-deleted diagnoses for any of the given
+	// visits, ordered by visit_id then created_at. Empty visitIDs yields empty slice.
+	GetActiveByVisitIDs(ctx context.Context, institutionID int64, visitIDs []int64) ([]model.TrxDiagnosisWithDoctor, error)
+
 	// SoftDeleteByIDs marks the given ids as deleted_at = NOW() for this visit.
 	// Must be called within a transaction; the caller asserts id ownership by
 	// scoping on (institution_id, visit_id).

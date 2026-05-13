@@ -2,7 +2,7 @@ package anamnesa
 
 import (
 	"context"
-	"fmt"
+	"strings"
 
 	"github.com/faisalhardin/medilink/internal/entity/model"
 	anamnesarepo "github.com/faisalhardin/medilink/internal/entity/repo/anamnesa"
@@ -13,11 +13,12 @@ import (
 )
 
 const (
-	WrapErrMsgPrefix          = "AnamnesaDB."
-	WrapMsgGetByVisit         = WrapErrMsgPrefix + "GetByVisitID"
-	WrapMsgGetDetailedByVisit = WrapErrMsgPrefix + "GetDetailedByVisitID"
-	WrapMsgUpsert             = WrapErrMsgPrefix + "Upsert"
-	WrapMsgGenerateUUID       = WrapErrMsgPrefix + "GenerateUUID"
+	WrapErrMsgPrefix             = "AnamnesaDB."
+	WrapMsgGetByVisit            = WrapErrMsgPrefix + "GetByVisitID"
+	WrapMsgGetDetailedByVisit    = WrapErrMsgPrefix + "GetDetailedByVisitID"
+	WrapMsgGetDetailedByVisitIDs = WrapErrMsgPrefix + "GetDetailedByVisitIDs"
+	WrapMsgUpsert                = WrapErrMsgPrefix + "Upsert"
+	WrapMsgGenerateUUID          = WrapErrMsgPrefix + "GenerateUUID"
 )
 
 type Conn struct {
@@ -85,8 +86,44 @@ func (c *Conn) GetDetailedByVisitID(ctx context.Context, institutionID, visitID 
 		return nil, false, nil
 	}
 
-	fmt.Println("row", row)
 	return row, true, nil
+}
+
+// GetDetailedByVisitIDs loads anamnesa rows with practitioner names for many visits.
+func (c *Conn) GetDetailedByVisitIDs(ctx context.Context, institutionID int64, visitIDs []int64) ([]model.TrxAnamnesaDetailRow, error) {
+	if len(visitIDs) == 0 {
+		return nil, nil
+	}
+
+	args := make([]interface{}, 0, len(visitIDs)+1)
+	args = append(args, institutionID)
+	for _, id := range visitIDs {
+		args = append(args, id)
+	}
+	placeholders := strings.TrimRight(strings.Repeat("?,", len(visitIDs)), ",")
+	sql := `
+		SELECT a.*,
+			md.name AS doctor_name,
+			mn.name AS nurse_name
+		FROM mdl_trx_anamnesa a
+		LEFT JOIN mdl_mst_doctor md
+			ON md.id = a.doctor_id
+			AND md.institution_id = a.institution_id
+			AND md.active = TRUE
+		LEFT JOIN mdl_mst_nurse mn
+			ON mn.id = a.nurse_id
+			AND mn.institution_id = a.institution_id
+			AND mn.active = TRUE
+		WHERE a.institution_id = ?
+		  AND a.visit_id IN (` + placeholders + `)
+	`
+
+	var rows []model.TrxAnamnesaDetailRow
+	err := c.DB.SlaveDB.Context(ctx).SQL(sql, args...).Find(&rows)
+	if err != nil {
+		return nil, errors.Wrap(err, WrapMsgGetDetailedByVisitIDs)
+	}
+	return rows, nil
 }
 
 // Upsert inserts or overwrites the anamnesa row keyed by (institution_id, visit_id).

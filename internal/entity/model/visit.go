@@ -167,6 +167,21 @@ type GetPatientVisitDetailResponse struct {
 	JourneyPoint    MstJourneyPoint              `json:"journey_point"`
 	ServicePoint    MstServicePoint              `json:"service_point"`
 	Products        []TrxVisitProduct            `json:"products"`
+	Anamnesa        null.JSON                    `json:"anamnesa"`
+	Diagnoses       []DiagnosisResponse          `json:"diagnoses"`
+}
+
+// AnamnesaDetailedToNullJSON encodes an optional anamnesa payload for APIs that
+// avoid pointer fields on response DTOs. A nil input yields JSON null on the wire.
+func AnamnesaDetailedToNullJSON(a *AnamnesaDetailedResponse) (null.JSON, error) {
+	if a == nil {
+		return null.JSON{}, nil
+	}
+	b, err := json.Marshal(a)
+	if err != nil {
+		return null.JSON{}, err
+	}
+	return null.NewJSON(b, true), nil
 }
 
 type ArchivePatientVisitRequest struct {

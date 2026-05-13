@@ -19,6 +19,10 @@ type AnamnesaDB interface {
 	// via LEFT JOIN to mdl_mst_doctor / mdl_mst_nurse (active rows in the same institution).
 	GetDetailedByVisitID(ctx context.Context, institutionID, visitID int64) (*model.TrxAnamnesaDetailRow, bool, error)
 
+	// GetDetailedByVisitIDs loads anamnesa rows with doctor/nurse names for the
+	// given visits. Empty visitIDs yields empty slice.
+	GetDetailedByVisitIDs(ctx context.Context, institutionID int64, visitIDs []int64) ([]model.TrxAnamnesaDetailRow, error)
+
 	// Upsert inserts a new row or overwrites the existing one (matched by the
 	// unique index). Derived fields (vs_map, vs_bmi, vs_bmi_result) are expected
 	// to be pre-computed by the usecase layer per BACKEND_SPEC §6.
