@@ -12,9 +12,10 @@ import (
 )
 
 const (
-	WrapErrMsgPrefix  = "DiagnosisDB."
-	WrapMsgGetActive  = WrapErrMsgPrefix + "GetActiveByVisitID"
-	WrapMsgSoftDelIDs = WrapErrMsgPrefix + "SoftDeleteByIDs"
+	WrapErrMsgPrefix           = "DiagnosisDB."
+	WrapMsgGetActive           = WrapErrMsgPrefix + "GetActiveByVisitID"
+	WrapMsgGetActiveByVisitIDs = WrapErrMsgPrefix + "GetActiveByVisitIDs"
+	WrapMsgSoftDelIDs          = WrapErrMsgPrefix + "SoftDeleteByIDs"
 	WrapMsgSoftDelOne = WrapErrMsgPrefix + "SoftDeleteByID"
 	WrapMsgBulkInsert = WrapErrMsgPrefix + "BulkInsert"
 	WrapMsgBulkUpdate = WrapErrMsgPrefix + "BulkUpdate"
@@ -64,6 +65,42 @@ func (c *Conn) GetActiveByVisitID(ctx context.Context, institutionID, visitID in
 	err := c.DB.SlaveDB.Context(ctx).SQL(sql, institutionID, visitID).Find(&rows)
 	if err != nil {
 		return nil, errors.Wrap(err, WrapMsgGetActive)
+	}
+	return rows, nil
+}
+
+// GetActiveByVisitIDs returns diagnoses for all given visits in one round-trip.
+func (c *Conn) GetActiveByVisitIDs(ctx context.Context, institutionID int64, visitIDs []int64) ([]model.TrxDiagnosisWithDoctor, error) {
+	if len(visitIDs) == 0 {
+		return nil, nil
+	}
+
+	args := make([]interface{}, 0, len(visitIDs)+1)
+	args = append(args, institutionID)
+	for _, id := range visitIDs {
+		args = append(args, id)
+	}
+	placeholders := strings.TrimRight(strings.Repeat("?,", len(visitIDs)), ",")
+	sql := `
+		SELECT
+			d.id, d.visit_id, d.institution_id, d.doctor_id,
+			d.icd10_code, d.icd10_display, d.rank,
+			d.type, d."case", d.clinical_status, d.verification_status,
+			d.prognosis, d.note, d.onset_date, d.satusehat_condition_id,
+			d.deleted_at, d.created_at, d.updated_at,
+			md.name AS doctor_name
+		FROM mdl_trx_diagnosis d
+		LEFT JOIN mdl_mst_doctor md ON md.id = d.doctor_id
+		WHERE d.institution_id = ?
+		  AND d.visit_id IN (` + placeholders + `)
+		  AND d.deleted_at IS NULL
+		ORDER BY d.visit_id, d.created_at ASC
+	`
+
+	var rows []model.TrxDiagnosisWithDoctor
+	err := c.DB.SlaveDB.Context(ctx).SQL(sql, args...).Find(&rows)
+	if err != nil {
+		return nil, errors.Wrap(err, WrapMsgGetActiveByVisitIDs)
 	}
 	return rows, nil
 }

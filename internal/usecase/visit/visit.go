@@ -9,6 +9,8 @@ import (
 
 	"github.com/faisalhardin/medilink/internal/entity/constant"
 	"github.com/faisalhardin/medilink/internal/entity/model"
+	anamnesarepo "github.com/faisalhardin/medilink/internal/entity/repo/anamnesa"
+	diagnosisrepo "github.com/faisalhardin/medilink/internal/entity/repo/diagnosis"
 	institutionRepo "github.com/faisalhardin/medilink/internal/entity/repo/institution"
 	journeyDB "github.com/faisalhardin/medilink/internal/entity/repo/journey"
 	patientRepo "github.com/faisalhardin/medilink/internal/entity/repo/patient"
@@ -43,6 +45,8 @@ type VisitUC struct {
 	InstitutionRepo institutionRepo.InstitutionDB
 	Transaction     xorm.DBTransactionInterface
 	JourneyDB       journeyDB.JourneyDB
+	AnamnesaDB      anamnesarepo.AnamnesaDB
+	DiagnosisDB     diagnosisrepo.DiagnosisDB
 }
 
 func NewVisitUC(u *VisitUC) *VisitUC {
@@ -180,6 +184,49 @@ func (u *VisitUC) GetPatientVisitDetail(ctx context.Context, req model.GetPatien
 		err = errors.Wrap(err, WrapMsgGetPatientVisits)
 		return
 	}
+
+	if visitDetail.ID == 0 {
+		return
+	}
+
+	instID, vid := userDetail.InstitutionID, visitDetail.ID
+
+	var anamnesaJSON null.JSON
+	var diagList []model.DiagnosisResponse
+
+	eg2, ctx2 := errgroup.WithContext(ctx)
+	eg2.Go(func() error {
+		row, ok, e := u.AnamnesaDB.GetDetailedByVisitID(ctx2, instID, vid)
+		if e != nil {
+			return errors.Wrap(e, WrapMsgGetPatientVisits)
+		}
+		if !ok || row == nil {
+			return nil
+		}
+		var encErr error
+		anamnesaJSON, encErr = model.AnamnesaDetailedToNullJSON(row.ToDetailedResponse())
+		if encErr != nil {
+			return errors.Wrap(encErr, WrapMsgGetPatientVisits)
+		}
+		return nil
+	})
+	eg2.Go(func() error {
+		rows, e := u.DiagnosisDB.GetActiveByVisitID(ctx2, instID, vid)
+		if e != nil {
+			return errors.Wrap(e, WrapMsgGetPatientVisits)
+		}
+		diagList = make([]model.DiagnosisResponse, len(rows))
+		for i := range rows {
+			diagList[i] = rows[i].ToResponse()
+		}
+		return nil
+	})
+	if err = eg2.Wait(); err != nil {
+		return
+	}
+
+	visitDetail.Anamnesa = anamnesaJSON
+	visitDetail.Diagnoses = diagList
 
 	return
 }
