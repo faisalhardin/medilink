@@ -26,6 +26,7 @@ func RegisterRoutes(m *module) http.Handler {
 				institution.Get("/", m.httpHandler.InstitutionHandler.GetUserInstitution)
 				institution.Route("/product", func(product chi.Router) {
 					product.Get("/", m.httpHandler.InstitutionHandler.FindInstitutionProducts)
+					product.Get("/statistics", m.httpHandler.InstitutionHandler.GetProductStatistics)
 					product.Post("/", m.httpHandler.InstitutionHandler.InsertInstitutionProduct)
 					product.Patch("/", m.httpHandler.InstitutionHandler.UpdateInstitutionProduct)
 					product.Post("/resupply", m.httpHandler.InstitutionHandler.UpdateInstitutionProductStock)

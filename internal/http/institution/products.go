@@ -82,3 +82,22 @@ func (h *InstitutionHandler) UpdateInstitutionProductStock(w http.ResponseWriter
 
 	commonwriter.SetOKWithData(ctx, w, "ok")
 }
+
+func (h *InstitutionHandler) GetProductStatistics(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	request := model.ProductStatisticsParams{}
+	err := bindingBind(r, &request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	result, err := h.InstitutionUC.GetProductStatistics(ctx, request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, result)
+}

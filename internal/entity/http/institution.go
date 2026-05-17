@@ -11,4 +11,5 @@ type InstitutionHandler interface {
 	InsertInstitutionProduct(w http.ResponseWriter, r *http.Request)
 	UpdateInstitutionProduct(w http.ResponseWriter, r *http.Request)
 	UpdateInstitutionProductStock(w http.ResponseWriter, r *http.Request)
+	GetProductStatistics(w http.ResponseWriter, r *http.Request)
 }
