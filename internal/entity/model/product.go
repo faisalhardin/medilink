@@ -3,6 +3,7 @@ package model
 import (
 	"time"
 
+	customtime "github.com/faisalhardin/medilink/pkg/type/time"
 	"github.com/volatiletech/null/v8"
 )
 
@@ -160,4 +161,81 @@ type UpdateTrxVisitProductRequest struct {
 
 type DeleteTrxVisitProductRequest struct {
 	ID int64 `json:"id"`
+}
+
+const (
+	ProductStatisticsGranularityHour = "hour"
+	ProductStatisticsGranularityDay  = "day"
+	ProductStatisticsGranularityWeek = "week"
+)
+
+// ProductStatisticsParams is bound from GET query parameters.
+type ProductStatisticsParams struct {
+	StartTime   customtime.Time `schema:"start_time" validate:"required"`
+	EndTime     customtime.Time `schema:"end_time" validate:"required"`
+	Granularity string          `schema:"granularity"`
+	ProductID   int64           `schema:"product_id"`
+}
+
+// ProductStatisticsQuery is the validated, institution-scoped query passed to the repo.
+type ProductStatisticsQuery struct {
+	IDMstInstitution        int64
+	StartTime               time.Time
+	EndTime                 time.Time
+	Granularity             string
+	IDTrxInstitutionProduct int64
+}
+
+// ProductStatisticsRow is one grouped row returned from the database.
+type ProductStatisticsRow struct {
+	PeriodStart             time.Time `xorm:"period_start"`
+	IDTrxInstitutionProduct int64     `xorm:"id_trx_institution_product"`
+	Name                    string    `xorm:"name"`
+	TotalQuantity           int64     `xorm:"total_quantity"`
+	TotalRevenue            float64   `xorm:"total_revenue"`
+	AvgUnitPrice            float64   `xorm:"avg_unit_price"`
+}
+
+type ProductStatisticsPeriod struct {
+	Start string `json:"start"`
+	End   string `json:"end"`
+}
+
+type ProductStatisticsProductItem struct {
+	ProductID     int64   `json:"product_id"`
+	Name          string  `json:"name"`
+	UnitPrice     float64 `json:"unit_price"`
+	TotalQuantity int64   `json:"total_quantity"`
+	TotalRevenue  float64 `json:"total_revenue"`
+}
+
+type ProductStatisticsBucket struct {
+	PeriodStart   string                         `json:"period_start"`
+	PeriodEnd     string                         `json:"period_end"`
+	TotalRevenue  float64                        `json:"total_revenue"`
+	TotalQuantity int64                          `json:"total_quantity"`
+	Products      []ProductStatisticsProductItem `json:"products"`
+}
+
+type ProductStatisticsSummaryItem struct {
+	ProductID     int64   `json:"product_id"`
+	Name          string  `json:"name"`
+	UnitPrice     float64 `json:"unit_price"`
+	TotalQuantity int64   `json:"total_quantity"`
+	TotalRevenue  float64 `json:"total_revenue"`
+}
+
+type ProductStatisticsSummary struct {
+	TotalRevenue          float64                        `json:"total_revenue"`
+	TotalQuantity         int64                          `json:"total_quantity"`
+	TopProductsByRevenue  []ProductStatisticsSummaryItem `json:"top_products_by_revenue"`
+	TopProductsByQuantity []ProductStatisticsSummaryItem `json:"top_products_by_quantity"`
+}
+
+type ProductStatisticsResponse struct {
+	Period      ProductStatisticsPeriod   `json:"period"`
+	Granularity string                    `json:"granularity"`
+	UTCOffset   string                    `json:"utc_offset"`
+	Buckets     []ProductStatisticsBucket `json:"buckets"`
+	Summary     ProductStatisticsSummary  `json:"summary"`
 }

@@ -19,4 +19,5 @@ type InstitutionDB interface {
 	UpdateDtlInstitutionProductStock(ctx context.Context, request *model.DtlInstitutionProductStock) (err error)
 	UpdateDtlInstitutionProduct(ctx context.Context, request *model.DtlInstitutionProductStock) (err error)
 	RestockDtlInstitutionProductStock(ctx context.Context, request *model.DtlInstitutionProductStock) (err error)
+	GetProductStatistics(ctx context.Context, query model.ProductStatisticsQuery) (rows []model.ProductStatisticsRow, err error)
 }

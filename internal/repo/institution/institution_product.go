@@ -17,6 +17,7 @@ const (
 	WrapMsgInsertInstitutionProduct          = WrapErrMsgPrefix + "InsertInstitutionProduct"
 	WrapMsgUpdateTrxInstitutionProduct       = WrapErrMsgPrefix + "UpdateTrxInstitutionProduct"
 	WrapMsgFindTrxInstitutionProductByParams = WrapErrMsgPrefix + "FindTrxInstitutionProductByParams"
+	WrapMsgGetProductStatistics              = WrapErrMsgPrefix + "GetProductStatistics"
 )
 
 func (c *Conn) InsertInstitutionProduct(ctx context.Context, product *model.TrxInstitutionProduct) (err error) {
@@ -100,6 +101,59 @@ func (c *Conn) UpdateTrxInstitutionProduct(ctx context.Context, request *model.U
 		Update(trxProduct)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgUpdateTrxInstitutionProduct)
+		return
+	}
+
+	return
+}
+
+func (c *Conn) GetProductStatistics(ctx context.Context, query model.ProductStatisticsQuery) (rows []model.ProductStatisticsRow, err error) {
+	if query.IDMstInstitution == 0 {
+		err = commonerr.SetNewNoInstitutionError()
+		return
+	}
+
+	_, offsetSec := query.StartTime.Zone()
+
+	sql := `
+		SELECT
+			date_trunc('` + query.Granularity + `', (vp.create_time AT TIME ZONE 'UTC') + (? * interval '1 second')) AS period_start,
+			vp.id_trx_institution_product,
+			vp.name,
+			COALESCE(SUM(vp.quantity), 0)::bigint AS total_quantity,
+			COALESCE(SUM(vp.total_price), 0) AS total_revenue,
+			CASE
+				WHEN COALESCE(SUM(vp.quantity), 0) > 0
+				THEN COALESCE(SUM(vp.total_price), 0) / SUM(vp.quantity)
+				ELSE 0
+			END AS avg_unit_price
+		FROM ` + model.TrxVisitProductTableName + ` vp
+		WHERE vp.id_mst_institution = ?
+		  AND vp.create_time >= ?
+		  AND vp.create_time <= ?
+		  AND vp.delete_time IS NULL
+	`
+
+	args := []interface{}{
+		offsetSec,
+		query.IDMstInstitution,
+		query.StartTime.UTC(),
+		query.EndTime.UTC(),
+	}
+
+	if query.IDTrxInstitutionProduct > 0 {
+		sql += ` AND vp.id_trx_institution_product = ?`
+		args = append(args, query.IDTrxInstitutionProduct)
+	}
+
+	sql += `
+		GROUP BY period_start, vp.id_trx_institution_product, vp.name
+		ORDER BY period_start ASC, vp.name ASC
+	`
+
+	err = c.DB.SlaveDB.Context(ctx).SQL(sql, args...).Find(&rows)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgGetProductStatistics)
 		return
 	}
 
