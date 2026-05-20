@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/faisalhardin/medilink/internal/entity/constant"
@@ -137,16 +136,12 @@ func (u *VisitUC) GetPatientVisitDetail(ctx context.Context, req model.GetPatien
 
 	req.IDMstInstitution = userDetail.InstitutionID
 
-	errGroup, ctxWithCancel := errgroup.WithContext(ctx)
-	var wg sync.WaitGroup
-	wg.Add(2)
+	g, ctxWithCancel := errgroup.WithContext(ctx)
 
-	errGroup.Go(func() error {
-		defer wg.Done()
+	g.Go(func() error {
 		visit, err := u.PatientDB.GetPatientVisits(ctxWithCancel, req)
 		if err != nil {
-			err = errors.Wrap(err, WrapMsgGetPatientVisits)
-			return err
+			return errors.Wrap(err, WrapMsgGetPatientVisits)
 		}
 
 		if len(visit) == 0 {
@@ -162,25 +157,31 @@ func (u *VisitUC) GetPatientVisitDetail(ctx context.Context, req model.GetPatien
 		return nil
 	})
 
-	errGroup.Go(func() error {
-		defer wg.Done()
+	g.Go(func() error {
 		dtlVisit, err := u.PatientDB.GetDtlPatientVisit(ctxWithCancel, model.GetDtlPatientVisitParams{
 			IDsTrxPatientVisit: []int64{req.IDPatientVisit},
 		})
 		if err != nil {
-			err = errors.Wrap(err, WrapMsgGetPatientVisits)
-			return err
+			return errors.Wrap(err, WrapMsgGetPatientVisits)
 		}
 		visitDetail.DtlPatientVisit = dtlVisit
 		return nil
 	})
 
-	errGroup.Go(func() error {
-		wg.Wait()
+	g.Go(func() error {
+		products, err := u.PatientDB.GetTrxVisitProduct(ctxWithCancel, model.GetVisitProductRequest{
+			VisitIDs:      []int64{req.IDPatientVisit},
+			InstitutionID: userDetail.InstitutionID,
+		})
+		if err != nil {
+			return errors.Wrap(err, WrapMsgGetPatientVisits)
+		}
+		fmt.Println("products", products, "visitID", req.IDPatientVisit)
+		visitDetail.Products = products
 		return nil
 	})
 
-	if err = errGroup.Wait(); err != nil {
+	if err = g.Wait(); err != nil {
 		err = errors.Wrap(err, WrapMsgGetPatientVisits)
 		return
 	}
