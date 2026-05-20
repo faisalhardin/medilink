@@ -176,7 +176,6 @@ func (u *VisitUC) GetPatientVisitDetail(ctx context.Context, req model.GetPatien
 		if err != nil {
 			return errors.Wrap(err, WrapMsgGetPatientVisits)
 		}
-		fmt.Println("products", products, "visitID", req.IDPatientVisit)
 		visitDetail.Products = products
 		return nil
 	})
