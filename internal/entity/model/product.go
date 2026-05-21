@@ -55,6 +55,8 @@ type TrxVisitProduct struct {
 	DiscountPrice           float64    `xorm:"'discount_price'" json:"discount_price"`
 	TotalPrice              float64    `xorm:"'total_price'" json:"total_price"`
 	AdjustedPrice           float64    `xorm:"adjusted_price" json:"adjusted_price"`
+	IDMstStaffCreatedBy     int64      `xorm:"'id_mst_staff_created_by'" json:"staff_created_by"`
+	IDMstStaffUpdatedBy     int64      `xorm:"'id_mst_staff_updated_by'" json:"staff_updated_by"`
 	CreateTime              time.Time  `json:"-" xorm:"'create_time' created"`
 	UpdateTime              time.Time  `json:"-" xorm:"'update_time' updated"`
 	DeleteTime              *time.Time `json:"-" xorm:"'delete_time' deleted"`
