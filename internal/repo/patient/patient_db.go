@@ -476,6 +476,7 @@ func (c *Conn) UpdateTrxVisitProduct(ctx context.Context, request *model.TrxVisi
 		Table(model.TrxVisitProductTableName).
 		ID(request.ID).
 		Where("id_mst_institution = ?", request.IDMstInstitution).
+		Omit("id_mst_staff_created_by").
 		Update(request)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgUpdateTrxVisitProduct)

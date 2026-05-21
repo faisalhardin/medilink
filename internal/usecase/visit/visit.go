@@ -665,6 +665,8 @@ func (u *VisitUC) InsertVisitProduct(ctx context.Context, req model.InsertTrxVis
 			IDMstInstitution:        userDetail.InstitutionID,
 			IDTrxPatientVisit:       dtlPatientVisit[0].DtlPatientVisit.IDTrxPatientVisit,
 			IDDtlPatientVisit:       req.IDTrxPatientVisit,
+			IDMstStaffCreatedBy:     userDetail.UserID,
+			IDMstStaffUpdatedBy:     userDetail.UserID,
 			Quantity:                quantity,
 			UnitType:                productItem.UnitType,
 			Price:                   productItem.Price,
@@ -732,6 +734,8 @@ func (u *VisitUC) UpsertVisitProduct(ctx context.Context, req model.UpsertTrxVis
 				IDTrxPatientVisit:       req.IDTrxPatientVisit,
 				Name:                    productStock.Name,
 				IDDtlPatientVisit:       req.IDDtlPatientVisit,
+				IDMstStaffCreatedBy:     userDetail.UserID,
+				IDMstStaffUpdatedBy:     userDetail.UserID,
 				UnitType:                productStock.UnitType,
 				Price:                   productStock.Price,
 				DiscountRate:            requestedProduct.DiscountRate,
@@ -740,7 +744,8 @@ func (u *VisitUC) UpsertVisitProduct(ctx context.Context, req model.UpsertTrxVis
 				AdjustedPrice:           requestedProduct.AdjustedPrice,
 			},
 				productStock,
-				requestedProduct)
+				requestedProduct,
+				userDetail.UserID)
 			if err != nil {
 				return
 			}
@@ -754,7 +759,8 @@ func (u *VisitUC) UpsertVisitProduct(ctx context.Context, req model.UpsertTrxVis
 				ctx,
 				orderedProduct,
 				productStock,
-				requestedProduct)
+				requestedProduct,
+				userDetail.UserID)
 			if err != nil {
 				return
 			}
@@ -801,7 +807,9 @@ func (u *VisitUC) voidOrder(ctx context.Context,
 func (u *VisitUC) orderProduct(ctx context.Context,
 	existingProduct model.TrxVisitProduct,
 	productStock model.GetInstitutionProductResponse,
-	productRequest model.PurchasedProduct) (err error) {
+	productRequest model.PurchasedProduct,
+	staffID int64,
+) (err error) {
 
 	quantityDifference := existingProduct.Quantity - productRequest.Quantity
 
@@ -830,6 +838,12 @@ func (u *VisitUC) orderProduct(ctx context.Context,
 	decimalPrice := decimal.NewFromFloat(productStock.Price)
 
 	existingProduct.TotalPrice = decimal.NewFromInt(int64(existingProduct.Quantity)).Mul(decimalPrice).InexactFloat64()
+	if existingProduct.ID > 0 {
+		existingProduct.IDMstStaffUpdatedBy = staffID
+	} else {
+		existingProduct.IDMstStaffCreatedBy = staffID
+		existingProduct.IDMstStaffUpdatedBy = staffID
+	}
 	err = u.PatientDB.UpsertTrxVisitProduct(ctx, &existingProduct)
 	if err != nil {
 		return errors.Wrap(err, "orderNewProductForVisit")
