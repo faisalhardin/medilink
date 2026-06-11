@@ -27,6 +27,7 @@ import (
 	custjourneyrepo "github.com/faisalhardin/medilink/internal/repo/journey/customerjourney"
 	odontogramrepo "github.com/faisalhardin/medilink/internal/repo/odontogram"
 	patientrepo "github.com/faisalhardin/medilink/internal/repo/patient"
+	permissionrepo "github.com/faisalhardin/medilink/internal/repo/permission"
 	practitionerrepo "github.com/faisalhardin/medilink/internal/repo/practitioner"
 	productrepo "github.com/faisalhardin/medilink/internal/repo/product"
 	recallrepo "github.com/faisalhardin/medilink/internal/repo/recall"
@@ -137,6 +138,8 @@ func main() {
 		DB: db,
 	})
 
+	permissionDB := permissionrepo.NewPermissionDB(db)
+
 	authRepo, err := auth.New(&auth.Options{
 		Cfg:     cfg,
 		Storage: inMemoryCaching,
@@ -197,11 +200,12 @@ func main() {
 	sessionRepo := auth.NewSessionRepository(db)
 
 	authUC := authUC.New(&authUC.AuthUC{
-		Cfg:         *cfg,
-		AuthRepo:    *authRepo,
-		SessionRepo: sessionRepo,
-		StaffRepo:   staffDB,
-		JourneyRepo: journeyDB,
+		Cfg:            *cfg,
+		AuthRepo:       *authRepo,
+		SessionRepo:    sessionRepo,
+		StaffRepo:      staffDB,
+		JourneyRepo:    journeyDB,
+		PermissionRepo: permissionDB,
 	})
 
 	productUC := productuc.NewProductUC(&productuc.ProductUC{
