@@ -12,4 +12,5 @@ type Handlers struct {
 	PractitionerHandler PractitionerHandler
 	DiagnosisHandler    DiagnosisHandler
 	AnamnesaHandler     AnamnesaHandler
+	StaffHandler        StaffHandler
 }

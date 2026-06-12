@@ -103,6 +103,23 @@ func RegisterRoutes(m *module) http.Handler {
 				odontogram.Get("/", m.httpHandler.OdontogramHandler.GetSnapshot)
 			})
 
+			authed.Route("/staff", func(staff chi.Router) {
+				staff.With(m.middlewareModule.RequirePermission(permconst.StaffRead)).
+					Get("/", m.httpHandler.StaffHandler.ListStaff)
+				staff.With(m.middlewareModule.RequirePermission(permconst.StaffRead)).
+					Get("/{uuid}", m.httpHandler.StaffHandler.GetStaff)
+				staff.With(m.middlewareModule.RequirePermission(permconst.StaffCreate)).
+					Post("/", m.httpHandler.StaffHandler.CreateStaff)
+				staff.With(m.middlewareModule.RequirePermission(permconst.StaffRoleAssign)).
+					Post("/role/assign", m.httpHandler.StaffHandler.AssignRole)
+				staff.With(m.middlewareModule.RequirePermission(permconst.StaffRoleAssign)).
+					Delete("/role/unassign", m.httpHandler.StaffHandler.UnassignRole)
+				staff.With(m.middlewareModule.RequirePermission(permconst.StaffDelete)).
+					Patch("/{uuid}/deactivate", m.httpHandler.StaffHandler.DeactivateStaff)
+				staff.With(m.middlewareModule.RequirePermission(permconst.StaffDelete)).
+					Patch("/{uuid}/activate", m.httpHandler.StaffHandler.ActivateStaff)
+			})
+
 			// Recall: doctor reminder for next scheduled control or appointment
 			authed.Route("/recall", func(recall chi.Router) {
 				recall.Post("/", m.httpHandler.RecallHandler.CreateRecall)

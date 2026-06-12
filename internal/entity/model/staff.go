@@ -5,11 +5,11 @@ import (
 )
 
 const (
-	MST_STAFF_TABLE       = "mdl_mst_staff"
-	MST_ROLE_TABLE        = "mdl_mst_role"
-	MAP_ROLE_STAFF        = "mdl_map_role_staff"
-	MST_PERMISSION_TABLE  = "mdl_mst_permission"
-	MAP_ROLE_PERMISSION   = "mdl_map_role_permission"
+	MST_STAFF_TABLE      = "mdl_mst_staff"
+	MST_ROLE_TABLE       = "mdl_mst_role"
+	MAP_ROLE_STAFF       = "mdl_map_role_staff"
+	MST_PERMISSION_TABLE = "mdl_mst_permission"
+	MAP_ROLE_PERMISSION  = "mdl_map_role_permission"
 )
 
 type MstStaff struct {
@@ -162,6 +162,57 @@ func (p *UserJWTPayload) EnsureAuthSets() {
 			p.PermissionsSet[code] = true
 		}
 	}
+}
+
+type ListStaffParams struct {
+	IncludeInactive bool `schema:"include_inactive"`
+}
+
+type CreateStaffRequest struct {
+	Name    string  `json:"name" validate:"required"`
+	Email   string  `json:"email" validate:"required,email"`
+	RoleIDs []int64 `json:"role_ids" validate:"required,min=1,dive,gt=0"`
+}
+
+type UpdateStaffRequest struct {
+	UUID string `json:"uuid" validate:"required"`
+	Name string `json:"name" validate:"required"`
+}
+
+type AssignRoleRequest struct {
+	StaffUUID string `json:"staff_uuid" validate:"required"`
+	RoleID    int64  `json:"role_id" validate:"required"`
+}
+
+type UnassignRoleRequest struct {
+	StaffUUID string `json:"staff_uuid" validate:"required"`
+	RoleID    int64  `json:"role_id" validate:"required"`
+}
+
+type StaffStatusRequest struct {
+	UUID string `json:"uuid" validate:"required"`
+}
+
+type StaffRoleResponse struct {
+	RoleID int64  `json:"role_id"`
+	Name   string `json:"name"`
+}
+
+type StaffWithRolesResponse struct {
+	UUID            string              `json:"uuid"`
+	Name            string              `json:"name"`
+	Email           string              `json:"email"`
+	InstitutionID   int64               `json:"institution_id"`
+	InstitutionName string              `json:"institution_name"`
+	Roles           []StaffRoleResponse `json:"roles"`
+	IsActive        bool                `json:"is_active"`
+	CreatedAt       time.Time           `json:"created_at"`
+	UpdatedAt       time.Time           `json:"updated_at"`
+}
+
+type ListStaffResponse struct {
+	Staff []StaffWithRolesResponse `json:"staff"`
+	Total int                      `json:"total"`
 }
 
 func RoleNamesFromUserDetail(userDetail UserDetail) []string {

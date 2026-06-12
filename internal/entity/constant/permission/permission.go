@@ -67,3 +67,12 @@ const (
 const (
 	ReferenceSearch = "reference.search"
 )
+
+// Staff permissions
+const (
+	StaffRead       = "staff.read"
+	StaffCreate     = "staff.create"
+	StaffUpdate     = "staff.update"
+	StaffDelete     = "staff.delete"
+	StaffRoleAssign = "staff.role.assign"
+)

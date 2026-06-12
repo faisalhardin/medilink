@@ -33,6 +33,7 @@ import (
 	recallrepo "github.com/faisalhardin/medilink/internal/repo/recall"
 	satusehatqueuerepo "github.com/faisalhardin/medilink/internal/repo/satusehat"
 	staffrepo "github.com/faisalhardin/medilink/internal/repo/staff"
+	staffuc "github.com/faisalhardin/medilink/internal/usecase/staff"
 
 	anamnesauc "github.com/faisalhardin/medilink/internal/usecase/anamnesa"
 	authCleanup "github.com/faisalhardin/medilink/internal/usecase/auth"
@@ -59,6 +60,7 @@ import (
 	practitionerhandler "github.com/faisalhardin/medilink/internal/http/practitioner"
 	producthandler "github.com/faisalhardin/medilink/internal/http/product"
 	recallhandler "github.com/faisalhardin/medilink/internal/http/recall"
+	staffhandler "github.com/faisalhardin/medilink/internal/http/staff"
 
 	mwmodule "github.com/faisalhardin/medilink/internal/library/middlewares/auth"
 	"github.com/faisalhardin/medilink/internal/server"
@@ -137,6 +139,7 @@ func main() {
 	staffDB := staffrepo.New(staffrepo.Conn{
 		DB: db,
 	})
+	staffManagementDB := staffrepo.NewStaffDB(&staffDB)
 
 	permissionDB := permissionrepo.NewPermissionDB(db)
 
@@ -253,6 +256,11 @@ func main() {
 		Transaction:    transaction,
 	})
 
+	staffManagementUC := staffuc.NewStaffUC(&staffuc.StaffUC{
+		StaffDB:     staffManagementDB,
+		Transaction: transaction,
+	})
+
 	// usecase block end
 
 	// httphandler block start
@@ -306,6 +314,10 @@ func main() {
 	anamnesaHandler := anamnesahandler.New(&anamnesahandler.AnamnesaHandler{
 		AnamnesaUC: anamnesaUC,
 	})
+
+	staffHandler := staffhandler.New(&staffhandler.StaffHandler{
+		StaffUC: staffManagementUC,
+	})
 	// httphandler block end
 
 	// module block start
@@ -328,6 +340,7 @@ func main() {
 			PractitionerHandler: practitionerHandler,
 			DiagnosisHandler:    diagnosisHandler,
 			AnamnesaHandler:     anamnesaHandler,
+			StaffHandler:        staffHandler,
 		},
 		middlewareModule,
 	)
