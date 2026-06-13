@@ -151,12 +151,10 @@ func (c *Conn) InsertStaff(ctx context.Context, staff *model.MstStaff) error {
 }
 
 func (c *Conn) DeactivateStaff(ctx context.Context, institutionID int64, uuid string) error {
-	now := time.Now()
 	affected, err := c.writeSession(ctx).
 		Table(model.MST_STAFF_TABLE).
 		Where("uuid = ? AND id_mst_institution = ? AND delete_time IS NULL", uuid, institutionID).
-		Cols("delete_time", "update_time").
-		Update(&model.MstStaff{DeleteTime: &now})
+		Delete(&model.MstStaff{})
 	if err != nil {
 		return errors.Wrap(err, wrapMsgDeactivateStaff)
 	}
