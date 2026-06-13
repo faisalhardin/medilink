@@ -2,12 +2,15 @@ package auth
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 
 	"github.com/faisalhardin/medilink/internal/config"
+	roleconst "github.com/faisalhardin/medilink/internal/entity/constant/role"
 	"github.com/faisalhardin/medilink/internal/entity/model"
 	authuc "github.com/faisalhardin/medilink/internal/entity/usecase/auth"
+	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
 	commonwriter "github.com/faisalhardin/medilink/internal/library/common/writer"
 	authusecase "github.com/faisalhardin/medilink/internal/usecase/auth"
 	"github.com/go-chi/cors"
@@ -85,6 +88,68 @@ func (m *Module) AuthHandler(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 
 	})
+}
+
+func (m *Module) RequirePermission(requiredPermission string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
+			userDetail, found := GetUserDetailFromCtx(ctx)
+			if !found {
+				handleError(ctx, w, r, commonerr.SetNewUnauthorizedAPICall())
+				return
+			}
+
+			userDetail.EnsureAuthSets()
+			if userDetail.RolesIDSet[roleconst.Administrator] {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			if !userDetail.PermissionsSet[requiredPermission] {
+				handleError(ctx, w, r, commonerr.SetNewError(
+					http.StatusForbidden,
+					"insufficient_permissions",
+					fmt.Sprintf("User does not have required permission: %s", requiredPermission),
+				))
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func (m *Module) RequireAnyPermission(permissions ...string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
+			userDetail, found := GetUserDetailFromCtx(ctx)
+			if !found {
+				handleError(ctx, w, r, commonerr.SetNewUnauthorizedAPICall())
+				return
+			}
+
+			userDetail.EnsureAuthSets()
+			if userDetail.RolesIDSet[roleconst.Administrator] {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			for _, perm := range permissions {
+				if userDetail.PermissionsSet[perm] {
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
+
+			handleError(ctx, w, r, commonerr.SetNewError(
+				http.StatusForbidden,
+				"insufficient_permissions",
+				"User does not have any of the required permissions",
+			))
+		})
+	}
 }
 
 func (m *Module) CorsHandler(next http.Handler) http.Handler {

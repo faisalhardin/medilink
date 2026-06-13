@@ -13,6 +13,7 @@ import (
 	"github.com/faisalhardin/medilink/internal/config"
 	"github.com/faisalhardin/medilink/internal/entity/model"
 	journeyRepo "github.com/faisalhardin/medilink/internal/entity/repo/journey"
+	permissionRepo "github.com/faisalhardin/medilink/internal/entity/repo/permission"
 	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
 	authRepo "github.com/faisalhardin/medilink/internal/repo/auth"
 	"github.com/faisalhardin/medilink/internal/repo/cache"
@@ -23,8 +24,9 @@ type AuthUC struct {
 	Cfg         config.Config
 	AuthRepo    authRepo.Options
 	SessionRepo *authRepo.SessionRepository
-	StaffRepo   staff.Conn
-	JourneyRepo journeyRepo.JourneyDB
+	StaffRepo      staff.Conn
+	JourneyRepo    journeyRepo.JourneyDB
+	PermissionRepo permissionRepo.PermissionDB
 
 	refreshTokenDurationInHours int
 	tokenDurationInMinutes      int
@@ -88,8 +90,13 @@ func (u *AuthUC) Login(w http.ResponseWriter, r *http.Request, params AuthParams
 	accessTokenExpiry := currTime.Add(time.Duration(u.tokenDurationInMinutes) * time.Minute)
 	refreshTokenExpiry := currTime.Add(time.Duration(u.refreshTokenDurationInHours) * time.Hour)
 
+	permissions, err := u.loadPermissionsForUser(ctx, userDetail)
+	if err != nil {
+		return
+	}
+
 	// Create JWT payload
-	jwtPayload := model.GenerateUserDataJWTInformation(userDetail, authedUser, journeyPoints, servicePoints)
+	jwtPayload := model.GenerateUserDataJWTInformation(userDetail, authedUser, journeyPoints, servicePoints, permissions)
 
 	sessionID, err := authRepo.GenerateSessionID()
 	if err != nil {
@@ -174,8 +181,13 @@ func (u *AuthUC) RefreshToken(ctx context.Context, req model.RefreshTokenRequest
 		return
 	}
 
+	permissions, err := u.loadPermissionsForUser(ctx, userDetail)
+	if err != nil {
+		return
+	}
+
 	// Create new JWT payload
-	jwtPayload := model.GenerateUserDataJWTInformation(userDetail, model.GoogleUser{}, journeyPoints, servicePoints)
+	jwtPayload := model.GenerateUserDataJWTInformation(userDetail, model.GoogleUser{}, journeyPoints, servicePoints, permissions)
 	newAccessToken, err := u.AuthRepo.CreateJWTToken(ctx, session.SessionKey, jwtPayload, currTime, newAccessTokenExpiry)
 	if err != nil {
 		return
@@ -266,6 +278,7 @@ func (u *AuthUC) HandleAuthMiddleware(ctx context.Context, token string) (ret mo
 	}
 
 	userDetail := claims.Payload
+	userDetail.EnsureAuthSets()
 
 	// 2. Validate session from database
 	session, err := u.ValidateSession(ctx, token, claims.ID)
@@ -356,7 +369,14 @@ func (u *AuthUC) ValidateUserFromSession(ctx context.Context, jwtPayload *model.
 func consolidateUserAuthWithSession(payload *model.UserJWTPayload, sessionDetail model.UserSessionDetail) {
 	payload.InstitutionID = sessionDetail.IdMstInstitution
 	payload.UserID = sessionDetail.UserID
-	return
+}
+
+func (u *AuthUC) loadPermissionsForUser(ctx context.Context, userDetail model.UserDetail) ([]model.MstPermission, error) {
+	if u.PermissionRepo == nil {
+		return []model.MstPermission{}, nil
+	}
+
+	return u.PermissionRepo.GetPermissionsByRoleNames(ctx, model.RoleNamesFromUserDetail(userDetail))
 }
 
 // getClientIP extracts the client IP address from the request

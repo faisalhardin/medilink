@@ -27,11 +27,13 @@ import (
 	custjourneyrepo "github.com/faisalhardin/medilink/internal/repo/journey/customerjourney"
 	odontogramrepo "github.com/faisalhardin/medilink/internal/repo/odontogram"
 	patientrepo "github.com/faisalhardin/medilink/internal/repo/patient"
+	permissionrepo "github.com/faisalhardin/medilink/internal/repo/permission"
 	practitionerrepo "github.com/faisalhardin/medilink/internal/repo/practitioner"
 	productrepo "github.com/faisalhardin/medilink/internal/repo/product"
 	recallrepo "github.com/faisalhardin/medilink/internal/repo/recall"
 	satusehatqueuerepo "github.com/faisalhardin/medilink/internal/repo/satusehat"
 	staffrepo "github.com/faisalhardin/medilink/internal/repo/staff"
+	staffuc "github.com/faisalhardin/medilink/internal/usecase/staff"
 
 	anamnesauc "github.com/faisalhardin/medilink/internal/usecase/anamnesa"
 	authCleanup "github.com/faisalhardin/medilink/internal/usecase/auth"
@@ -58,6 +60,7 @@ import (
 	practitionerhandler "github.com/faisalhardin/medilink/internal/http/practitioner"
 	producthandler "github.com/faisalhardin/medilink/internal/http/product"
 	recallhandler "github.com/faisalhardin/medilink/internal/http/recall"
+	staffhandler "github.com/faisalhardin/medilink/internal/http/staff"
 
 	mwmodule "github.com/faisalhardin/medilink/internal/library/middlewares/auth"
 	"github.com/faisalhardin/medilink/internal/server"
@@ -136,6 +139,9 @@ func main() {
 	staffDB := staffrepo.New(staffrepo.Conn{
 		DB: db,
 	})
+	staffManagementDB := staffrepo.NewStaffDB(&staffDB)
+
+	permissionDB := permissionrepo.NewPermissionDB(db)
 
 	authRepo, err := auth.New(&auth.Options{
 		Cfg:     cfg,
@@ -197,11 +203,12 @@ func main() {
 	sessionRepo := auth.NewSessionRepository(db)
 
 	authUC := authUC.New(&authUC.AuthUC{
-		Cfg:         *cfg,
-		AuthRepo:    *authRepo,
-		SessionRepo: sessionRepo,
-		StaffRepo:   staffDB,
-		JourneyRepo: journeyDB,
+		Cfg:            *cfg,
+		AuthRepo:       *authRepo,
+		SessionRepo:    sessionRepo,
+		StaffRepo:      staffDB,
+		JourneyRepo:    journeyDB,
+		PermissionRepo: permissionDB,
 	})
 
 	productUC := productuc.NewProductUC(&productuc.ProductUC{
@@ -247,6 +254,11 @@ func main() {
 		PatientDB:      patientDB,
 		PractitionerDB: practitionerDB,
 		Transaction:    transaction,
+	})
+
+	staffManagementUC := staffuc.NewStaffUC(&staffuc.StaffUC{
+		StaffDB:     staffManagementDB,
+		Transaction: transaction,
 	})
 
 	// usecase block end
@@ -302,6 +314,10 @@ func main() {
 	anamnesaHandler := anamnesahandler.New(&anamnesahandler.AnamnesaHandler{
 		AnamnesaUC: anamnesaUC,
 	})
+
+	staffHandler := staffhandler.New(&staffhandler.StaffHandler{
+		StaffUC: staffManagementUC,
+	})
 	// httphandler block end
 
 	// module block start
@@ -324,6 +340,7 @@ func main() {
 			PractitionerHandler: practitionerHandler,
 			DiagnosisHandler:    diagnosisHandler,
 			AnamnesaHandler:     anamnesaHandler,
+			StaffHandler:        staffHandler,
 		},
 		middlewareModule,
 	)

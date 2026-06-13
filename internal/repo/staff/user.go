@@ -2,6 +2,8 @@ package staff
 
 import (
 	"context"
+	"net/http"
+	"strings"
 
 	"github.com/faisalhardin/medilink/internal/entity/constant/database"
 	"github.com/faisalhardin/medilink/internal/entity/model"
@@ -61,6 +63,21 @@ func (c *Conn) GetUserByParams(ctx context.Context, params user.User) (resp user
 // WHERE ("mms"."email" = ?)
 // group by mms.id;
 func (c *Conn) GetUserDetailByEmail(ctx context.Context, email string) (staff model.UserDetail, err error) {
+	normalizedEmail := strings.ToLower(strings.TrimSpace(email))
+
+	activeCount, err := c.DB.SlaveDB.Context(ctx).
+		Table(model.MST_STAFF_TABLE).
+		Where("LOWER(email) = ? AND delete_time IS NULL", normalizedEmail).
+		Count()
+	if err != nil {
+		err = errors.Wrap(err, "GetUserDetailByEmail.CountByEmail")
+		return
+	}
+	if activeCount > 1 {
+		err = commonerr.SetNewError(http.StatusConflict, "duplicate_active_email", "multiple active staff accounts use this email; contact support")
+		return
+	}
+
 	session := c.DB.SlaveDB.Table("mdl_mst_staff").Alias("mms")
 
 	found, err := session.
@@ -68,7 +85,7 @@ func (c *Conn) GetUserDetailByEmail(ctx context.Context, email string) (staff mo
 		Join(database.SQLLeft, "mdl_mst_role mmr", "mmr.id = mmrs.id_mst_role and mmr.delete_time is null").
 		Join(database.SQLInner, "mdl_mst_institution mmi", "mmi.id = mms.id_mst_institution and mmi.delete_time is null").
 		Select("mms.*, mmi.name, jsonb_agg(json_build_object('role_id',mmr.role_id, 'name', mmr.name)) as roles").
-		Where("mms.email = ?", email).
+		Where("LOWER(mms.email) = ?", normalizedEmail).
 		GroupBy("mms.id, mmi.id").
 		Get(&staff)
 	if err != nil {

@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 
+	permconst "github.com/faisalhardin/medilink/internal/entity/constant/permission"
 	utilhandler "github.com/faisalhardin/medilink/internal/library/util/handler"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -26,7 +27,8 @@ func RegisterRoutes(m *module) http.Handler {
 				institution.Get("/", m.httpHandler.InstitutionHandler.GetUserInstitution)
 				institution.Route("/product", func(product chi.Router) {
 					product.Get("/", m.httpHandler.InstitutionHandler.FindInstitutionProducts)
-					product.Get("/statistics", m.httpHandler.InstitutionHandler.GetProductStatistics)
+					product.With(m.middlewareModule.RequirePermission(permconst.ProductStatistics)).
+						Get("/statistics", m.httpHandler.InstitutionHandler.GetProductStatistics)
 					product.Post("/", m.httpHandler.InstitutionHandler.InsertInstitutionProduct)
 					product.Patch("/", m.httpHandler.InstitutionHandler.UpdateInstitutionProduct)
 					product.Post("/resupply", m.httpHandler.InstitutionHandler.UpdateInstitutionProductStock)
@@ -101,6 +103,23 @@ func RegisterRoutes(m *module) http.Handler {
 				odontogram.Get("/", m.httpHandler.OdontogramHandler.GetSnapshot)
 			})
 
+			authed.Route("/staff", func(staff chi.Router) {
+				staff.With(m.middlewareModule.RequirePermission(permconst.StaffRead)).
+					Get("/", m.httpHandler.StaffHandler.ListStaff)
+				staff.With(m.middlewareModule.RequirePermission(permconst.StaffRead)).
+					Get("/{uuid}", m.httpHandler.StaffHandler.GetStaff)
+				staff.With(m.middlewareModule.RequirePermission(permconst.StaffCreate)).
+					Post("/", m.httpHandler.StaffHandler.CreateStaff)
+				staff.With(m.middlewareModule.RequirePermission(permconst.StaffRoleAssign)).
+					Post("/role/assign", m.httpHandler.StaffHandler.AssignRole)
+				staff.With(m.middlewareModule.RequirePermission(permconst.StaffRoleAssign)).
+					Delete("/role/unassign", m.httpHandler.StaffHandler.UnassignRole)
+				staff.With(m.middlewareModule.RequirePermission(permconst.StaffDelete)).
+					Patch("/{uuid}/deactivate", m.httpHandler.StaffHandler.DeactivateStaff)
+				staff.With(m.middlewareModule.RequirePermission(permconst.StaffDelete)).
+					Patch("/{uuid}/activate", m.httpHandler.StaffHandler.ActivateStaff)
+			})
+
 			// Recall: doctor reminder for next scheduled control or appointment
 			authed.Route("/recall", func(recall chi.Router) {
 				recall.Post("/", m.httpHandler.RecallHandler.CreateRecall)
@@ -137,13 +156,17 @@ func RegisterRoutes(m *module) http.Handler {
 			})
 		})
 
-		v1.Route("/admin", func(auth chi.Router) {
-			auth.Use(m.middlewareModule.AuthHandler)
-			auth.Route("/product", func(product chi.Router) {
-				product.Get("/", m.httpHandler.ProductHandler.ListMstProduct)
-				product.Post("/", m.httpHandler.ProductHandler.InsertMstProduct)
-				product.Patch("/", m.httpHandler.ProductHandler.UpdateMstProduct)
-				product.Delete("/", m.httpHandler.ProductHandler.DeleteMstProduct)
+		v1.Route("/admin", func(admin chi.Router) {
+			admin.Use(m.middlewareModule.AuthHandler)
+			admin.Route("/product", func(product chi.Router) {
+				product.With(m.middlewareModule.RequirePermission(permconst.ProductRead)).
+					Get("/", m.httpHandler.ProductHandler.ListMstProduct)
+				product.With(m.middlewareModule.RequirePermission(permconst.ProductCreate)).
+					Post("/", m.httpHandler.ProductHandler.InsertMstProduct)
+				product.With(m.middlewareModule.RequirePermission(permconst.ProductUpdate)).
+					Patch("/", m.httpHandler.ProductHandler.UpdateMstProduct)
+				product.With(m.middlewareModule.RequirePermission(permconst.ProductDelete)).
+					Delete("/", m.httpHandler.ProductHandler.DeleteMstProduct)
 			})
 		})
 	})
