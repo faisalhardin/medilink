@@ -24,4 +24,12 @@ type PractitionerDB interface {
 
 	// MissingNurseIDs mirrors MissingDoctorIDs for nurse references.
 	MissingNurseIDs(ctx context.Context, institutionID int64, ids []string) ([]string, error)
+
+	// GetDoctorsByIDs returns the MstDoctor rows for the given IDs within the
+	// institution. Used by write usecases to snapshot doctor_name at save time.
+	GetDoctorsByIDs(ctx context.Context, institutionID int64, ids []string) ([]model.MstDoctor, error)
+
+	// GetNursesByIDs returns the MstNurse rows for the given IDs within the
+	// institution. Used by write usecases to snapshot nurse_name at save time.
+	GetNursesByIDs(ctx context.Context, institutionID int64, ids []string) ([]model.MstNurse, error)
 }

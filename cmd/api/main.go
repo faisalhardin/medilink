@@ -21,6 +21,7 @@ import (
 	anamnesarepo "github.com/faisalhardin/medilink/internal/repo/anamnesa"
 	inmemory "github.com/faisalhardin/medilink/internal/repo/cache/inmemory"
 	diagnosisrepo "github.com/faisalhardin/medilink/internal/repo/diagnosis"
+	procedurerepo "github.com/faisalhardin/medilink/internal/repo/procedure"
 	icd10repo "github.com/faisalhardin/medilink/internal/repo/icd10"
 	institutionrepo "github.com/faisalhardin/medilink/internal/repo/institution"
 	journeyrepo "github.com/faisalhardin/medilink/internal/repo/journey"
@@ -36,6 +37,7 @@ import (
 	staffuc "github.com/faisalhardin/medilink/internal/usecase/staff"
 
 	anamnesauc "github.com/faisalhardin/medilink/internal/usecase/anamnesa"
+	procedureuc "github.com/faisalhardin/medilink/internal/usecase/procedure"
 	authCleanup "github.com/faisalhardin/medilink/internal/usecase/auth"
 	authUC "github.com/faisalhardin/medilink/internal/usecase/auth"
 	diagnosisuc "github.com/faisalhardin/medilink/internal/usecase/diagnosis"
@@ -50,6 +52,7 @@ import (
 	visituc "github.com/faisalhardin/medilink/internal/usecase/visit"
 
 	anamnesahandler "github.com/faisalhardin/medilink/internal/http/anamnesa"
+	procedurehandler "github.com/faisalhardin/medilink/internal/http/procedure"
 	authHandler "github.com/faisalhardin/medilink/internal/http/auth"
 	diagnosishandler "github.com/faisalhardin/medilink/internal/http/diagnosis"
 	icd10handler "github.com/faisalhardin/medilink/internal/http/icd10"
@@ -177,6 +180,9 @@ func main() {
 	anamnesaDB := anamnesarepo.NewAnamnesaDB(db)
 	satusehatQueueDB := satusehatqueuerepo.NewQueueDB(db)
 
+	procedureDB := procedurerepo.NewProcedureDB(db)
+	icd9cmDB := procedurerepo.NewICD9CMDB(db)
+
 	_ = satusehatQueueDB
 	// repo block end
 
@@ -261,6 +267,15 @@ func main() {
 		Transaction: transaction,
 	})
 
+	procedureUC := procedureuc.NewProcedureUC(&procedureuc.ProcedureUC{
+		ProcedureDB:     procedureDB,
+		ICD9CMDB:        icd9cmDB,
+		InstitutionRepo: institutionDB,
+		PatientDB:       patientDB,
+		PractitionerDB:  practitionerDB,
+		Transaction:     transaction,
+	})
+
 	// usecase block end
 
 	// httphandler block start
@@ -318,6 +333,10 @@ func main() {
 	staffHandler := staffhandler.New(&staffhandler.StaffHandler{
 		StaffUC: staffManagementUC,
 	})
+
+	procedureHandler := procedurehandler.New(&procedurehandler.ProcedureHandler{
+		ProcedureUC: procedureUC,
+	})
 	// httphandler block end
 
 	// module block start
@@ -338,9 +357,10 @@ func main() {
 			RecallHandler:       recallHandler,
 			ICD10Handler:        icd10Handler,
 			PractitionerHandler: practitionerHandler,
-			DiagnosisHandler:    diagnosisHandler,
-			AnamnesaHandler:     anamnesaHandler,
-			StaffHandler:        staffHandler,
+		DiagnosisHandler:    diagnosisHandler,
+		AnamnesaHandler:     anamnesaHandler,
+		StaffHandler:        staffHandler,
+		ProcedureHandler:    procedureHandler,
 		},
 		middlewareModule,
 	)
