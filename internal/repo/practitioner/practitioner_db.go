@@ -173,6 +173,64 @@ func (c *Conn) MissingNurseIDs(ctx context.Context, institutionID int64, ids []s
 	return missing, nil
 }
 
+// GetDoctorsByIDs returns the full MstDoctor rows for the given IDs within the
+// institution. Used by write usecases to snapshot doctor_name at save time.
+func (c *Conn) GetDoctorsByIDs(ctx context.Context, institutionID int64, ids []string) ([]model.MstDoctor, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	args := make([]interface{}, 0, len(ids)+1)
+	args = append(args, institutionID)
+	for _, id := range ids {
+		args = append(args, id)
+	}
+	placeholders := strings.TrimRight(strings.Repeat("?,", len(ids)), ",")
+	sql := `
+		SELECT id, name, sip_number, specialization, staff_uuid, institution_id, active, created_at, updated_at
+		FROM mdl_mst_doctor
+		WHERE institution_id = ?
+		  AND active = TRUE
+		  AND id IN (` + placeholders + `)
+	`
+
+	var rows []model.MstDoctor
+	err := c.DB.SlaveDB.Context(ctx).SQL(sql, args...).Find(&rows)
+	if err != nil {
+		return nil, errors.Wrap(err, WrapMsgGetDoctorNameByID)
+	}
+	return rows, nil
+}
+
+// GetNursesByIDs returns the full MstNurse rows for the given IDs within the
+// institution. Used by write usecases to snapshot nurse_name at save time.
+func (c *Conn) GetNursesByIDs(ctx context.Context, institutionID int64, ids []string) ([]model.MstNurse, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	args := make([]interface{}, 0, len(ids)+1)
+	args = append(args, institutionID)
+	for _, id := range ids {
+		args = append(args, id)
+	}
+	placeholders := strings.TrimRight(strings.Repeat("?,", len(ids)), ",")
+	sql := `
+		SELECT id, name, sip_number, role, staff_uuid, institution_id, active, created_at, updated_at
+		FROM mdl_mst_nurse
+		WHERE institution_id = ?
+		  AND active = TRUE
+		  AND id IN (` + placeholders + `)
+	`
+
+	var rows []model.MstNurse
+	err := c.DB.SlaveDB.Context(ctx).SQL(sql, args...).Find(&rows)
+	if err != nil {
+		return nil, errors.Wrap(err, WrapMsgGetNurseNameByID)
+	}
+	return rows, nil
+}
+
 func clampLimit(limit int) int {
 	if limit <= 0 {
 		return defaultSearchLimit

@@ -41,6 +41,8 @@ func RegisterRoutes(m *module) http.Handler {
 				patient.Route("/{uuid}", func(patient chi.Router) {
 					patient.Get("/", m.httpHandler.PatientHandler.GetPatient)
 					patient.Get("/visit", m.httpHandler.PatientHandler.ListPatientVisitsByPatientUUID)
+					patient.With(m.middlewareModule.RequirePermission(permconst.VisitRead)).
+						Get("/procedure/history", m.httpHandler.ProcedureHandler.GetPatientHistory)
 				})
 			})
 
@@ -59,6 +61,12 @@ func RegisterRoutes(m *module) http.Handler {
 					visit.Delete("/diagnosis/{diagnosis_id}", m.httpHandler.DiagnosisHandler.Delete)
 					visit.Get("/anamnesa", m.httpHandler.AnamnesaHandler.GetDetailedByVisitID)
 					visit.Post("/anamnesa", m.httpHandler.AnamnesaHandler.Upsert)
+					visit.With(m.middlewareModule.RequirePermission(permconst.VisitRead)).
+						Get("/procedure", m.httpHandler.ProcedureHandler.GetByVisitID)
+					visit.With(m.middlewareModule.RequirePermission(permconst.VisitUpdate)).
+						Post("/procedure", m.httpHandler.ProcedureHandler.Save)
+					visit.With(m.middlewareModule.RequirePermission(permconst.VisitUpdate)).
+						Delete("/procedure/{procedure_id}", m.httpHandler.ProcedureHandler.Delete)
 				})
 				visit.Get("/product", m.httpHandler.PatientHandler.ListVisitProducts)
 				visit.Post("/product", m.httpHandler.PatientHandler.InsertVisitProduct)
@@ -128,12 +136,13 @@ func RegisterRoutes(m *module) http.Handler {
 				recall.Patch("/", m.httpHandler.RecallHandler.UpdateRecall)
 			})
 
-			// Lookup endpoints (BACKEND_SPEC §4) — autocomplete sources for the
-			// diagnosis / anamnesa forms. ICD-10 is global reference data; doctor
-			// and nurse searches are scoped by the caller's institution.
+			// Lookup endpoints — autocomplete sources for diagnosis / anamnesa / procedure forms.
+			// ICD-10 is global reference data; doctor and nurse searches are institution-scoped.
 			authed.Get("/icd10/search", m.httpHandler.ICD10Handler.Search)
 			authed.Get("/doctor/search", m.httpHandler.PractitionerHandler.SearchDoctors)
 			authed.Get("/nurse/search", m.httpHandler.PractitionerHandler.SearchNurses)
+			authed.With(m.middlewareModule.RequirePermission(permconst.VisitRead)).
+				Get("/icd9cm/search", m.httpHandler.ProcedureHandler.SearchICD9CM)
 		})
 
 		v1.Route("/auth", func(auth chi.Router) {
