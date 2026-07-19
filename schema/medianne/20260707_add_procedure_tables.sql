@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS mdl_trx_visit_procedure (
     doctor_name         VARCHAR(255)    NOT NULL,
     nurse_id            VARCHAR(50),
     nurse_name          VARCHAR(255),
-    planned_at          TIMESTAMP,
+    planned_at          TIMESTAMPTZ,
     category            VARCHAR(20),
     duration            VARCHAR(100),
     icd9cm_code         VARCHAR(10),
@@ -21,9 +21,9 @@ CREATE TABLE IF NOT EXISTS mdl_trx_visit_procedure (
     description         TEXT,
     notes               TEXT,
     rank                SMALLINT        NOT NULL CHECK (rank >= 1),
-    created_at          TIMESTAMP       NOT NULL DEFAULT NOW(),
-    updated_at          TIMESTAMP       NOT NULL DEFAULT NOW(),
-    deleted_at          TIMESTAMP
+    created_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    deleted_at          TIMESTAMPTZ
 );
 
 CREATE INDEX IF NOT EXISTS idx_trx_visit_procedure_visit_active
