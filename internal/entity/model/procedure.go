@@ -67,18 +67,18 @@ type ProcedureEntry struct {
 	ProductName   null.String     `json:"product_name"`
 	DoctorID      string          `json:"doctor_id"`
 	DoctorName    string          `json:"doctor_name"`
-	NurseID       null.String     `json:"nurse_id"`
-	NurseName     null.String     `json:"nurse_name"`
-	PlannedAt     customtime.Time `json:"planned_at"`
-	Category      null.String     `json:"category"`
-	Duration      null.String     `json:"duration"`
-	ICD9CMCode    null.String     `json:"icd9cm_code"`
-	ICD9CMDisplay null.String     `json:"icd9cm_display"`
-	Description   null.String     `json:"description"`
-	Notes         null.String     `json:"notes"`
-	Rank          int16           `json:"rank"`
-	CreatedAt     customtime.Time `json:"created_at"`
-	UpdatedAt     customtime.Time `json:"updated_at"`
+	NurseID       null.String      `json:"nurse_id"`
+	NurseName     null.String      `json:"nurse_name"`
+	PlannedAt     *customtime.Time `json:"planned_at,omitempty"`
+	Category      null.String      `json:"category"`
+	Duration      null.String      `json:"duration"`
+	ICD9CMCode    null.String      `json:"icd9cm_code"`
+	ICD9CMDisplay null.String      `json:"icd9cm_display"`
+	Description   null.String      `json:"description"`
+	Notes         null.String      `json:"notes"`
+	Rank          int16            `json:"rank"`
+	CreatedAt     customtime.Time  `json:"created_at"`
+	UpdatedAt     customtime.Time  `json:"updated_at"`
 }
 
 // ToResponse converts the DB struct to the JSON response DTO.
@@ -104,7 +104,7 @@ func (r TrxVisitProcedure) ToResponse() ProcedureEntry {
 	}
 	if r.PlannedAt != nil {
 		ct := customtime.Time{Time: *r.PlannedAt}
-		entry.PlannedAt = ct
+		entry.PlannedAt = &ct
 	}
 	return entry
 }
