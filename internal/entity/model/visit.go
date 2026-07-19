@@ -169,6 +169,7 @@ type GetPatientVisitDetailResponse struct {
 	Products        []TrxVisitProduct            `json:"products"`
 	Anamnesa        null.JSON                    `json:"anamnesa"`
 	Diagnoses       []DiagnosisResponse          `json:"diagnoses"`
+	Procedures      []ProcedureEntry             `json:"procedures"`
 }
 
 // AnamnesaDetailedToNullJSON encodes an optional anamnesa payload for APIs that

@@ -203,6 +203,7 @@ func main() {
 		JourneyDB:       customerJourneyDB,
 		AnamnesaDB:      anamnesaDB,
 		DiagnosisDB:     diagnosisDB,
+		ProcedureDB:     procedureDB,
 	})
 
 	// Create session repository

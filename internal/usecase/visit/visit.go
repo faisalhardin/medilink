@@ -13,6 +13,7 @@ import (
 	institutionRepo "github.com/faisalhardin/medilink/internal/entity/repo/institution"
 	journeyDB "github.com/faisalhardin/medilink/internal/entity/repo/journey"
 	patientRepo "github.com/faisalhardin/medilink/internal/entity/repo/patient"
+	procedurerepo "github.com/faisalhardin/medilink/internal/entity/repo/procedure"
 	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
 	"github.com/faisalhardin/medilink/internal/library/db/xorm"
 	"github.com/faisalhardin/medilink/internal/library/middlewares/auth"
@@ -46,6 +47,7 @@ type VisitUC struct {
 	JourneyDB       journeyDB.JourneyDB
 	AnamnesaDB      anamnesarepo.AnamnesaDB
 	DiagnosisDB     diagnosisrepo.DiagnosisDB
+	ProcedureDB     procedurerepo.ProcedureDB
 }
 
 func NewVisitUC(u *VisitUC) *VisitUC {
@@ -193,6 +195,7 @@ func (u *VisitUC) GetPatientVisitDetail(ctx context.Context, req model.GetPatien
 
 	var anamnesaJSON null.JSON
 	var diagList []model.DiagnosisResponse
+	var procList []model.ProcedureEntry
 
 	eg2, ctx2 := errgroup.WithContext(ctx)
 	eg2.Go(func() error {
@@ -221,12 +224,24 @@ func (u *VisitUC) GetPatientVisitDetail(ctx context.Context, req model.GetPatien
 		}
 		return nil
 	})
+	eg2.Go(func() error {
+		rows, e := u.ProcedureDB.GetActiveByVisitID(ctx2, instID, vid)
+		if e != nil {
+			return errors.Wrap(e, WrapMsgGetPatientVisits)
+		}
+		procList = make([]model.ProcedureEntry, len(rows))
+		for i := range rows {
+			procList[i] = rows[i].ToResponse()
+		}
+		return nil
+	})
 	if err = eg2.Wait(); err != nil {
 		return
 	}
 
 	visitDetail.Anamnesa = anamnesaJSON
 	visitDetail.Diagnoses = diagList
+	visitDetail.Procedures = procList
 
 	return
 }
