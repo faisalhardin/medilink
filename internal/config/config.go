@@ -10,14 +10,15 @@ import (
 )
 
 type Config struct {
-	Server            Server            `yaml:"server"`
-	Vault             Vault             `yaml:"vault"`
-	GoogleAuthConfig  GoogleAuthConfig  `yaml:"google_auth_config"`
-	JWTConfig         JWTConfig         `yaml:"jwt_config"`
-	Redis             Redis             `yaml:"redis"`
-	AuthSessionConfig AuthSessionConfig `yaml:"auth_session_config"`
-	WebConfig         WebConfig         `yaml:"web_config"`
-	SatuSehatConfig   SatuSehatConfig   `yaml:"satusehat_config"`
+	Server             Server             `yaml:"server"`
+	Vault              Vault              `yaml:"vault"`
+	GoogleAuthConfig   GoogleAuthConfig   `yaml:"google_auth_config"`
+	JWTConfig          JWTConfig          `yaml:"jwt_config"`
+	Redis              Redis              `yaml:"redis"`
+	AuthSessionConfig  AuthSessionConfig  `yaml:"auth_session_config"`
+	WebConfig          WebConfig          `yaml:"web_config"`
+	SatuSehatConfig    SatuSehatConfig    `yaml:"satusehat_config"`
+	IdempotencyConfig  IdempotencyConfig  `yaml:"idempotency_config"`
 }
 
 type WebConfig struct {
@@ -105,6 +106,12 @@ type SatuSehatConfig struct {
 	OAuth2URL      string `yaml:"oauth2_url"`       // OAuth2 token endpoint URL
 	OrganizationID string `yaml:"organization_id"`  // IHS organization number from Master Sarana Index
 	Enabled        bool   `yaml:"enabled"`          // Feature flag to enable/disable Satu Sehat integration
+}
+
+type IdempotencyConfig struct {
+	TTLInSeconds int `yaml:"ttl_in_seconds"`
+	PollWaitInMs int `yaml:"poll_wait_in_ms"`
+	PollMaxInMs  int `yaml:"poll_max_in_ms"`
 }
 
 type SatuSehatAuth struct {

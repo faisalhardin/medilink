@@ -9,7 +9,9 @@ import (
 	"github.com/faisalhardin/medilink/internal/entity/model"
 	patientRepo "github.com/faisalhardin/medilink/internal/entity/repo/patient"
 	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
+	"github.com/faisalhardin/medilink/internal/library/idempotency"
 	"github.com/faisalhardin/medilink/internal/library/middlewares/auth"
+	"github.com/faisalhardin/medilink/internal/library/util/hash"
 )
 
 const (
@@ -20,19 +22,36 @@ const (
 )
 
 type PatientUC struct {
-	PatientDB patientRepo.PatientDB
+	PatientDB   patientRepo.PatientDB
+	Idempotency *idempotency.Service
 }
 
 func NewPatientUC(u *PatientUC) *PatientUC {
 	return u
 }
 
-func (u *PatientUC) RegisterNewPatient(ctx context.Context, req model.RegisterNewPatientRequest) (newPatientResponse model.GetPatientResponse, err error) {
+func idempotencyCacheKey(institutionID int64, idempotencyKey string) string {
+	return fmt.Sprintf("patient:idempotency:%d:%s", institutionID, idempotencyKey)
+}
+
+func (u *PatientUC) RegisterNewPatient(ctx context.Context, req model.RegisterNewPatientRequest, idempotencyKey string) (newPatientResponse model.GetPatientResponse, err error) {
 
 	userDetail, found := auth.GetUserDetailFromCtx(ctx)
 	if !found {
 		err = commonerr.SetNewUnauthorizedAPICall()
 		return
+	}
+
+	cacheKey := idempotencyCacheKey(userDetail.InstitutionID, idempotencyKey)
+	reqHash := hash.SHA256JSON(req)
+
+	cached, replayed, acquireErr := idempotency.Acquire[model.GetPatientResponse](u.Idempotency, cacheKey, reqHash)
+	if acquireErr != nil {
+		err = acquireErr
+		return
+	}
+	if replayed {
+		return cached, nil
 	}
 
 	newPatient := model.MstPatientInstitution{
@@ -50,6 +69,7 @@ func (u *PatientUC) RegisterNewPatient(ctx context.Context, req model.RegisterNe
 
 	err = u.PatientDB.RegisterNewPatient(ctx, &newPatient)
 	if err != nil {
+		idempotency.Release(u.Idempotency, cacheKey)
 		err = errors.Wrap(err, WrapMsgRegisterNewPatient)
 		return
 	}
@@ -66,6 +86,8 @@ func (u *PatientUC) RegisterNewPatient(ctx context.Context, req model.RegisterNe
 		Sex:          newPatient.Sex,
 		Occupation:   newPatient.Occupation,
 	}
+
+	idempotency.Complete(u.Idempotency, cacheKey, reqHash, newPatientResponse)
 
 	return newPatientResponse, nil
 }
