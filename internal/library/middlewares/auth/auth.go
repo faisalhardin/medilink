@@ -39,6 +39,7 @@ var AllowedHeaders = []string{
 	"X-Device",
 	"X-Element-ID",
 	"x-requested-with",
+	"Idempotency-Key",
 	XAppKey,
 }
 
