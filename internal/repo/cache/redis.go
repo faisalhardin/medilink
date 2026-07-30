@@ -142,6 +142,21 @@ func (r *Store) SetWithExpire(key string, value interface{}, expire int) (string
 	return resp, err
 }
 
+// SetNX sets key to value with TTL only if the key does not exist.
+// Returns true if the key was set (NX succeeded), false if it already existed.
+func (r *Store) SetNX(key string, value interface{}, expire int) (bool, error) {
+	conn := r.Pool.Get()
+	defer conn.Close()
+	resp, err := redigo.String(conn.Do("SET", key, value, "EX", expire, "NX"))
+	if err == redigo.ErrNil {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return resp == "OK", nil
+}
+
 // SetWithoutExpire will be used to set the value without expire
 func (r *Store) SetWithoutExpire(key string, value interface{}) (string, error) {
 	conn := r.Pool.Get()

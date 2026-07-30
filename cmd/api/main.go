@@ -65,6 +65,7 @@ import (
 	recallhandler "github.com/faisalhardin/medilink/internal/http/recall"
 	staffhandler "github.com/faisalhardin/medilink/internal/http/staff"
 
+	"github.com/faisalhardin/medilink/internal/library/idempotency"
 	mwmodule "github.com/faisalhardin/medilink/internal/library/middlewares/auth"
 	"github.com/faisalhardin/medilink/internal/server"
 	"github.com/gorilla/sessions"
@@ -193,7 +194,14 @@ func main() {
 	})
 
 	patientUC := patientUC.NewPatientUC(&patientUC.PatientUC{
-		PatientDB: patientDB,
+		PatientDB:   patientDB,
+		Idempotency: idempotency.New(inMemoryCaching,
+			idempotency.WithTTL(cfg.IdempotencyConfig.TTLInSeconds),
+			idempotency.WithPoll(
+				time.Duration(cfg.IdempotencyConfig.PollWaitInMs)*time.Millisecond,
+				time.Duration(cfg.IdempotencyConfig.PollMaxInMs)*time.Millisecond,
+			),
+		),
 	})
 
 	visitUC := visituc.NewVisitUC(&visituc.VisitUC{

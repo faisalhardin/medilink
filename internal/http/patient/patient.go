@@ -6,6 +6,7 @@ import (
 	"github.com/faisalhardin/medilink/internal/entity/model"
 	"github.com/faisalhardin/medilink/internal/entity/usecase/patient"
 	"github.com/faisalhardin/medilink/internal/entity/usecase/visit"
+	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
 	commonwriter "github.com/faisalhardin/medilink/internal/library/common/writer"
 	"github.com/faisalhardin/medilink/internal/library/util/common/binding"
 	"github.com/go-chi/chi/v5"
@@ -27,6 +28,12 @@ func New(handler *PatientHandler) *PatientHandler {
 func (h *PatientHandler) RegisterNewPatient(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	idempotencyKey := r.Header.Get("Idempotency-Key")
+	if idempotencyKey == "" {
+		commonwriter.SetError(ctx, w, commonerr.SetNewBadRequest("idempotency_key_required", "Idempotency-Key header is required"))
+		return
+	}
+
 	request := model.RegisterNewPatientRequest{}
 	err := bindingBind(r, &request)
 	if err != nil {
@@ -34,7 +41,7 @@ func (h *PatientHandler) RegisterNewPatient(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	newPatientResponse, err := h.PatientUC.RegisterNewPatient(ctx, request)
+	newPatientResponse, err := h.PatientUC.RegisterNewPatient(ctx, request, idempotencyKey)
 	if err != nil {
 		commonwriter.SetError(ctx, w, err)
 		return

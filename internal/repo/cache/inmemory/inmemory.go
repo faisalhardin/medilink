@@ -93,6 +93,26 @@ func (i *Inmemory) SetWithExpire(key string, value interface{}, expire int) (str
 	return "OK", nil
 }
 
+// SetNX sets key only if it does not exist (or is expired). Returns true if set.
+func (i *Inmemory) SetNX(key string, value interface{}, expire int) (bool, error) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+
+	existing, ok := i.cache[key]
+	if ok && (existing.expiresAt.IsZero() || time.Now().Before(existing.expiresAt)) {
+		return false, nil
+	}
+
+	item := &cacheItem{
+		value: value.(string),
+	}
+	if expire > 0 {
+		item.expiresAt = time.Now().Add(time.Duration(expire) * time.Second)
+	}
+	i.cache[key] = item
+	return true, nil
+}
+
 func (i *Inmemory) Del(key string) (int64, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()

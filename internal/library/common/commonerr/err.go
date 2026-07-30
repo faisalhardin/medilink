@@ -20,6 +20,12 @@ var (
 	Err401 = SetNewError(http.StatusUnauthorized, "401", "401 unauthorized")
 
 	ErrRevokedSession = SetNewUnauthorizedError("session revoked", "Your session has been revoked")
+
+	ErrIdempotencyInProgress = SetNewError(
+		http.StatusConflict,
+		"conflict_in_progress",
+		"a concurrent request with the same idempotency key is in progress; please retry shortly",
+	)
 )
 
 // DefaultInputBody return bad request for bad body request
@@ -187,4 +193,8 @@ func SetNewUnauthorizedAPICall() *ErrorMessage {
 
 func SetNewRevokedSessionError() *ErrorMessage {
 	return ErrRevokedSession
+}
+
+func SetNewIdempotencyInProgressError() *ErrorMessage {
+	return ErrIdempotencyInProgress
 }
