@@ -143,8 +143,9 @@ func (u *RecallUC) ListRecalls(ctx context.Context, params model.GetRecallParams
 	if params.Limit <= 0 {
 		params.Limit = defaultListLimit
 	}
-	// Default to upcoming recalls (scheduled from now onward) when no time range given
-	if params.FromTime.Time().IsZero() {
+	// Default to upcoming recalls (scheduled from now onward) when no time range given.
+	// Skip the default when filtering by visit so all recalls for that visit are returned.
+	if params.FromTime.Time().IsZero() && params.IDTrxPatientVisit == 0 {
 		params.FromTime = model.Time(time.Now())
 	}
 
