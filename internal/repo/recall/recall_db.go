@@ -124,6 +124,9 @@ func (c *Conn) ListUpcoming(ctx context.Context, params model.GetRecallParams, i
 	if params.IDMstPatient > 0 {
 		session = session.And("mtr.id_mst_patient = ?", params.IDMstPatient)
 	}
+	if params.IDTrxPatientVisit > 0 {
+		session = session.And("mtr.id_trx_patient_visit = ?", params.IDTrxPatientVisit)
+	}
 	if !params.FromTime.Time().IsZero() {
 		session = session.And("mtr.scheduled_at >= ?", params.FromTime.Time())
 	}

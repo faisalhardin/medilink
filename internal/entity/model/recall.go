@@ -57,11 +57,12 @@ type UpdateRecallRequest struct {
 
 // GetRecallParams for listing/filtering recalls
 type GetRecallParams struct {
-	PatientUUID  string `schema:"patient_uuid"`
-	IDMstPatient int64  `schema:"-"`
-	FromTime     Time   `schema:"from_time"`
-	ToTime       Time   `schema:"to_time"`
-	RecallType   string `schema:"recall_type"`
+	PatientUUID       string `schema:"patient_uuid"`
+	IDMstPatient      int64  `schema:"-"`
+	IDTrxPatientVisit int64  `schema:"visit_id"`
+	FromTime          Time   `schema:"from_time"`
+	ToTime            Time   `schema:"to_time"`
+	RecallType        string `schema:"recall_type"`
 	CommonRequestPayload
 }
 

@@ -80,7 +80,7 @@ func (h *RecallHandler) GetNextRecallByPatient(w http.ResponseWriter, r *http.Re
 	commonwriter.SetOKWithData(ctx, w, resp)
 }
 
-// ListRecalls handles GET /recall - list upcoming recalls for the doctor (optional filters: patient_uuid, from_time, to_time, recall_type)
+// ListRecalls handles GET /recall - list upcoming recalls for the doctor
 func (h *RecallHandler) ListRecalls(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
