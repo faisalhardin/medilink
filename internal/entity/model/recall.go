@@ -55,6 +55,11 @@ type UpdateRecallRequest struct {
 	Notes       *string `json:"notes,omitempty"`
 }
 
+// DeleteRecallRequest is the request to soft-delete a recall
+type DeleteRecallRequest struct {
+	IDMstRecall int64 `json:"id" validate:"required"`
+}
+
 // GetRecallParams for listing/filtering recalls
 type GetRecallParams struct {
 	PatientUUID       string `schema:"patient_uuid"`

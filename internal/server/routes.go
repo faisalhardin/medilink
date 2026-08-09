@@ -134,6 +134,7 @@ func RegisterRoutes(m *module) http.Handler {
 				recall.Get("/", m.httpHandler.RecallHandler.ListRecalls)
 				recall.Get("/patient/{uuid}/next", m.httpHandler.RecallHandler.GetNextRecallByPatient)
 				recall.Patch("/", m.httpHandler.RecallHandler.UpdateRecall)
+				recall.Delete("/", m.httpHandler.RecallHandler.DeleteRecall)
 			})
 
 			// Lookup endpoints — autocomplete sources for diagnosis / anamnesa / procedure forms.

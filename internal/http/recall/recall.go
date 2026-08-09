@@ -61,6 +61,25 @@ func (h *RecallHandler) UpdateRecall(w http.ResponseWriter, r *http.Request) {
 	commonwriter.SetOKWithData(ctx, w, "ok")
 }
 
+// DeleteRecall handles DELETE /recall - soft-delete a recall within the 24h grace window
+func (h *RecallHandler) DeleteRecall(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var req model.DeleteRecallRequest
+	if err := bindingBind(r, &req); err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	err := h.RecallUC.DeleteRecall(ctx, req)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	commonwriter.SetOKWithData(ctx, w, "ok")
+}
+
 // GetNextRecallByPatient handles GET /recall/patient/{uuid}/next - next scheduled recall for a patient (doctor reminder)
 func (h *RecallHandler) GetNextRecallByPatient(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
