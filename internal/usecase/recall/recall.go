@@ -38,6 +38,13 @@ func (u *RecallUC) CreateRecall(ctx context.Context, req model.CreateRecallReque
 		return model.RecallResponse{}, commonerr.SetNewUnauthorizedAPICall()
 	}
 
+	scheduledAt := req.ScheduledAt.Time()
+	now := time.Now().In(scheduledAt.Location())
+	if scheduledAt.Before(now) {
+		return model.RecallResponse{}, commonerr.SetNewBadRequest("invalid scheduled_at",
+			"scheduled_at must not be before now")
+	}
+
 	patient, err := u.PatientDB.GetPatientByParams(ctx, model.MstPatientInstitution{
 		UUID:          req.PatientUUID,
 		InstitutionID: userDetail.InstitutionID,
