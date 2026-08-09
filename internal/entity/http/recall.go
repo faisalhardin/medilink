@@ -6,6 +6,7 @@ import "net/http"
 type RecallHandler interface {
 	CreateRecall(w http.ResponseWriter, r *http.Request)
 	UpdateRecall(w http.ResponseWriter, r *http.Request)
+	DeleteRecall(w http.ResponseWriter, r *http.Request)
 	GetNextRecallByPatient(w http.ResponseWriter, r *http.Request)
 	ListRecalls(w http.ResponseWriter, r *http.Request)
 }

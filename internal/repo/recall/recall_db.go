@@ -13,6 +13,7 @@ import (
 const (
 	wrapMsgInsert           = "RecallDB.Insert"
 	wrapMsgUpdate           = "RecallDB.Update"
+	wrapMsgDelete           = "RecallDB.Delete"
 	wrapMsgGetByID          = "RecallDB.GetByID"
 	wrapMsgGetNextByPatient = "RecallDB.GetNextByPatient"
 	wrapMsgListUpcoming     = "RecallDB.ListUpcoming"
@@ -75,6 +76,20 @@ func (c *Conn) Update(ctx context.Context, id int64, institutionID int64, req mo
 	_, err := session.Update(updates)
 	if err != nil {
 		return errors.Wrap(err, wrapMsgUpdate)
+	}
+	return nil
+}
+
+func (c *Conn) Delete(ctx context.Context, id int64, institutionID int64) error {
+	affected, err := c.DB.MasterDB.Table(model.TrxRecallTableName).
+		Where("id = ?", id).
+		And("id_mst_institution = ?", institutionID).
+		Delete(&model.TrxRecall{})
+	if err != nil {
+		return errors.Wrap(err, wrapMsgDelete)
+	}
+	if affected == 0 {
+		return errors.New("recall not found")
 	}
 	return nil
 }

@@ -16,9 +16,11 @@ import (
 const (
 	wrapMsgCreateRecall           = "RecallUC.CreateRecall"
 	wrapMsgUpdateRecall           = "RecallUC.UpdateRecall"
+	wrapMsgDeleteRecall           = "RecallUC.DeleteRecall"
 	wrapMsgGetNextRecallByPatient = "RecallUC.GetNextRecallByPatient"
 	wrapMsgListRecalls            = "RecallUC.ListRecalls"
 	defaultListLimit              = 50
+	deleteGracePeriod             = 24 * time.Hour
 )
 
 type RecallUC struct {
@@ -34,6 +36,13 @@ func (u *RecallUC) CreateRecall(ctx context.Context, req model.CreateRecallReque
 	userDetail, found := auth.GetUserDetailFromCtx(ctx)
 	if !found {
 		return model.RecallResponse{}, commonerr.SetNewUnauthorizedAPICall()
+	}
+
+	scheduledAt := req.ScheduledAt.Time()
+	now := time.Now().In(scheduledAt.Location())
+	if scheduledAt.Before(now) {
+		return model.RecallResponse{}, commonerr.SetNewBadRequest("invalid scheduled_at",
+			"scheduled_at must not be before now")
 	}
 
 	patient, err := u.PatientDB.GetPatientByParams(ctx, model.MstPatientInstitution{
@@ -90,6 +99,33 @@ func (u *RecallUC) UpdateRecall(ctx context.Context, req model.UpdateRecallReque
 
 	if err := u.RecallDB.Update(ctx, req.IDMstRecall, userDetail.InstitutionID, req); err != nil {
 		return errors.Wrap(err, wrapMsgUpdateRecall)
+	}
+
+	return nil
+}
+
+func (u *RecallUC) DeleteRecall(ctx context.Context, req model.DeleteRecallRequest) error {
+	userDetail, found := auth.GetUserDetailFromCtx(ctx)
+	if !found {
+		return commonerr.SetNewUnauthorizedAPICall()
+	}
+
+	existing, err := u.RecallDB.GetByID(ctx, req.IDMstRecall, userDetail.InstitutionID)
+	if err != nil {
+		return errors.Wrap(err, wrapMsgDeleteRecall)
+	}
+	if existing.TrxRecall.ID == 0 {
+		return commonerr.SetNewBadRequest("recall not found",
+			fmt.Sprintf("no recall with id %d in this institution", req.IDMstRecall))
+	}
+
+	if time.Since(existing.TrxRecall.CreateTime) >= deleteGracePeriod {
+		return commonerr.SetNewBadRequest("delete not allowed",
+			"Recall can only be deleted within 24 hours of creation")
+	}
+
+	if err := u.RecallDB.Delete(ctx, req.IDMstRecall, userDetail.InstitutionID); err != nil {
+		return errors.Wrap(err, wrapMsgDeleteRecall)
 	}
 
 	return nil
