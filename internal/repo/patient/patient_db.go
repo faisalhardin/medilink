@@ -153,13 +153,11 @@ func (c *Conn) GetPatients(ctx context.Context, params model.GetPatientParams) (
 	if len(params.PatientUUIDs) > 0 {
 		session.Where("mmpi.uuid = any(?)", pq.Array(params.PatientUUIDs))
 	}
-	if len(params.Name) > 0 {
-		splitNames := strings.Split(params.Name, " ")
-		nameQuery := []string{}
-		for _, name := range splitNames {
-			nameQuery = append(nameQuery, fmt.Sprintf("%%%s%%", name))
-		}
-		session.Where("mmpi.name ILIKE ANY(?)", pq.Array(nameQuery))
+	if name := strings.TrimSpace(params.Name); name != "" {
+		session.Where(
+			`(mmpi.name ILIKE ? || '%' OR to_tsvector('simple', mmpi.name) @@ plainto_tsquery('simple', ?))`,
+			name, name,
+		)
 	}
 
 	if len(params.NIK) > 0 {
