@@ -1,6 +1,7 @@
 package model
 
 import (
+	"database/sql"
 	"encoding/json"
 	"time"
 
@@ -23,6 +24,8 @@ type TrxPatientVisit struct {
 	DeleteTime                  *time.Time      `json:"-" xorm:"'delete_time' deleted"`
 	UpdateTimeMstJourneyPointID int64           `json:"column_update_time" xorm:"'mst_journey_point_id_update_unix_time' created"`
 	ProductCart                 json.RawMessage `xorm:"'product_cart'" json:"product_cart"`
+	CompensationPeriodID        sql.NullInt64   `xorm:"'compensation_period_id' null" json:"-"`
+	CompensationLockedAt        sql.NullTime    `xorm:"'compensation_locked_at' null" json:"-"`
 }
 
 func (tbl *TrxPatientVisit) BeforeUpdate() {

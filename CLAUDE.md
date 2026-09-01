@@ -27,6 +27,7 @@ Medianne is a Go 1.19 digital health record / healthcare API (patients, visits, 
 * **Minimal Impact:** Touch only what is necessary. Avoid accidental refactors to prevent regressions.
 * **Demand Elegance:** For non-trivial changes, ask: *"Is there a more elegant way?"* If a fix feels hacky, implement the elegant solution. (Skip for simple/obvious fixes).
 * **Data Reference:** Do not use REFERENCE on database table row. Avoid using ON DELETE query.
+* **Model nullability:** Xorm/DB row structs use `database/sql` (`sql.NullInt64`, `sql.NullString`, `sql.NullTime`, `sql.NullFloat64`). JSON request/response and JSONB payload structs use `github.com/volatiletech/null/v8`. Soft-delete stays `*time.Time` + xorm `deleted`. Optional JSONB columns: `json.RawMessage`. Reference: `procedure.go`, `compensation.go`.
 
 ---
 
