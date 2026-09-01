@@ -9,10 +9,10 @@ import (
 )
 
 const (
-	MstStaffWageTableName           = "mdl_mst_staff_wage"
-	TrxCompensationPeriodTableName  = "mdl_trx_compensation_period"
-	TrxVisitCommissionTableName     = "mdl_trx_visit_commission"
-	MapVisitContributorTableName    = "mdl_map_visit_contributor"
+	MstStaffWageTableName          = "mdl_mst_staff_wage"
+	TrxCompensationPeriodTableName = "mdl_trx_compensation_period"
+	TrxVisitCommissionTableName    = "mdl_trx_visit_commission"
+	MapVisitContributorTableName   = "mdl_map_visit_contributor"
 )
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
@@ -87,19 +87,19 @@ func (t ContributionSourceType) IsValid() bool {
 
 // MstStaffWage is a staff wage contract for an institution.
 type MstStaffWage struct {
-	ID             int64          `xorm:"'id' pk autoincr" json:"-"`
-	StaffID        string         `xorm:"'staff_id'" json:"-"`
-	InstitutionID  int64          `xorm:"'institution_id'" json:"-"`
-	WageAmount     int64          `xorm:"'wage_amount'" json:"-"`
-	WageCadence    WageCadence    `xorm:"'wage_cadence'" json:"-"`
-	IsActive       bool           `xorm:"'is_active'" json:"-"`
-	EffectiveFrom  time.Time      `xorm:"'effective_from'" json:"-"`
-	EffectiveTo    sql.NullTime   `xorm:"'effective_to' null" json:"-"`
-	CreatedBy      sql.NullString `xorm:"'created_by' null" json:"-"`
-	UpdatedBy      sql.NullString `xorm:"'updated_by' null" json:"-"`
-	CreateTime     time.Time      `xorm:"'create_time' created" json:"-"`
-	UpdateTime     time.Time      `xorm:"'update_time' updated" json:"-"`
-	DeleteTime     *time.Time     `xorm:"'delete_time' deleted" json:"-"`
+	ID            int64          `xorm:"'id' pk autoincr" json:"-"`
+	StaffID       string         `xorm:"'staff_id'" json:"-"`
+	InstitutionID int64          `xorm:"'institution_id'" json:"-"`
+	WageAmount    int64          `xorm:"'wage_amount'" json:"-"`
+	WageCadence   WageCadence    `xorm:"'wage_cadence'" json:"-"`
+	IsActive      bool           `xorm:"'is_active'" json:"-"`
+	EffectiveFrom time.Time      `xorm:"'effective_from'" json:"-"`
+	EffectiveTo   sql.NullTime   `xorm:"'effective_to' null" json:"-"`
+	CreatedBy     sql.NullString `xorm:"'created_by' null" json:"-"`
+	UpdatedBy     sql.NullString `xorm:"'updated_by' null" json:"-"`
+	CreateTime    time.Time      `xorm:"'create_time' created" json:"-"`
+	UpdateTime    time.Time      `xorm:"'update_time' updated" json:"-"`
+	DeleteTime    *time.Time     `xorm:"'delete_time' deleted" json:"-"`
 }
 
 func (MstStaffWage) TableName() string {
@@ -108,30 +108,39 @@ func (MstStaffWage) TableName() string {
 
 // TrxCompensationPeriod is a payday period for an institution.
 type TrxCompensationPeriod struct {
-	ID               int64                     `xorm:"'id' pk autoincr" json:"-"`
-	UUID             string                    `xorm:"'uuid'" json:"-"`
-	InstitutionID    int64                     `xorm:"'institution_id'" json:"-"`
-	Label            string                    `xorm:"'label'" json:"-"`
-	PeriodStart      time.Time                 `xorm:"'period_start'" json:"-"`
-	PeriodEnd        time.Time                 `xorm:"'period_end'" json:"-"`
-	Status           CompensationPeriodStatus  `xorm:"'status'" json:"-"`
-	WageSnapshot     json.RawMessage           `xorm:"'wage_snapshot' jsonb" json:"-"`
-	TotalWage        sql.NullInt64             `xorm:"'total_wage' null" json:"-"`
-	TotalCommission  sql.NullInt64             `xorm:"'total_commission' null" json:"-"`
-	TotalPayout      sql.NullInt64             `xorm:"'total_payout' null" json:"-"`
-	StaffCount       sql.NullInt64             `xorm:"'staff_count' null" json:"-"`
-	VisitCount       sql.NullInt64             `xorm:"'visit_count' null" json:"-"`
-	DraftedAt        sql.NullTime              `xorm:"'drafted_at' null" json:"-"`
-	DraftedBy        sql.NullString            `xorm:"'drafted_by' null" json:"-"`
-	FinalizedAt      sql.NullTime              `xorm:"'finalized_at' null" json:"-"`
-	FinalizedBy      sql.NullString            `xorm:"'finalized_by' null" json:"-"`
-	CreateTime       time.Time                 `xorm:"'create_time' created" json:"-"`
-	UpdateTime       time.Time                 `xorm:"'update_time' updated" json:"-"`
-	DeleteTime       *time.Time                `xorm:"'delete_time' deleted" json:"-"`
+	ID              int64                    `xorm:"'id' pk autoincr" json:"-"`
+	UUID            string                   `xorm:"'uuid'" json:"-"`
+	InstitutionID   int64                    `xorm:"'institution_id'" json:"-"`
+	Label           string                   `xorm:"'label'" json:"-"`
+	PeriodStart     time.Time                `xorm:"'period_start'" json:"-"`
+	PeriodEnd       time.Time                `xorm:"'period_end'" json:"-"`
+	Status          CompensationPeriodStatus `xorm:"'status'" json:"-"`
+	WageSnapshot    json.RawMessage          `xorm:"'wage_snapshot' jsonb" json:"-"`
+	TotalWage       sql.NullInt64            `xorm:"'total_wage' null" json:"-"`
+	TotalCommission sql.NullInt64            `xorm:"'total_commission' null" json:"-"`
+	TotalPayout     sql.NullInt64            `xorm:"'total_payout' null" json:"-"`
+	StaffCount      sql.NullInt64            `xorm:"'staff_count' null" json:"-"`
+	VisitCount      sql.NullInt64            `xorm:"'visit_count' null" json:"-"`
+	DraftedAt       sql.NullTime             `xorm:"'drafted_at' null" json:"-"`
+	DraftedBy       sql.NullString           `xorm:"'drafted_by' null" json:"-"`
+	FinalizedAt     sql.NullTime             `xorm:"'finalized_at' null" json:"-"`
+	FinalizedBy     sql.NullString           `xorm:"'finalized_by' null" json:"-"`
+	CreateTime      time.Time                `xorm:"'create_time' created" json:"-"`
+	UpdateTime      time.Time                `xorm:"'update_time' updated" json:"-"`
+	DeleteTime      *time.Time               `xorm:"'delete_time' deleted" json:"-"`
 }
 
 func (TrxCompensationPeriod) TableName() string {
 	return TrxCompensationPeriodTableName
+}
+
+// ListCompensationPeriodParams filters paginated payday-period reads.
+// Empty Status means all statuses. Limit is applied only when greater than 0.
+type ListCompensationPeriodParams struct {
+	InstitutionID int64
+	Status        CompensationPeriodStatus
+	Limit         int
+	Offset        int
 }
 
 // TrxVisitCommission is a per-visit, per-staff commission row within a payday period.
