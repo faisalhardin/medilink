@@ -12,6 +12,14 @@
 - Xorm quoted cols; FKs often `id_mst_institution`; soft delete `delete_time`.
 - main import aliases: `foorepo`, `foouc`, `foohandler`.
 
+## Models / nullability (Xorm vs JSON)
+Dual-layer convention (see `procedure.go`, `compensation.go`, `anamnesa.go`):
+- **Xorm / DB row structs:** nullable scalars use `database/sql` — `sql.NullInt64`, `sql.NullString`, `sql.NullTime`, `sql.NullFloat64`. Tag `xorm:"'col' null"`; entity fields usually `json:"-"`.
+- **JSON request/response / JSONB payload structs:** nullable fields use `github.com/volatiletech/null/v8` — `null.Int64`, `null.String`, `null.Time`, `null.Float64` (not `sql.Null*`, not bare pointers for API nulls).
+- **Soft delete:** `DeleteTime *time.Time` + xorm `deleted` (project-wide; do not switch soft-delete to sql.NullTime).
+- **Optional JSONB on rows:** `json.RawMessage` (nil = SQL NULL).
+- Map DB → API in usecase/DTO helpers (e.g. `TrxVisitProcedure.ToResponse()` copies `sql.Null*` → `null.*`).
+
 ## Errors / HTTP
 - Structured errors `internal/library/common/commonerr` (`error_list`, codes).
 - Writers `library/common/writer`. Middleware: `library/util/handler`, auth `library/middlewares/auth`, idempotency `library/idempotency` on sensitive creates.

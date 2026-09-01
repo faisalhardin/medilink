@@ -26,6 +26,7 @@ Prefix `/v1`. Auth `/v1/auth/*` (Google OAuth/goth, JWT refresh, sessions). Auth
 
 ## Invariants
 - JSON snake_case; Go `json` + `xorm` tags. DB cols often `id_mst_*`; soft-delete `delete_time`.
+- Nullability: Xorm rows → `database/sql` (`sql.Null*`); JSON DTOs/payloads → `volatiletech/null/v8`. Details: `mem:conventions`.
 - No SQL FK REFERENCES / ON DELETE on table rows (project rule).
 - `time.Local = time.UTC` in API init.
 - Institution-scoped multi-tenant; RBAC via `RequirePermission` + `entity/constant/permission`.
