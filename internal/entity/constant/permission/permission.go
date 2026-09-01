@@ -76,3 +76,11 @@ const (
 	StaffDelete     = "staff.delete"
 	StaffRoleAssign = "staff.role.assign"
 )
+
+// Compensation permissions
+const (
+	CompensationRead     = "compensation.read"
+	CompensationAssign   = "compensation.assign"
+	CompensationFinalize = "compensation.finalize"
+	CompensationManage   = "compensation.manage"
+)
