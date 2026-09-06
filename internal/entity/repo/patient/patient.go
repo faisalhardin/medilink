@@ -2,6 +2,7 @@ package patient
 
 import (
 	"context"
+	"time"
 
 	"github.com/faisalhardin/medilink/internal/entity/model"
 )
@@ -28,4 +29,5 @@ type PatientDB interface {
 	DeleteTrxVisitProduct(ctx context.Context, request *model.TrxVisitProduct) (err error)
 	GetTrxVisitProduct(ctx context.Context, params model.GetVisitProductRequest) (trxVisitProduct []model.TrxVisitProduct, err error)
 	ListDtlPatientVisitWithOdontogram(ctx context.Context, limit, offset int) (dtlPatientVisit []model.DtlPatientVisit, err error)
+	LockVisits(ctx context.Context, periodID int64, visitIDs []int64, lockedAt time.Time) (int64, error)
 }

@@ -25,7 +25,7 @@ func TestFinalizePeriod(t *testing.T) {
 	t.Run("from open not allowed", func(t *testing.T) {
 		p := draftPeriod(1, "p1")
 		p.Status = model.CompensationPeriodStatusOpen
-		db := &fakePeriodDB{periods: []*model.TrxCompensationPeriod{p}}
+		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{p}}
 		locks := &fakeVisitLock{}
 		tx := &fakeTx{}
 		uc := newUC(db, nil, locks, tx)
@@ -39,7 +39,7 @@ func TestFinalizePeriod(t *testing.T) {
 	})
 
 	t.Run("from draft locks commission visit ids", func(t *testing.T) {
-		db := &fakePeriodDB{periods: []*model.TrxCompensationPeriod{draftPeriod(1, "p1")}}
+		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{draftPeriod(1, "p1")}}
 		commissions := &fakeCommissions{
 			totals: map[int64]compensationrepo.PeriodCommissionTotals{
 				1: {TotalCommission: 2500, StaffCount: 2, VisitCount: 3},
@@ -74,7 +74,7 @@ func TestFinalizePeriod(t *testing.T) {
 	})
 
 	t.Run("aggregator error rolls back and does not lock", func(t *testing.T) {
-		db := &fakePeriodDB{periods: []*model.TrxCompensationPeriod{draftPeriod(1, "p1")}}
+		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{draftPeriod(1, "p1")}}
 		commissions := &fakeCommissions{sumErr: errors.New("sum failed")}
 		locks := &fakeVisitLock{}
 		tx := &fakeTx{}
@@ -97,7 +97,7 @@ func TestFinalizePeriod(t *testing.T) {
 	t.Run("already finalized is no-op", func(t *testing.T) {
 		p := draftPeriod(1, "p1")
 		p.Status = model.CompensationPeriodStatusFinalized
-		db := &fakePeriodDB{periods: []*model.TrxCompensationPeriod{p}}
+		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{p}}
 		commissions := &fakeCommissions{visits: map[int64][]int64{1: {9, 8}}}
 		locks := &fakeVisitLock{}
 		tx := &fakeTx{}
@@ -115,7 +115,7 @@ func TestFinalizePeriod(t *testing.T) {
 	})
 
 	t.Run("empty commission list", func(t *testing.T) {
-		db := &fakePeriodDB{periods: []*model.TrxCompensationPeriod{draftPeriod(1, "p1")}}
+		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{draftPeriod(1, "p1")}}
 		locks := &fakeVisitLock{}
 		tx := &fakeTx{}
 		uc := newUC(db, &fakeCommissions{}, locks, tx)

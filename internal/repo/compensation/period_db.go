@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	wrapErrMsgPrefix    = "PeriodDB."
+	wrapErrMsgPrefix    = "CompensationPeriodDB."
 	wrapMsgCreate       = wrapErrMsgPrefix + "Create"
 	wrapMsgGetByUUID    = wrapErrMsgPrefix + "GetByUUID"
 	wrapMsgList         = wrapErrMsgPrefix + "List"
@@ -22,14 +22,14 @@ const (
 	wrapMsgGenerateUUID = wrapErrMsgPrefix + "GenerateUUID"
 )
 
-var _ compensationrepo.PeriodDB = (*Conn)(nil)
+var _ compensationrepo.CompensationPeriodDB = (*Conn)(nil)
 
 type Conn struct {
 	DB *xormlib.DBConnect
 }
 
-// NewPeriodDB returns a PeriodDB implementation bound to the xorm connection.
-func NewPeriodDB(db *xormlib.DBConnect) compensationrepo.PeriodDB {
+// NewCompensationPeriodDB returns a CompensationPeriodDB implementation bound to the xorm connection.
+func NewCompensationPeriodDB(db *xormlib.DBConnect) compensationrepo.CompensationPeriodDB {
 	return &Conn{DB: db}
 }
 

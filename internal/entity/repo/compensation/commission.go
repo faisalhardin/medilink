@@ -61,7 +61,7 @@ type CommissionDB interface {
 	// ListByPeriodStaff returns non-deleted commission rows for the period and
 	// staff, ordered by visit_id ASC, id ASC. total is the unpaginated match
 	// count. Limit/offset apply only when Limit > 0.
-	// Named to avoid colliding with PeriodDB.List on the shared Conn.
+	// Named to avoid colliding with CompensationPeriodDB.List on the shared Conn.
 	ListByPeriodStaff(ctx context.Context, params ListVisitCommissionParams) ([]model.TrxVisitCommission, int, error)
 
 	// SumByStaff returns per-staff commission subtotals for live rows in the
