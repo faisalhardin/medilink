@@ -16,22 +16,22 @@ import (
 )
 
 const (
-	wrapPeriodUCPrefix     = "PeriodUC."
-	wrapMsgCreatePeriod    = wrapPeriodUCPrefix + "CreatePeriod"
-	wrapMsgListPeriods     = wrapPeriodUCPrefix + "ListPeriods"
-	wrapMsgGetPeriod       = wrapPeriodUCPrefix + "GetPeriod"
-	wrapMsgDraftPeriod     = wrapPeriodUCPrefix + "DraftPeriod"
-	wrapMsgFinalizePeriod  = wrapPeriodUCPrefix + "FinalizePeriod"
-	wrapMsgReopenPeriod    = wrapPeriodUCPrefix + "ReopenPeriod"
-	wrapMsgDeletePeriod    = wrapPeriodUCPrefix + "DeletePeriod"
-	defaultListLimit       = 50
-	maxPeriodLabelLen      = 100
-	errIllegalTransition   = "ILLEGAL_PERIOD_TRANSITION"
-	errInvalidPeriodStatus = "INVALID_COMPENSATION_PERIOD_STATUS"
-	errDateRangeOverlap    = "PERIOD_DATE_RANGE_OVERLAP"
-	errPeriodNotFound      = "period_not_found"
-	errInvalidPeriodDates  = "invalid_period_dates"
-	errInvalidLabel        = "invalid_label"
+	wrapCompensationPeriodUCPrefix = "CompensationPeriodUC."
+	wrapMsgCreatePeriod            = wrapCompensationPeriodUCPrefix + "CreatePeriod"
+	wrapMsgListPeriods             = wrapCompensationPeriodUCPrefix + "ListPeriods"
+	wrapMsgGetPeriod               = wrapCompensationPeriodUCPrefix + "GetPeriod"
+	wrapMsgDraftPeriod             = wrapCompensationPeriodUCPrefix + "DraftPeriod"
+	wrapMsgFinalizePeriod          = wrapCompensationPeriodUCPrefix + "FinalizePeriod"
+	wrapMsgReopenPeriod            = wrapCompensationPeriodUCPrefix + "ReopenPeriod"
+	wrapMsgDeletePeriod            = wrapCompensationPeriodUCPrefix + "DeletePeriod"
+	defaultListLimit               = 50
+	maxPeriodLabelLen              = 100
+	errIllegalTransition           = "ILLEGAL_PERIOD_TRANSITION"
+	errInvalidPeriodStatus         = "INVALID_COMPENSATION_PERIOD_STATUS"
+	errDateRangeOverlap            = "PERIOD_DATE_RANGE_OVERLAP"
+	errPeriodNotFound              = "period_not_found"
+	errInvalidPeriodDates          = "invalid_period_dates"
+	errInvalidLabel                = "invalid_label"
 
 	msgInvalidLabel          = "label is required and must be at most 100 characters"
 	msgInvalidPeriodDates    = "period_start and period_end are required and period_end must not be before period_start"
@@ -44,28 +44,28 @@ const (
 	msgFinalizeFromDraftOnly = "period can only be finalized from draft status"
 )
 
-var _ compensationuc.PeriodUC = (*PeriodUC)(nil)
+var _ compensationuc.CompensationPeriodUC = (*CompensationPeriodUC)(nil)
 
-type PeriodUC struct {
-	PeriodDB    compensationrepo.PeriodDB
-	Commissions compensationrepo.CommissionAggregator
-	VisitLockDB compensationrepo.VisitLockDB
-	Transaction xormlib.DBTransactionInterface
-	now         func() time.Time
+type CompensationPeriodUC struct {
+	CompensationPeriodDB compensationrepo.CompensationPeriodDB
+	Commissions          compensationrepo.CommissionAggregator
+	VisitLockDB          compensationrepo.VisitLockDB
+	Transaction          xormlib.DBTransactionInterface
+	now                  func() time.Time
 }
 
-func NewPeriodUC(uc *PeriodUC) *PeriodUC {
+func NewCompensationPeriodUC(uc *CompensationPeriodUC) *CompensationPeriodUC {
 	return uc
 }
 
-func (u *PeriodUC) currentTime() time.Time {
+func (u *CompensationPeriodUC) currentTime() time.Time {
 	if u.now != nil {
 		return u.now()
 	}
 	return time.Now().UTC()
 }
 
-func (u *PeriodUC) requireUser(ctx context.Context) (model.UserJWTPayload, error) {
+func (u *CompensationPeriodUC) requireUser(ctx context.Context) (model.UserJWTPayload, error) {
 	userDetail, found := auth.GetUserDetailFromCtx(ctx)
 	if !found {
 		return model.UserJWTPayload{}, commonerr.SetNewUnauthorizedAPICall()
@@ -73,7 +73,7 @@ func (u *PeriodUC) requireUser(ctx context.Context) (model.UserJWTPayload, error
 	return userDetail, nil
 }
 
-func (u *PeriodUC) CreatePeriod(ctx context.Context, req model.CreateCompensationPeriodRequest) (model.CompensationPeriodResponse, error) {
+func (u *CompensationPeriodUC) CreatePeriod(ctx context.Context, req model.CreateCompensationPeriodRequest) (model.CompensationPeriodResponse, error) {
 	userDetail, err := u.requireUser(ctx)
 	if err != nil {
 		return model.CompensationPeriodResponse{}, err
@@ -100,14 +100,14 @@ func (u *PeriodUC) CreatePeriod(ctx context.Context, req model.CreateCompensatio
 		PeriodStart:   start,
 		PeriodEnd:     end,
 	}
-	if err := u.PeriodDB.Create(ctx, period); err != nil {
+	if err := u.CompensationPeriodDB.Create(ctx, period); err != nil {
 		return model.CompensationPeriodResponse{}, errors.Wrap(err, wrapMsgCreatePeriod)
 	}
 
 	return period.ToResponse(0), nil
 }
 
-func (u *PeriodUC) ListPeriods(ctx context.Context, req model.ListCompensationPeriodsRequest) (model.ListCompensationPeriodsResponse, error) {
+func (u *CompensationPeriodUC) ListPeriods(ctx context.Context, req model.ListCompensationPeriodsRequest) (model.ListCompensationPeriodsResponse, error) {
 	userDetail, err := u.requireUser(ctx)
 	if err != nil {
 		return model.ListCompensationPeriodsResponse{}, err
@@ -126,7 +126,7 @@ func (u *PeriodUC) ListPeriods(ctx context.Context, req model.ListCompensationPe
 		offset = 0
 	}
 
-	rows, total, err := u.PeriodDB.List(ctx, model.ListCompensationPeriodParams{
+	rows, total, err := u.CompensationPeriodDB.List(ctx, model.ListCompensationPeriodParams{
 		InstitutionID: userDetail.InstitutionID,
 		Status:        req.Status,
 		Limit:         limit,
@@ -146,7 +146,7 @@ func (u *PeriodUC) ListPeriods(ctx context.Context, req model.ListCompensationPe
 	}, nil
 }
 
-func (u *PeriodUC) GetPeriod(ctx context.Context, periodUUID string) (model.CompensationPeriodResponse, error) {
+func (u *CompensationPeriodUC) GetPeriod(ctx context.Context, periodUUID string) (model.CompensationPeriodResponse, error) {
 	userDetail, err := u.requireUser(ctx)
 	if err != nil {
 		return model.CompensationPeriodResponse{}, err
@@ -159,7 +159,7 @@ func (u *PeriodUC) GetPeriod(ctx context.Context, periodUUID string) (model.Comp
 	return period.ToResponse(0), nil
 }
 
-func (u *PeriodUC) DraftPeriod(ctx context.Context, periodUUID string) (model.CompensationPeriodResponse, error) {
+func (u *CompensationPeriodUC) DraftPeriod(ctx context.Context, periodUUID string) (model.CompensationPeriodResponse, error) {
 	userDetail, err := u.requireUser(ctx)
 	if err != nil {
 		return model.CompensationPeriodResponse{}, err
@@ -183,13 +183,13 @@ func (u *PeriodUC) DraftPeriod(ctx context.Context, periodUUID string) (model.Co
 	}
 
 	applyPhase1DraftTotals(period, totals, u.currentTime(), userDetail.UUID)
-	if err := u.PeriodDB.UpdateStatusAndTotals(ctx, period); err != nil {
+	if err := u.CompensationPeriodDB.UpdateStatusAndTotals(ctx, period); err != nil {
 		return model.CompensationPeriodResponse{}, errors.Wrap(err, wrapMsgDraftPeriod)
 	}
 	return period.ToResponse(0), nil
 }
 
-func (u *PeriodUC) ReopenPeriod(ctx context.Context, periodUUID string) (model.CompensationPeriodResponse, error) {
+func (u *CompensationPeriodUC) ReopenPeriod(ctx context.Context, periodUUID string) (model.CompensationPeriodResponse, error) {
 	userDetail, err := u.requireUser(ctx)
 	if err != nil {
 		return model.CompensationPeriodResponse{}, err
@@ -204,13 +204,13 @@ func (u *PeriodUC) ReopenPeriod(ctx context.Context, periodUUID string) (model.C
 	}
 
 	period.Status = model.CompensationPeriodStatusDraft
-	if err := u.PeriodDB.UpdateStatusAndTotals(ctx, period); err != nil {
+	if err := u.CompensationPeriodDB.UpdateStatusAndTotals(ctx, period); err != nil {
 		return model.CompensationPeriodResponse{}, errors.Wrap(err, wrapMsgReopenPeriod)
 	}
 	return period.ToResponse(0), nil
 }
 
-func (u *PeriodUC) DeletePeriod(ctx context.Context, periodUUID string) (model.DeleteCompensationPeriodResponse, error) {
+func (u *CompensationPeriodUC) DeletePeriod(ctx context.Context, periodUUID string) (model.DeleteCompensationPeriodResponse, error) {
 	userDetail, err := u.requireUser(ctx)
 	if err != nil {
 		return model.DeleteCompensationPeriodResponse{}, err
@@ -224,7 +224,7 @@ func (u *PeriodUC) DeletePeriod(ctx context.Context, periodUUID string) (model.D
 		return model.DeleteCompensationPeriodResponse{}, commonerr.SetNewBadRequest(errIllegalTransition, msgDeleteOpenOnly)
 	}
 
-	found, err := u.PeriodDB.SoftDelete(ctx, userDetail.InstitutionID, periodUUID)
+	found, err := u.CompensationPeriodDB.SoftDelete(ctx, userDetail.InstitutionID, periodUUID)
 	if err != nil {
 		return model.DeleteCompensationPeriodResponse{}, errors.Wrap(err, wrapMsgDeletePeriod)
 	}
@@ -234,11 +234,11 @@ func (u *PeriodUC) DeletePeriod(ctx context.Context, periodUUID string) (model.D
 	return model.DeleteCompensationPeriodResponse{Success: true}, nil
 }
 
-func (u *PeriodUC) loadPeriod(ctx context.Context, institutionID int64, periodUUID, wrap string) (*model.TrxCompensationPeriod, error) {
+func (u *CompensationPeriodUC) loadPeriod(ctx context.Context, institutionID int64, periodUUID, wrap string) (*model.TrxCompensationPeriod, error) {
 	if periodUUID == "" {
 		return nil, commonerr.SetNewBadRequest(errPeriodNotFound, msgPeriodNotFound)
 	}
-	period, found, err := u.PeriodDB.GetByUUID(ctx, institutionID, periodUUID)
+	period, found, err := u.CompensationPeriodDB.GetByUUID(ctx, institutionID, periodUUID)
 	if err != nil {
 		return nil, errors.Wrap(err, wrap)
 	}
@@ -248,12 +248,12 @@ func (u *PeriodUC) loadPeriod(ctx context.Context, institutionID int64, periodUU
 	return period, nil
 }
 
-func (u *PeriodUC) rejectIfOverlapping(ctx context.Context, institutionID int64, start, end time.Time, excludeUUID string) error {
-	rows, _, err := u.PeriodDB.List(ctx, model.ListCompensationPeriodParams{
+func (u *CompensationPeriodUC) rejectIfOverlapping(ctx context.Context, institutionID int64, start, end time.Time, excludeUUID string) error {
+	rows, _, err := u.CompensationPeriodDB.List(ctx, model.ListCompensationPeriodParams{
 		InstitutionID: institutionID,
 	})
 	if err != nil {
-		return errors.Wrap(err, wrapPeriodUCPrefix+"rejectIfOverlapping")
+		return errors.Wrap(err, wrapCompensationPeriodUCPrefix+"rejectIfOverlapping")
 	}
 	for _, row := range rows {
 		if excludeUUID != "" && row.UUID == excludeUUID {

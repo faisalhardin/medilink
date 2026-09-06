@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func (u *PeriodUC) FinalizePeriod(ctx context.Context, periodUUID string) (model.FinalizeCompensationPeriodResponse, error) {
+func (u *CompensationPeriodUC) FinalizePeriod(ctx context.Context, periodUUID string) (model.FinalizeCompensationPeriodResponse, error) {
 	userDetail, err := u.requireUser(ctx)
 	if err != nil {
 		return model.FinalizeCompensationPeriodResponse{}, err
@@ -56,7 +56,7 @@ func (u *PeriodUC) FinalizePeriod(ctx context.Context, periodUUID string) (model
 
 	now := u.currentTime()
 	applyPhase1FinalizeTotals(period, totals, now, userDetail.UUID)
-	if err = u.PeriodDB.UpdateStatusAndTotals(ctx, period); err != nil {
+	if err = u.CompensationPeriodDB.UpdateStatusAndTotals(ctx, period); err != nil {
 		return model.FinalizeCompensationPeriodResponse{}, errors.Wrap(err, wrapMsgFinalizePeriod)
 	}
 

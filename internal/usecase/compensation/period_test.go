@@ -54,7 +54,7 @@ func errorName(t *testing.T, err error) string {
 	return em.ErrorList[0].ErrorName
 }
 
-type fakePeriodDB struct {
+type fakeCompensationPeriodDB struct {
 	periods         []*model.TrxCompensationPeriod
 	lastList        model.ListCompensationPeriodParams
 	createErr       error
@@ -66,7 +66,7 @@ type fakePeriodDB struct {
 	softDeleteCalls int
 }
 
-func (f *fakePeriodDB) Create(_ context.Context, period *model.TrxCompensationPeriod) error {
+func (f *fakeCompensationPeriodDB) Create(_ context.Context, period *model.TrxCompensationPeriod) error {
 	if f.createErr != nil {
 		return f.createErr
 	}
@@ -82,7 +82,7 @@ func (f *fakePeriodDB) Create(_ context.Context, period *model.TrxCompensationPe
 	return nil
 }
 
-func (f *fakePeriodDB) GetByUUID(_ context.Context, institutionID int64, uuid string) (*model.TrxCompensationPeriod, bool, error) {
+func (f *fakeCompensationPeriodDB) GetByUUID(_ context.Context, institutionID int64, uuid string) (*model.TrxCompensationPeriod, bool, error) {
 	if f.getErr != nil {
 		return nil, false, f.getErr
 	}
@@ -95,7 +95,7 @@ func (f *fakePeriodDB) GetByUUID(_ context.Context, institutionID int64, uuid st
 	return nil, false, nil
 }
 
-func (f *fakePeriodDB) List(_ context.Context, params model.ListCompensationPeriodParams) ([]model.TrxCompensationPeriod, int, error) {
+func (f *fakeCompensationPeriodDB) List(_ context.Context, params model.ListCompensationPeriodParams) ([]model.TrxCompensationPeriod, int, error) {
 	f.lastList = params
 	if f.listErr != nil {
 		return nil, 0, f.listErr
@@ -125,7 +125,7 @@ func (f *fakePeriodDB) List(_ context.Context, params model.ListCompensationPeri
 	return matched, total, nil
 }
 
-func (f *fakePeriodDB) UpdateStatusAndTotals(_ context.Context, period *model.TrxCompensationPeriod) error {
+func (f *fakeCompensationPeriodDB) UpdateStatusAndTotals(_ context.Context, period *model.TrxCompensationPeriod) error {
 	f.updateCalls++
 	if f.updateErr != nil {
 		return f.updateErr
@@ -140,7 +140,7 @@ func (f *fakePeriodDB) UpdateStatusAndTotals(_ context.Context, period *model.Tr
 	return errors.New("period not in fake store")
 }
 
-func (f *fakePeriodDB) SoftDelete(_ context.Context, institutionID int64, uuid string) (bool, error) {
+func (f *fakeCompensationPeriodDB) SoftDelete(_ context.Context, institutionID int64, uuid string) (bool, error) {
 	f.softDeleteCalls++
 	if f.deleteErr != nil {
 		return false, f.deleteErr
@@ -221,9 +221,9 @@ func (t *fakeTx) Finish(_ *xorm.Session, err *error) {
 	}
 }
 
-func newUC(db *fakePeriodDB, commissions *fakeCommissions, locks *fakeVisitLock, tx *fakeTx) *PeriodUC {
+func newUC(db *fakeCompensationPeriodDB, commissions *fakeCommissions, locks *fakeVisitLock, tx *fakeTx) *CompensationPeriodUC {
 	if db == nil {
-		db = &fakePeriodDB{}
+		db = &fakeCompensationPeriodDB{}
 	}
 	if commissions == nil {
 		commissions = &fakeCommissions{}
@@ -234,11 +234,11 @@ func newUC(db *fakePeriodDB, commissions *fakeCommissions, locks *fakeVisitLock,
 	if tx == nil {
 		tx = &fakeTx{}
 	}
-	return &PeriodUC{
-		PeriodDB:    db,
-		Commissions: commissions,
-		VisitLockDB: locks,
-		Transaction: tx,
+	return &CompensationPeriodUC{
+		CompensationPeriodDB: db,
+		Commissions:          commissions,
+		VisitLockDB:          locks,
+		Transaction:          tx,
 		now: func() time.Time {
 			return time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
 		},
@@ -247,7 +247,7 @@ func newUC(db *fakePeriodDB, commissions *fakeCommissions, locks *fakeVisitLock,
 
 func TestCreatePeriod(t *testing.T) {
 	t.Run("happy path", func(t *testing.T) {
-		db := &fakePeriodDB{}
+		db := &fakeCompensationPeriodDB{}
 		uc := newUC(db, nil, nil, nil)
 		got, err := uc.CreatePeriod(testCtx(), createReq("Aug 2026", "2026-08-01", "2026-08-31"))
 		if err != nil {
@@ -262,7 +262,7 @@ func TestCreatePeriod(t *testing.T) {
 	})
 
 	t.Run("overlap", func(t *testing.T) {
-		db := &fakePeriodDB{periods: []*model.TrxCompensationPeriod{{
+		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{{
 			UUID:          "existing",
 			InstitutionID: testInstitutionID,
 			PeriodStart:   time.Date(2026, 8, 15, 0, 0, 0, 0, time.UTC),
@@ -302,7 +302,7 @@ func TestCreatePeriod(t *testing.T) {
 }
 
 func TestListPeriods_DefaultLimit(t *testing.T) {
-	db := &fakePeriodDB{}
+	db := &fakeCompensationPeriodDB{}
 	uc := newUC(db, nil, nil, nil)
 	_, err := uc.ListPeriods(testCtx(), model.ListCompensationPeriodsRequest{})
 	if err != nil {
@@ -317,7 +317,7 @@ func TestListPeriods_DefaultLimit(t *testing.T) {
 }
 
 func TestListPeriods_ExplicitLimitAndInvalidStatus(t *testing.T) {
-	db := &fakePeriodDB{periods: []*model.TrxCompensationPeriod{
+	db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{
 		{UUID: "a", InstitutionID: testInstitutionID, Status: model.CompensationPeriodStatusOpen, Label: "A"},
 		{UUID: "b", InstitutionID: testInstitutionID, Status: model.CompensationPeriodStatusOpen, Label: "B"},
 		{UUID: "c", InstitutionID: testInstitutionID, Status: model.CompensationPeriodStatusOpen, Label: "C"},
@@ -363,7 +363,7 @@ func TestDraftPeriod(t *testing.T) {
 	}
 
 	t.Run("open to draft", func(t *testing.T) {
-		db := &fakePeriodDB{periods: []*model.TrxCompensationPeriod{copyPeriod(open)}}
+		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{copyPeriod(open)}}
 		commissions := &fakeCommissions{totals: map[int64]compensationrepo.PeriodCommissionTotals{
 			1: {TotalCommission: 1000, StaffCount: 2, VisitCount: 4},
 		}}
@@ -383,7 +383,7 @@ func TestDraftPeriod(t *testing.T) {
 	t.Run("re-draft", func(t *testing.T) {
 		p := copyPeriod(open)
 		p.Status = model.CompensationPeriodStatusDraft
-		db := &fakePeriodDB{periods: []*model.TrxCompensationPeriod{p}}
+		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{p}}
 		uc := newUC(db, &fakeCommissions{}, nil, nil)
 		got, err := uc.DraftPeriod(testCtx(), "p1")
 		if err != nil {
@@ -397,7 +397,7 @@ func TestDraftPeriod(t *testing.T) {
 	t.Run("finalized not allowed", func(t *testing.T) {
 		p := copyPeriod(open)
 		p.Status = model.CompensationPeriodStatusFinalized
-		db := &fakePeriodDB{periods: []*model.TrxCompensationPeriod{p}}
+		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{p}}
 		uc := newUC(db, nil, nil, nil)
 		_, err := uc.DraftPeriod(testCtx(), "p1")
 		if errorName(t, err) != errIllegalTransition {
@@ -417,7 +417,7 @@ func TestDraftPeriod(t *testing.T) {
 			PeriodEnd:     time.Date(2026, 9, 10, 0, 0, 0, 0, time.UTC),
 			Status:        model.CompensationPeriodStatusOpen,
 		}
-		db := &fakePeriodDB{periods: []*model.TrxCompensationPeriod{p, other}}
+		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{p, other}}
 		uc := newUC(db, nil, nil, nil)
 		_, err := uc.DraftPeriod(testCtx(), "p1")
 		if errorName(t, err) != errDateRangeOverlap {
@@ -428,7 +428,7 @@ func TestDraftPeriod(t *testing.T) {
 
 func TestReopenPeriod(t *testing.T) {
 	locks := &fakeVisitLock{locked: map[int64][]int64{1: {10, 11}}}
-	db := &fakePeriodDB{periods: []*model.TrxCompensationPeriod{{
+	db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{{
 		ID:            1,
 		UUID:          "p1",
 		InstitutionID: testInstitutionID,
@@ -471,7 +471,7 @@ func TestDeletePeriod(t *testing.T) {
 	}
 
 	t.Run("open ok", func(t *testing.T) {
-		db := &fakePeriodDB{periods: []*model.TrxCompensationPeriod{copyPeriod(open)}}
+		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{copyPeriod(open)}}
 		uc := newUC(db, nil, nil, nil)
 		got, err := uc.DeletePeriod(testCtx(), "p1")
 		if err != nil || !got.Success {
@@ -490,7 +490,7 @@ func TestDeletePeriod(t *testing.T) {
 		t.Run("illegal "+string(status), func(t *testing.T) {
 			p := copyPeriod(open)
 			p.Status = status
-			db := &fakePeriodDB{periods: []*model.TrxCompensationPeriod{p}}
+			db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{p}}
 			uc := newUC(db, nil, nil, nil)
 			_, err := uc.DeletePeriod(testCtx(), "p1")
 			if errorName(t, err) != errIllegalTransition {

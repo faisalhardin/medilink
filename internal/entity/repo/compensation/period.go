@@ -6,11 +6,11 @@ import (
 	"github.com/faisalhardin/medilink/internal/entity/model"
 )
 
-// PeriodDB is the data-access contract for mdl_trx_compensation_period.
+// CompensationPeriodDB is the data-access contract for mdl_trx_compensation_period.
 // Mutating methods honour an active xorm session from the request context
 // (see internal/library/db/xorm.GetDBSession) so the usecase can run draft,
 // finalize, and reopen inside a DBTransaction.
-type PeriodDB interface {
+type CompensationPeriodDB interface {
 	// Create inserts a payday period. UUID is generated when empty; status
 	// defaults to open when empty. Soft-delete is not applied on insert.
 	Create(ctx context.Context, period *model.TrxCompensationPeriod) error

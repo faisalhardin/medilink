@@ -20,8 +20,8 @@ import (
 	xormlib "github.com/faisalhardin/medilink/internal/library/db/xorm"
 	anamnesarepo "github.com/faisalhardin/medilink/internal/repo/anamnesa"
 	inmemory "github.com/faisalhardin/medilink/internal/repo/cache/inmemory"
+	compensationrepo "github.com/faisalhardin/medilink/internal/repo/compensation"
 	diagnosisrepo "github.com/faisalhardin/medilink/internal/repo/diagnosis"
-	procedurerepo "github.com/faisalhardin/medilink/internal/repo/procedure"
 	icd10repo "github.com/faisalhardin/medilink/internal/repo/icd10"
 	institutionrepo "github.com/faisalhardin/medilink/internal/repo/institution"
 	journeyrepo "github.com/faisalhardin/medilink/internal/repo/journey"
@@ -30,14 +30,15 @@ import (
 	patientrepo "github.com/faisalhardin/medilink/internal/repo/patient"
 	permissionrepo "github.com/faisalhardin/medilink/internal/repo/permission"
 	practitionerrepo "github.com/faisalhardin/medilink/internal/repo/practitioner"
+	procedurerepo "github.com/faisalhardin/medilink/internal/repo/procedure"
 	productrepo "github.com/faisalhardin/medilink/internal/repo/product"
 	recallrepo "github.com/faisalhardin/medilink/internal/repo/recall"
 	satusehatqueuerepo "github.com/faisalhardin/medilink/internal/repo/satusehat"
 	staffrepo "github.com/faisalhardin/medilink/internal/repo/staff"
+	compensationuc "github.com/faisalhardin/medilink/internal/usecase/compensation"
 	staffuc "github.com/faisalhardin/medilink/internal/usecase/staff"
 
 	anamnesauc "github.com/faisalhardin/medilink/internal/usecase/anamnesa"
-	procedureuc "github.com/faisalhardin/medilink/internal/usecase/procedure"
 	authCleanup "github.com/faisalhardin/medilink/internal/usecase/auth"
 	authUC "github.com/faisalhardin/medilink/internal/usecase/auth"
 	diagnosisuc "github.com/faisalhardin/medilink/internal/usecase/diagnosis"
@@ -47,13 +48,14 @@ import (
 	odontogramuc "github.com/faisalhardin/medilink/internal/usecase/odontogram"
 	patientUC "github.com/faisalhardin/medilink/internal/usecase/patient"
 	practitioneruc "github.com/faisalhardin/medilink/internal/usecase/practitioner"
+	procedureuc "github.com/faisalhardin/medilink/internal/usecase/procedure"
 	productuc "github.com/faisalhardin/medilink/internal/usecase/product"
 	recalluc "github.com/faisalhardin/medilink/internal/usecase/recall"
 	visituc "github.com/faisalhardin/medilink/internal/usecase/visit"
 
 	anamnesahandler "github.com/faisalhardin/medilink/internal/http/anamnesa"
-	procedurehandler "github.com/faisalhardin/medilink/internal/http/procedure"
 	authHandler "github.com/faisalhardin/medilink/internal/http/auth"
+	compensationhandler "github.com/faisalhardin/medilink/internal/http/compensation"
 	diagnosishandler "github.com/faisalhardin/medilink/internal/http/diagnosis"
 	icd10handler "github.com/faisalhardin/medilink/internal/http/icd10"
 	institutionHandler "github.com/faisalhardin/medilink/internal/http/institution"
@@ -61,6 +63,7 @@ import (
 	odontogramhandler "github.com/faisalhardin/medilink/internal/http/odontogram"
 	patientHandler "github.com/faisalhardin/medilink/internal/http/patient"
 	practitionerhandler "github.com/faisalhardin/medilink/internal/http/practitioner"
+	procedurehandler "github.com/faisalhardin/medilink/internal/http/procedure"
 	producthandler "github.com/faisalhardin/medilink/internal/http/product"
 	recallhandler "github.com/faisalhardin/medilink/internal/http/recall"
 	staffhandler "github.com/faisalhardin/medilink/internal/http/staff"
@@ -184,6 +187,9 @@ func main() {
 	procedureDB := procedurerepo.NewProcedureDB(db)
 	icd9cmDB := procedurerepo.NewICD9CMDB(db)
 
+	compensationPeriodDB := compensationrepo.NewCompensationPeriodDB(db)
+	commissionDB := compensationrepo.NewCommissionDB(db)
+
 	_ = satusehatQueueDB
 	// repo block end
 
@@ -194,7 +200,7 @@ func main() {
 	})
 
 	patientUC := patientUC.NewPatientUC(&patientUC.PatientUC{
-		PatientDB:   patientDB,
+		PatientDB: patientDB,
 		Idempotency: idempotency.New(inMemoryCaching,
 			idempotency.WithTTL(cfg.IdempotencyConfig.TTLInSeconds),
 			idempotency.WithPoll(
@@ -285,6 +291,13 @@ func main() {
 		Transaction:     transaction,
 	})
 
+	compensationPeriodUC := compensationuc.NewCompensationPeriodUC(&compensationuc.CompensationPeriodUC{
+		CompensationPeriodDB: compensationPeriodDB,
+		Commissions:          commissionDB,
+		VisitLockDB:          patientDB,
+		Transaction:          transaction,
+	})
+
 	// usecase block end
 
 	// httphandler block start
@@ -346,6 +359,10 @@ func main() {
 	procedureHandler := procedurehandler.New(&procedurehandler.ProcedureHandler{
 		ProcedureUC: procedureUC,
 	})
+
+	compensationPeriodHandler := compensationhandler.New(&compensationhandler.CompensationPeriodHandler{
+		CompensationPeriodUC: compensationPeriodUC,
+	})
 	// httphandler block end
 
 	// module block start
@@ -357,19 +374,20 @@ func main() {
 
 	modules := server.LoadModules(cfg,
 		&httpHandler.Handlers{
-			InstitutionHandler:  institutionHandler,
-			PatientHandler:      patientHandler,
-			AuthHandler:         authHandler,
-			ProductHandler:      productHandler,
-			JourneyHandler:      journeyHandler,
-			OdontogramHandler:   odontogramHandler,
-			RecallHandler:       recallHandler,
-			ICD10Handler:        icd10Handler,
-			PractitionerHandler: practitionerHandler,
-		DiagnosisHandler:    diagnosisHandler,
-		AnamnesaHandler:     anamnesaHandler,
-		StaffHandler:        staffHandler,
-		ProcedureHandler:    procedureHandler,
+			InstitutionHandler:        institutionHandler,
+			PatientHandler:            patientHandler,
+			AuthHandler:               authHandler,
+			ProductHandler:            productHandler,
+			JourneyHandler:            journeyHandler,
+			OdontogramHandler:         odontogramHandler,
+			RecallHandler:             recallHandler,
+			ICD10Handler:              icd10Handler,
+			PractitionerHandler:       practitionerHandler,
+			DiagnosisHandler:          diagnosisHandler,
+			AnamnesaHandler:           anamnesaHandler,
+			StaffHandler:              staffHandler,
+			ProcedureHandler:          procedureHandler,
+			CompensationPeriodHandler: compensationPeriodHandler,
 		},
 		middlewareModule,
 	)
