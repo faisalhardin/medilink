@@ -71,6 +71,8 @@ func RegisterRoutes(m *module) http.Handler {
 						Get("/contributors", m.httpHandler.VisitContributorHandler.ListVisitContributors)
 					visit.With(m.middlewareModule.RequirePermission(permconst.CompensationAssign)).
 						Post("/contributors", m.httpHandler.VisitContributorHandler.AddVisitContributor)
+					visit.With(m.middlewareModule.RequirePermission(permconst.CompensationAssign)).
+						Delete("/contributors/{staffId}", m.httpHandler.VisitContributorHandler.DeleteVisitContributor)
 				})
 				visit.Get("/product", m.httpHandler.PatientHandler.ListVisitProducts)
 				visit.Post("/product", m.httpHandler.PatientHandler.InsertVisitProduct)

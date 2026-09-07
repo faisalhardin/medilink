@@ -64,3 +64,21 @@ func (h *VisitContributorHandler) AddVisitContributor(w http.ResponseWriter, r *
 	}
 	commonwriter.SetOKWithData(ctx, w, response)
 }
+
+func (h *VisitContributorHandler) DeleteVisitContributor(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	visitID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		commonwriter.SetError(ctx, w, commonerr.SetNewBadRequest("invalid", "Invalid Visit ID"))
+		return
+	}
+
+	staffID := chi.URLParam(r, "staffId")
+	response, err := h.VisitContributorUC.DeleteVisitContributor(ctx, visitID, staffID)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+	commonwriter.SetOKWithData(ctx, w, response)
+}

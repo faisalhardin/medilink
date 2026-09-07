@@ -10,4 +10,5 @@ import (
 type VisitContributorUC interface {
 	ListVisitContributors(ctx context.Context, visitID int64) (model.ListVisitContributorsResponse, error)
 	AddVisitContributor(ctx context.Context, visitID int64, staffID string) (model.AddVisitContributorResponse, error)
+	DeleteVisitContributor(ctx context.Context, visitID int64, staffID string) (model.DeleteVisitContributorResponse, error)
 }

@@ -13,6 +13,7 @@ import (
 const (
 	wrapMsgDetectForVisit          = "ContributorDB.DetectForVisit"
 	wrapMsgUpsertManualContributor = "ContributorDB.UpsertManualContributor"
+	wrapMsgDeleteManualContributor = "ContributorDB.DeleteManualContributor"
 
 	detectProcedureSQL = `
 		SELECT
@@ -266,4 +267,22 @@ func (c *Conn) UpsertManualContributor(ctx context.Context, row model.MapVisitCo
 		return compensationrepo.ErrContributorAlreadyAdded
 	}
 	return nil
+}
+
+func (c *Conn) DeleteManualContributor(ctx context.Context, institutionID, visitID int64, staffID string) (bool, error) {
+	const deleteSQL = `
+		UPDATE mdl_map_visit_contributor
+		SET delete_time = NOW()
+		WHERE visit_id = ? AND staff_id = ? AND institution_id = ?
+		  AND delete_time IS NULL
+	`
+	res, err := c.writeSession(ctx).Exec(deleteSQL, visitID, staffID, institutionID)
+	if err != nil {
+		return false, errors.Wrap(err, wrapMsgDeleteManualContributor)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return false, errors.Wrap(err, wrapMsgDeleteManualContributor)
+	}
+	return affected > 0, nil
 }

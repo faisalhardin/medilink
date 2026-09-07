@@ -29,4 +29,5 @@ type DetectedAttribution struct {
 type ContributorDB interface {
 	DetectForVisit(ctx context.Context, institutionID, visitID int64) ([]DetectedAttribution, error)
 	UpsertManualContributor(ctx context.Context, row model.MapVisitContributor) error
+	DeleteManualContributor(ctx context.Context, institutionID, visitID int64, staffID string) (bool, error)
 }
