@@ -274,14 +274,14 @@ type DeleteVisitContributorResponse struct {
 
 // ─── JSON request / response DTOs ─────────────────────────────────────────────
 
-// CreateCompensationPeriodRequest is the body for POST /v1/compensation/periods.
+// CreateCompensationPeriodRequest is the body for POST /v1/compensation-period.
 type CreateCompensationPeriodRequest struct {
 	Label       string `json:"label"`
 	PeriodStart Time   `json:"period_start"`
 	PeriodEnd   Time   `json:"period_end"`
 }
 
-// ListCompensationPeriodsRequest is the query for GET /v1/compensation/periods.
+// ListCompensationPeriodsRequest is the query for GET /v1/compensation-period.
 type ListCompensationPeriodsRequest struct {
 	Status CompensationPeriodStatus `json:"status" schema:"status"`
 	CommonRequestPayload

@@ -134,23 +134,21 @@ func RegisterRoutes(m *module) http.Handler {
 					Patch("/{uuid}/activate", m.httpHandler.StaffHandler.ActivateStaff)
 			})
 
-			authed.Route("/compensation", func(comp chi.Router) {
-				comp.Route("/periods", func(periods chi.Router) {
-					periods.With(m.middlewareModule.RequirePermission(permconst.CompensationAssign)).
-						Post("/", m.httpHandler.CompensationPeriodHandler.CreatePeriod)
-					periods.With(m.middlewareModule.RequirePermission(permconst.CompensationRead)).
-						Get("/", m.httpHandler.CompensationPeriodHandler.ListPeriods)
-					periods.With(m.middlewareModule.RequirePermission(permconst.CompensationRead)).
-						Get("/{periodId}", m.httpHandler.CompensationPeriodHandler.GetPeriod)
-					periods.With(m.middlewareModule.RequirePermission(permconst.CompensationAssign)).
-						Post("/{periodId}/draft", m.httpHandler.CompensationPeriodHandler.DraftPeriod)
-					periods.With(m.middlewareModule.RequirePermission(permconst.CompensationFinalize)).
-						Post("/{periodId}/finalize", m.httpHandler.CompensationPeriodHandler.FinalizePeriod)
-					periods.With(m.middlewareModule.RequirePermission(permconst.CompensationFinalize)).
-						Post("/{periodId}/reopen", m.httpHandler.CompensationPeriodHandler.ReopenPeriod)
-					periods.With(m.middlewareModule.RequirePermission(permconst.CompensationFinalize)).
-						Delete("/{periodId}", m.httpHandler.CompensationPeriodHandler.DeletePeriod)
-				})
+			authed.Route("/compensation-period", func(periods chi.Router) {
+				periods.With(m.middlewareModule.RequirePermission(permconst.CompensationAssign)).
+					Post("/", m.httpHandler.CompensationPeriodHandler.CreatePeriod)
+				periods.With(m.middlewareModule.RequirePermission(permconst.CompensationRead)).
+					Get("/", m.httpHandler.CompensationPeriodHandler.ListPeriods)
+				periods.With(m.middlewareModule.RequirePermission(permconst.CompensationRead)).
+					Get("/{periodId}", m.httpHandler.CompensationPeriodHandler.GetPeriod)
+				periods.With(m.middlewareModule.RequirePermission(permconst.CompensationAssign)).
+					Post("/{periodId}/draft", m.httpHandler.CompensationPeriodHandler.DraftPeriod)
+				periods.With(m.middlewareModule.RequirePermission(permconst.CompensationFinalize)).
+					Post("/{periodId}/finalize", m.httpHandler.CompensationPeriodHandler.FinalizePeriod)
+				periods.With(m.middlewareModule.RequirePermission(permconst.CompensationFinalize)).
+					Post("/{periodId}/reopen", m.httpHandler.CompensationPeriodHandler.ReopenPeriod)
+				periods.With(m.middlewareModule.RequirePermission(permconst.CompensationFinalize)).
+					Delete("/{periodId}", m.httpHandler.CompensationPeriodHandler.DeletePeriod)
 			})
 
 			// Recall: doctor reminder for next scheduled control or appointment
