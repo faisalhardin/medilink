@@ -267,6 +267,11 @@ type AddVisitContributorResponse struct {
 	Contributor VisitContributorResponse `json:"contributor"`
 }
 
+// DeleteVisitContributorResponse is the body for DELETE /v1/visit/{id}/contributors/{staffId}.
+type DeleteVisitContributorResponse struct {
+	Success bool `json:"success"`
+}
+
 // ─── JSON request / response DTOs ─────────────────────────────────────────────
 
 // CreateCompensationPeriodRequest is the body for POST /v1/compensation/periods.

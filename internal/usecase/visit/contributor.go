@@ -16,17 +16,20 @@ import (
 )
 
 const (
-	wrapVisitContributorUCPrefix = "VisitContributorUC."
-	wrapMsgListVisitContributors = wrapVisitContributorUCPrefix + "ListVisitContributors"
-	wrapMsgAddVisitContributor   = wrapVisitContributorUCPrefix + "AddVisitContributor"
-	errVisitNotFound             = "visit_not_found"
-	msgVisitNotFound             = "visit was not found in this institution"
-	errVisitCompensationLocked   = "VISIT_COMPENSATION_LOCKED"
-	msgVisitCompensationLocked   = "visit compensation is locked"
-	errContributorAlreadyAdded   = "contributor_already_added"
-	msgContributorAlreadyAdded   = "staff is already a contributor on this visit"
-	labelSourceProductName       = "product_name"
-	labelSourceICD10Display      = "icd10_display"
+	wrapVisitContributorUCPrefix  = "VisitContributorUC."
+	wrapMsgListVisitContributors  = wrapVisitContributorUCPrefix + "ListVisitContributors"
+	wrapMsgAddVisitContributor    = wrapVisitContributorUCPrefix + "AddVisitContributor"
+	wrapMsgDeleteVisitContributor = wrapVisitContributorUCPrefix + "DeleteVisitContributor"
+	errVisitNotFound              = "visit_not_found"
+	msgVisitNotFound              = "visit was not found in this institution"
+	errVisitCompensationLocked    = "VISIT_COMPENSATION_LOCKED"
+	msgVisitCompensationLocked    = "visit compensation is locked"
+	errContributorAlreadyAdded    = "contributor_already_added"
+	msgContributorAlreadyAdded    = "staff is already a contributor on this visit"
+	errContributorNotFound        = "contributor_not_found"
+	msgContributorNotFound        = "contributor was not found on this visit"
+	labelSourceProductName        = "product_name"
+	labelSourceICD10Display       = "icd10_display"
 )
 
 var _ visituc.VisitContributorUC = (*VisitContributorUC)(nil)
@@ -126,6 +129,38 @@ func (u *VisitContributorUC) AddVisitContributor(ctx context.Context, visitID in
 			AddedManually: true,
 		},
 	}, nil
+}
+
+func (u *VisitContributorUC) DeleteVisitContributor(ctx context.Context, visitID int64, staffID string) (model.DeleteVisitContributorResponse, error) {
+	userDetail, found := auth.GetUserDetailFromCtx(ctx)
+	if !found {
+		return model.DeleteVisitContributorResponse{}, commonerr.SetNewUnauthorizedAPICall()
+	}
+
+	if _, err := uuid.Parse(staffID); err != nil {
+		return model.DeleteVisitContributorResponse{}, commonerr.SetNewBadRequest("invalid", "Invalid Staff ID")
+	}
+
+	visit, err := u.PatientDB.GetPatientVisitsByID(ctx, visitID)
+	if err != nil {
+		return model.DeleteVisitContributorResponse{}, errors.Wrap(err, wrapMsgDeleteVisitContributor)
+	}
+	if visit.ID == 0 || visit.IDMstInstitution != userDetail.InstitutionID {
+		return model.DeleteVisitContributorResponse{}, commonerr.SetNewError(http.StatusNotFound, errVisitNotFound, msgVisitNotFound)
+	}
+	if visit.CompensationLockedAt.Valid {
+		return model.DeleteVisitContributorResponse{}, commonerr.SetNewError(http.StatusForbidden, errVisitCompensationLocked, msgVisitCompensationLocked)
+	}
+
+	deleted, err := u.ContributorDB.DeleteManualContributor(ctx, userDetail.InstitutionID, visitID, staffID)
+	if err != nil {
+		return model.DeleteVisitContributorResponse{}, errors.Wrap(err, wrapMsgDeleteVisitContributor)
+	}
+	if !deleted {
+		return model.DeleteVisitContributorResponse{}, commonerr.SetNewError(http.StatusNotFound, errContributorNotFound, msgContributorNotFound)
+	}
+
+	return model.DeleteVisitContributorResponse{Success: true}, nil
 }
 
 type mergedStaff struct {

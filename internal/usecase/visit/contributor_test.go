@@ -69,10 +69,16 @@ func (f *fakeVisitGetter) GetPatientVisitsByID(_ context.Context, visitID int64)
 }
 
 type fakeContributorDB struct {
-	rows       []compensationrepo.DetectedAttribution
-	err        error
-	upsertErr  error
-	lastUpsert *model.MapVisitContributor
+	rows              []compensationrepo.DetectedAttribution
+	err               error
+	upsertErr         error
+	lastUpsert        *model.MapVisitContributor
+	deleteOK          bool
+	deleteErr         error
+	deleteCalled      bool
+	lastDeleteInstID  int64
+	lastDeleteVisitID int64
+	lastDeleteStaffID string
 }
 
 func (f *fakeContributorDB) DetectForVisit(_ context.Context, _, _ int64) ([]compensationrepo.DetectedAttribution, error) {
@@ -91,6 +97,17 @@ func (f *fakeContributorDB) UpsertManualContributor(_ context.Context, row model
 		return f.upsertErr
 	}
 	return nil
+}
+
+func (f *fakeContributorDB) DeleteManualContributor(_ context.Context, institutionID, visitID int64, staffID string) (bool, error) {
+	f.deleteCalled = true
+	f.lastDeleteInstID = institutionID
+	f.lastDeleteVisitID = visitID
+	f.lastDeleteStaffID = staffID
+	if f.deleteErr != nil {
+		return false, f.deleteErr
+	}
+	return f.deleteOK, nil
 }
 
 type fakeStaffGetter struct {
@@ -343,6 +360,14 @@ func newAddUC(visit model.TrxPatientVisit, staff model.StaffWithRolesResponse, u
 	}), db
 }
 
+func newDeleteUC(visit model.TrxPatientVisit, deleted bool) (*VisitContributorUC, *fakeContributorDB) {
+	db := &fakeContributorDB{deleteOK: deleted}
+	return NewVisitContributorUC(&VisitContributorUC{
+		PatientDB:     &fakeVisitGetter{visit: visit},
+		ContributorDB: db,
+	}), db
+}
+
 func assertManualContributor(t *testing.T, resp model.AddVisitContributorResponse) {
 	t.Helper()
 	c := resp.Contributor
@@ -512,5 +537,153 @@ func TestAddVisitContributor_InvalidStaffID(t *testing.T) {
 	}
 	if db.lastUpsert != nil {
 		t.Fatal("invalid staff_id must not write a map row")
+	}
+}
+
+func TestDeleteVisitContributor_Success(t *testing.T) {
+	uc, db := newDeleteUC(liveVisit(), true)
+	resp, err := uc.DeleteVisitContributor(testCtx(), testVisitID, testStaffUUID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !resp.Success {
+		t.Fatal("expected success true")
+	}
+	if !db.deleteCalled {
+		t.Fatal("soft-delete was not called")
+	}
+	if db.lastDeleteInstID != testInstitutionID || db.lastDeleteVisitID != testVisitID || db.lastDeleteStaffID != testStaffUUID {
+		t.Fatalf("delete args inst=%d visit=%d staff=%s", db.lastDeleteInstID, db.lastDeleteVisitID, db.lastDeleteStaffID)
+	}
+}
+
+func TestDeleteVisitContributor_MissingMap(t *testing.T) {
+	uc, db := newDeleteUC(liveVisit(), false)
+	_, err := uc.DeleteVisitContributor(testCtx(), testVisitID, testStaffUUID)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if errorName(t, err) != errContributorNotFound {
+		t.Fatalf("error name %s", errorName(t, err))
+	}
+	if errorCode(t, err) != http.StatusNotFound {
+		t.Fatalf("status %d, want 404", errorCode(t, err))
+	}
+	if !db.deleteCalled {
+		t.Fatal("soft-delete should be attempted")
+	}
+}
+
+func TestDeleteVisitContributor_ClinicalOnly(t *testing.T) {
+	uc, db := newDeleteUC(liveVisit(), false)
+	_, err := uc.DeleteVisitContributor(testCtx(), testVisitID, testStaffUUID)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if errorName(t, err) != errContributorNotFound {
+		t.Fatalf("error name %s", errorName(t, err))
+	}
+	if errorCode(t, err) != http.StatusNotFound {
+		t.Fatalf("status %d, want 404", errorCode(t, err))
+	}
+	if !db.deleteCalled {
+		t.Fatal("clinical-only must still attempt map soft-delete")
+	}
+}
+
+func TestDeleteVisitContributor_LockedVisit(t *testing.T) {
+	visit := liveVisit()
+	visit.CompensationLockedAt = sql.NullTime{Time: time.Now(), Valid: true}
+	uc, db := newDeleteUC(visit, true)
+	_, err := uc.DeleteVisitContributor(testCtx(), testVisitID, testStaffUUID)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if errorName(t, err) != errVisitCompensationLocked {
+		t.Fatalf("error name %s", errorName(t, err))
+	}
+	if errorCode(t, err) != http.StatusForbidden {
+		t.Fatalf("status %d, want 403", errorCode(t, err))
+	}
+	if db.deleteCalled {
+		t.Fatal("locked visit must not soft-delete a map row")
+	}
+}
+
+func TestDeleteVisitContributor_LockedVisitAdministrator(t *testing.T) {
+	visit := liveVisit()
+	visit.CompensationLockedAt = sql.NullTime{Time: time.Now(), Valid: true}
+	uc, db := newDeleteUC(visit, true)
+	ctx := auth.SetUserDetailToCtx(context.Background(), model.UserJWTPayload{
+		InstitutionID: testInstitutionID,
+		UUID:          testCallerUUID,
+		RolesIDSet:    map[string]bool{roleconst.Administrator: true},
+	})
+	_, err := uc.DeleteVisitContributor(ctx, testVisitID, testStaffUUID)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if errorName(t, err) != errVisitCompensationLocked {
+		t.Fatalf("error name %s", errorName(t, err))
+	}
+	if errorCode(t, err) != http.StatusForbidden {
+		t.Fatalf("status %d, want 403", errorCode(t, err))
+	}
+	if db.deleteCalled {
+		t.Fatal("administrator must not bypass the lock")
+	}
+}
+
+func TestDeleteVisitContributor_VisitNotFound(t *testing.T) {
+	uc, db := newDeleteUC(model.TrxPatientVisit{}, true)
+	_, err := uc.DeleteVisitContributor(testCtx(), testVisitID, testStaffUUID)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if errorName(t, err) != errVisitNotFound {
+		t.Fatalf("error name %s", errorName(t, err))
+	}
+	if errorCode(t, err) != http.StatusNotFound {
+		t.Fatalf("status %d, want 404", errorCode(t, err))
+	}
+	if db.deleteCalled {
+		t.Fatal("missing visit must not soft-delete")
+	}
+}
+
+func TestDeleteVisitContributor_WrongInstitution(t *testing.T) {
+	uc, db := newDeleteUC(model.TrxPatientVisit{
+		ID:               testVisitID,
+		IDMstInstitution: testInstitutionID + 1,
+	}, true)
+	_, err := uc.DeleteVisitContributor(testCtx(), testVisitID, testStaffUUID)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if errorName(t, err) != errVisitNotFound {
+		t.Fatalf("error name %s", errorName(t, err))
+	}
+	if errorCode(t, err) != http.StatusNotFound {
+		t.Fatalf("status %d, want 404", errorCode(t, err))
+	}
+	if db.deleteCalled {
+		t.Fatal("wrong institution must not soft-delete")
+	}
+}
+
+func TestDeleteVisitContributor_InvalidStaffID(t *testing.T) {
+	uc, db := newDeleteUC(liveVisit(), true)
+	_, err := uc.DeleteVisitContributor(testCtx(), testVisitID, "not-a-uuid")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if errorName(t, err) != "invalid" {
+		t.Fatalf("error name %s", errorName(t, err))
+	}
+	if errorCode(t, err) != http.StatusBadRequest {
+		t.Fatalf("status %d, want 400", errorCode(t, err))
+	}
+	if db.deleteCalled {
+		t.Fatal("invalid staff_id must not soft-delete")
 	}
 }
