@@ -3,9 +3,13 @@ package compensation
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"github.com/faisalhardin/medilink/internal/entity/model"
 )
+
+// ErrContributorAlreadyAdded is a live unique (visit_id, staff_id) pair.
+var ErrContributorAlreadyAdded = errors.New("contributor already added")
 
 // DetectedAttribution is one clinical or map hit for a visit before merge.
 // ClinicalRowID is the winning-type row id (procedure/diagnosis/map); 0 for anamnesa.
@@ -20,8 +24,9 @@ type DetectedAttribution struct {
 	Label         sql.NullString
 }
 
-// ContributorDB reads visit contribution sources. Clinical-table reads are
-// allowed; writes stay off those tables.
+// ContributorDB reads visit contribution sources and writes mdl_map_visit_contributor.
+// Clinical-table writes stay off this repo.
 type ContributorDB interface {
 	DetectForVisit(ctx context.Context, institutionID, visitID int64) ([]DetectedAttribution, error)
+	UpsertManualContributor(ctx context.Context, row model.MapVisitContributor) error
 }

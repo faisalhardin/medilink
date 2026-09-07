@@ -224,6 +224,7 @@ func main() {
 
 	visitContributorUC := visituc.NewVisitContributorUC(&visituc.VisitContributorUC{
 		PatientDB:     patientDB,
+		StaffDB:       staffManagementDB,
 		ContributorDB: contributorDB,
 	})
 
