@@ -67,6 +67,7 @@ import (
 	producthandler "github.com/faisalhardin/medilink/internal/http/product"
 	recallhandler "github.com/faisalhardin/medilink/internal/http/recall"
 	staffhandler "github.com/faisalhardin/medilink/internal/http/staff"
+	visithandler "github.com/faisalhardin/medilink/internal/http/visit"
 
 	"github.com/faisalhardin/medilink/internal/library/idempotency"
 	mwmodule "github.com/faisalhardin/medilink/internal/library/middlewares/auth"
@@ -189,6 +190,7 @@ func main() {
 
 	compensationPeriodDB := compensationrepo.NewCompensationPeriodDB(db)
 	commissionDB := compensationrepo.NewCommissionDB(db)
+	contributorDB := compensationrepo.NewContributorDB(db)
 
 	_ = satusehatQueueDB
 	// repo block end
@@ -218,6 +220,11 @@ func main() {
 		AnamnesaDB:      anamnesaDB,
 		DiagnosisDB:     diagnosisDB,
 		ProcedureDB:     procedureDB,
+	})
+
+	visitContributorUC := visituc.NewVisitContributorUC(&visituc.VisitContributorUC{
+		PatientDB:     patientDB,
+		ContributorDB: contributorDB,
 	})
 
 	// Create session repository
@@ -363,6 +370,10 @@ func main() {
 	compensationPeriodHandler := compensationhandler.New(&compensationhandler.CompensationPeriodHandler{
 		CompensationPeriodUC: compensationPeriodUC,
 	})
+
+	visitContributorHandler := visithandler.New(&visithandler.VisitContributorHandler{
+		VisitContributorUC: visitContributorUC,
+	})
 	// httphandler block end
 
 	// module block start
@@ -388,6 +399,7 @@ func main() {
 			StaffHandler:              staffHandler,
 			ProcedureHandler:          procedureHandler,
 			CompensationPeriodHandler: compensationPeriodHandler,
+			VisitContributorHandler:   visitContributorHandler,
 		},
 		middlewareModule,
 	)

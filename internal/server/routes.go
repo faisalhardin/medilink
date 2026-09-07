@@ -67,6 +67,8 @@ func RegisterRoutes(m *module) http.Handler {
 						Post("/procedure", m.httpHandler.ProcedureHandler.Save)
 					visit.With(m.middlewareModule.RequirePermission(permconst.VisitUpdate)).
 						Delete("/procedure/{procedure_id}", m.httpHandler.ProcedureHandler.Delete)
+					visit.With(m.middlewareModule.RequirePermission(permconst.CompensationRead)).
+						Get("/contributors", m.httpHandler.VisitContributorHandler.ListVisitContributors)
 				})
 				visit.Get("/product", m.httpHandler.PatientHandler.ListVisitProducts)
 				visit.Post("/product", m.httpHandler.PatientHandler.InsertVisitProduct)

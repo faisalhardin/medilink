@@ -10,36 +10,38 @@ import (
 	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
 	xormlib "github.com/faisalhardin/medilink/internal/library/db/xorm"
 	"github.com/go-xorm/xorm"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 )
 
 const (
-	wrapStaffDBPrefix              = "StaffDB."
-	wrapMsgListStaffByInstitution  = wrapStaffDBPrefix + "ListStaffByInstitution"
-	wrapMsgGetStaffByUUID          = wrapStaffDBPrefix + "GetStaffByUUID"
-	wrapMsgGetStaffIDByUUID        = wrapStaffDBPrefix + "GetStaffIDByUUID"
-	wrapMsgInsertStaff             = wrapStaffDBPrefix + "InsertStaff"
-	wrapMsgDeactivateStaff         = wrapStaffDBPrefix + "DeactivateStaff"
-	wrapMsgActivateStaff           = wrapStaffDBPrefix + "ActivateStaff"
-	wrapMsgAssignRole              = wrapStaffDBPrefix + "AssignRole"
-	wrapMsgUnassignRole            = wrapStaffDBPrefix + "UnassignRole"
-	wrapMsgHasRoleAssignment       = wrapStaffDBPrefix + "HasRoleAssignment"
-	wrapMsgGetRolePKByBusinessID    = wrapStaffDBPrefix + "GetRolePKByBusinessID"
-	wrapMsgGetRolePKsByBusinessIDs = wrapStaffDBPrefix + "GetRolePKsByBusinessIDs"
-	wrapMsgEmailExistsActiveGlobally  = wrapStaffDBPrefix + "EmailExistsActiveGlobally"
-	wrapMsgEmailExistsInOtherInst     = wrapStaffDBPrefix + "EmailExistsActiveInOtherInstitution"
-	wrapMsgCountActiveStaffWithRole = wrapStaffDBPrefix + "CountActiveStaffWithRole"
+	wrapStaffDBPrefix                = "StaffDB."
+	wrapMsgListStaffByInstitution    = wrapStaffDBPrefix + "ListStaffByInstitution"
+	wrapMsgGetStaffByUUID            = wrapStaffDBPrefix + "GetStaffByUUID"
+	wrapMsgGetStaffIDByUUID          = wrapStaffDBPrefix + "GetStaffIDByUUID"
+	wrapMsgInsertStaff               = wrapStaffDBPrefix + "InsertStaff"
+	wrapMsgGenerateUUID              = wrapStaffDBPrefix + "GenerateUUID"
+	wrapMsgDeactivateStaff           = wrapStaffDBPrefix + "DeactivateStaff"
+	wrapMsgActivateStaff             = wrapStaffDBPrefix + "ActivateStaff"
+	wrapMsgAssignRole                = wrapStaffDBPrefix + "AssignRole"
+	wrapMsgUnassignRole              = wrapStaffDBPrefix + "UnassignRole"
+	wrapMsgHasRoleAssignment         = wrapStaffDBPrefix + "HasRoleAssignment"
+	wrapMsgGetRolePKByBusinessID     = wrapStaffDBPrefix + "GetRolePKByBusinessID"
+	wrapMsgGetRolePKsByBusinessIDs   = wrapStaffDBPrefix + "GetRolePKsByBusinessIDs"
+	wrapMsgEmailExistsActiveGlobally = wrapStaffDBPrefix + "EmailExistsActiveGlobally"
+	wrapMsgEmailExistsInOtherInst    = wrapStaffDBPrefix + "EmailExistsActiveInOtherInstitution"
+	wrapMsgCountActiveStaffWithRole  = wrapStaffDBPrefix + "CountActiveStaffWithRole"
 )
 
 type staffListRow struct {
-	UUID            string         `xorm:"uuid"`
-	Name            string         `xorm:"name"`
-	Email           string         `xorm:"email"`
-	InstitutionID   int64          `xorm:"id_mst_institution"`
-	InstitutionName string         `xorm:"institution_name"`
-	CreateTime      time.Time      `xorm:"create_time"`
-	UpdateTime      time.Time      `xorm:"update_time"`
-	DeleteTime      *time.Time     `xorm:"delete_time"`
+	UUID            string          `xorm:"uuid"`
+	Name            string          `xorm:"name"`
+	Email           string          `xorm:"email"`
+	InstitutionID   int64           `xorm:"id_mst_institution"`
+	InstitutionName string          `xorm:"institution_name"`
+	CreateTime      time.Time       `xorm:"create_time"`
+	UpdateTime      time.Time       `xorm:"update_time"`
+	DeleteTime      *time.Time      `xorm:"delete_time"`
 	Roles           []model.MstRole `xorm:"roles"`
 }
 
@@ -141,6 +143,14 @@ func (c *Conn) GetStaffIDByUUID(ctx context.Context, institutionID int64, uuid s
 }
 
 func (c *Conn) InsertStaff(ctx context.Context, staff *model.MstStaff) error {
+	if staff.UUID == "" {
+		id, err := uuid.NewV7()
+		if err != nil {
+			return errors.Wrap(err, wrapMsgGenerateUUID)
+		}
+		staff.UUID = id.String()
+	}
+
 	_, err := c.writeSession(ctx).
 		Table(model.MST_STAFF_TABLE).
 		InsertOne(staff)

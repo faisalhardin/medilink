@@ -244,6 +244,19 @@ type ContributionSource struct {
 	LabelSource null.String            `json:"label_source"`
 }
 
+// VisitContributorResponse is one staff row on GET /v1/visit/{id}/contributors.
+type VisitContributorResponse struct {
+	StaffID       string             `json:"staff_id"`
+	Name          string             `json:"name"`
+	Source        ContributionSource `json:"source"`
+	AddedManually bool               `json:"added_manually"`
+}
+
+// ListVisitContributorsResponse is the body for GET /v1/visit/{id}/contributors.
+type ListVisitContributorsResponse struct {
+	Contributors []VisitContributorResponse `json:"contributors"`
+}
+
 // ─── JSON request / response DTOs ─────────────────────────────────────────────
 
 // CreateCompensationPeriodRequest is the body for POST /v1/compensation/periods.
