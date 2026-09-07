@@ -15,4 +15,5 @@ type Handlers struct {
 	StaffHandler              StaffHandler
 	ProcedureHandler          ProcedureHandler
 	CompensationPeriodHandler CompensationPeriodHandler
+	VisitContributorHandler   VisitContributorHandler
 }
