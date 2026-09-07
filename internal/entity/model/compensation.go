@@ -257,6 +257,16 @@ type ListVisitContributorsResponse struct {
 	Contributors []VisitContributorResponse `json:"contributors"`
 }
 
+// AddVisitContributorRequest is the body for POST /v1/visit/{id}/contributors.
+type AddVisitContributorRequest struct {
+	StaffID string `json:"staff_id"`
+}
+
+// AddVisitContributorResponse is the body for POST /v1/visit/{id}/contributors.
+type AddVisitContributorResponse struct {
+	Contributor VisitContributorResponse `json:"contributor"`
+}
+
 // ─── JSON request / response DTOs ─────────────────────────────────────────────
 
 // CreateCompensationPeriodRequest is the body for POST /v1/compensation/periods.

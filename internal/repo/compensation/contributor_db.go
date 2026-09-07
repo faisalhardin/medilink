@@ -11,7 +11,8 @@ import (
 )
 
 const (
-	wrapMsgDetectForVisit = "ContributorDB.DetectForVisit"
+	wrapMsgDetectForVisit          = "ContributorDB.DetectForVisit"
+	wrapMsgUpsertManualContributor = "ContributorDB.UpsertManualContributor"
 
 	detectProcedureSQL = `
 		SELECT
@@ -213,4 +214,56 @@ func (r detectedRow) toAttribution() compensationrepo.DetectedAttribution {
 		attr.DiagnosisID = r.DiagnosisID.Int64
 	}
 	return attr
+}
+
+func (c *Conn) UpsertManualContributor(ctx context.Context, row model.MapVisitContributor) error {
+	execAffected := func(sqlText string, args ...interface{}) (int64, error) {
+		res, err := c.writeSession(ctx).Exec(append([]interface{}{sqlText}, args...)...)
+		if err != nil {
+			return 0, err
+		}
+		return res.RowsAffected()
+	}
+
+	const restoreSQL = `
+		UPDATE mdl_map_visit_contributor t
+		SET delete_time = NULL, added_by = ?
+		FROM (
+			SELECT id
+			FROM mdl_map_visit_contributor
+			WHERE visit_id = ? AND staff_id = ? AND delete_time IS NOT NULL
+			ORDER BY id DESC
+			LIMIT 1
+		) d
+		WHERE t.id = d.id
+		  AND NOT EXISTS (
+			SELECT 1
+			FROM mdl_map_visit_contributor live
+			WHERE live.visit_id = t.visit_id
+			  AND live.staff_id = t.staff_id
+			  AND live.delete_time IS NULL
+		  )
+	`
+	restored, err := execAffected(restoreSQL, row.AddedBy, row.VisitID, row.StaffID)
+	if err != nil {
+		return errors.Wrap(err, wrapMsgUpsertManualContributor)
+	}
+	if restored > 0 {
+		return nil
+	}
+
+	const insertSQL = `
+		INSERT INTO mdl_map_visit_contributor (visit_id, staff_id, institution_id, added_by)
+		VALUES (?, ?, ?, ?)
+		ON CONFLICT (visit_id, staff_id) WHERE delete_time IS NULL
+		DO NOTHING
+	`
+	inserted, err := execAffected(insertSQL, row.VisitID, row.StaffID, row.InstitutionID, row.AddedBy)
+	if err != nil {
+		return errors.Wrap(err, wrapMsgUpsertManualContributor)
+	}
+	if inserted == 0 {
+		return compensationrepo.ErrContributorAlreadyAdded
+	}
+	return nil
 }
