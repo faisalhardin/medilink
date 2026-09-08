@@ -45,6 +45,7 @@ type ListVisitCommissionParams struct {
 type CommissionAggregator interface {
 	SumByPeriod(ctx context.Context, periodID int64) (PeriodCommissionTotals, error)
 	DistinctVisitIDsByPeriod(ctx context.Context, periodID int64) ([]int64, error)
+	SumByStaff(ctx context.Context, periodID int64) ([]StaffCommissionTotals, error)
 }
 
 // CommissionDB is the data-access contract for mdl_trx_visit_commission.

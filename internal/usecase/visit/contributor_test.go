@@ -90,6 +90,10 @@ func (f *fakeContributorDB) DetectForVisit(_ context.Context, _, _ int64) ([]com
 	return out, nil
 }
 
+func (f *fakeContributorDB) DetectStaffForPeriod(context.Context, int64, time.Time, time.Time) ([]compensationrepo.PeriodStaffDetection, error) {
+	return nil, nil
+}
+
 func (f *fakeContributorDB) UpsertManualContributor(_ context.Context, row model.MapVisitContributor) error {
 	cp := row
 	f.lastUpsert = &cp

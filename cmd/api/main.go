@@ -302,6 +302,7 @@ func main() {
 	compensationPeriodUC := compensationuc.NewCompensationPeriodUC(&compensationuc.CompensationPeriodUC{
 		CompensationPeriodDB: compensationPeriodDB,
 		Commissions:          commissionDB,
+		ContributorDB:        contributorDB,
 		VisitLockDB:          patientDB,
 		Transaction:          transaction,
 	})

@@ -24,6 +24,7 @@ const (
 	wrapMsgFinalizePeriod          = wrapCompensationPeriodUCPrefix + "FinalizePeriod"
 	wrapMsgReopenPeriod            = wrapCompensationPeriodUCPrefix + "ReopenPeriod"
 	wrapMsgDeletePeriod            = wrapCompensationPeriodUCPrefix + "DeletePeriod"
+	wrapMsgListPeriodStaff         = wrapCompensationPeriodUCPrefix + "ListPeriodStaff"
 	defaultListLimit               = 50
 	maxPeriodLabelLen              = 100
 	errIllegalTransition           = "ILLEGAL_PERIOD_TRANSITION"
@@ -49,6 +50,7 @@ var _ compensationuc.CompensationPeriodUC = (*CompensationPeriodUC)(nil)
 type CompensationPeriodUC struct {
 	CompensationPeriodDB compensationrepo.CompensationPeriodDB
 	Commissions          compensationrepo.CommissionAggregator
+	ContributorDB        compensationrepo.ContributorDB
 	VisitLockDB          compensationrepo.VisitLockDB
 	Transaction          xormlib.DBTransactionInterface
 	now                  func() time.Time
@@ -157,6 +159,89 @@ func (u *CompensationPeriodUC) GetPeriod(ctx context.Context, periodUUID string)
 		return model.CompensationPeriodResponse{}, err
 	}
 	return period.ToResponse(0), nil
+}
+
+func (u *CompensationPeriodUC) ListPeriodStaff(ctx context.Context, periodUUID string, req model.ListCompensationPeriodStaffRequest) (model.ListCompensationPeriodStaffResponse, error) {
+	userDetail, err := u.requireUser(ctx)
+	if err != nil {
+		return model.ListCompensationPeriodStaffResponse{}, err
+	}
+
+	period, err := u.loadPeriod(ctx, userDetail.InstitutionID, periodUUID, wrapMsgListPeriodStaff)
+	if err != nil {
+		return model.ListCompensationPeriodStaffResponse{}, err
+	}
+
+	limit := req.Limit
+	if limit <= 0 {
+		limit = defaultListLimit
+	}
+	offset := req.Offset
+	if offset < 0 {
+		offset = 0
+	}
+
+	detections, err := u.ContributorDB.DetectStaffForPeriod(ctx, userDetail.InstitutionID, period.PeriodStart, period.PeriodEnd.AddDate(0, 0, 1))
+	if err != nil {
+		return model.ListCompensationPeriodStaffResponse{}, errors.Wrap(err, wrapMsgListPeriodStaff)
+	}
+
+	commissionRows, err := u.Commissions.SumByStaff(ctx, period.ID)
+	if err != nil {
+		return model.ListCompensationPeriodStaffResponse{}, errors.Wrap(err, wrapMsgListPeriodStaff)
+	}
+	commissionsByStaff := make(map[string]compensationrepo.StaffCommissionTotals, len(commissionRows))
+	for _, row := range commissionRows {
+		commissionsByStaff[row.StaffID] = row
+	}
+
+	staff := make([]model.CompensationPeriodStaffRow, 0, len(detections))
+	for _, detected := range detections {
+		roles := detected.Roles
+		if roles == nil {
+			roles = []string{}
+		}
+		var commissionSubtotal, commissionedVisits int64
+		if totals, ok := commissionsByStaff[detected.StaffID]; ok {
+			commissionSubtotal = totals.TotalCommission
+			commissionedVisits = totals.VisitCount
+		}
+		staff = append(staff, model.CompensationPeriodStaffRow{
+			StaffID:            detected.StaffID,
+			Name:               detected.Name,
+			Roles:              roles,
+			VisitCount:         detected.VisitCount,
+			Wage:               0,
+			CommissionSubtotal: commissionSubtotal,
+			PayTotal:           commissionSubtotal,
+			AssignmentStatus:   assignmentStatus(detected.VisitCount, commissionedVisits),
+		})
+	}
+
+	total := len(staff)
+	start := offset
+	if start > total {
+		start = total
+	}
+	end := start + limit
+	if end > total {
+		end = total
+	}
+
+	return model.ListCompensationPeriodStaffResponse{
+		Staff: staff[start:end],
+		Total: total,
+	}, nil
+}
+
+func assignmentStatus(visitCount, commissionedVisitCount int64) model.CompensationAssignmentStatus {
+	if commissionedVisitCount <= 0 {
+		return model.CompensationAssignmentStatusUnassigned
+	}
+	if commissionedVisitCount < visitCount {
+		return model.CompensationAssignmentStatusPartial
+	}
+	return model.CompensationAssignmentStatusComplete
 }
 
 func (u *CompensationPeriodUC) DraftPeriod(ctx context.Context, periodUUID string) (model.CompensationPeriodResponse, error) {
