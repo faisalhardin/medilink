@@ -3,6 +3,8 @@ package compensation
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
+	"time"
 
 	"github.com/faisalhardin/medilink/internal/entity/model"
 	compensationrepo "github.com/faisalhardin/medilink/internal/entity/repo/compensation"
@@ -12,6 +14,7 @@ import (
 
 const (
 	wrapMsgDetectForVisit          = "ContributorDB.DetectForVisit"
+	wrapMsgDetectStaffForPeriod    = "ContributorDB.DetectStaffForPeriod"
 	wrapMsgUpsertManualContributor = "ContributorDB.UpsertManualContributor"
 	wrapMsgDeleteManualContributor = "ContributorDB.DeleteManualContributor"
 
@@ -144,6 +147,104 @@ const (
 		  AND m.visit_id = ?
 		  AND m.delete_time IS NULL
 	`
+
+	// detectStaffForPeriodSQL aggregates contributing staff across visits in a payday window.
+	// raw emits staff_uuid only (no per-arm staff join) so the planner cannot cross-product
+	// clinical rows against all staff; name + roles resolve once after GROUP BY.
+	detectStaffForPeriodSQL = `
+		WITH period_visits AS (
+			SELECT id
+			FROM mdl_trx_patient_visit
+			WHERE id_mst_institution = ?
+			  AND delete_time IS NULL
+			  AND create_time >= ?
+			  AND create_time < ?
+		),
+		raw AS (
+			SELECT md.staff_uuid AS staff_uuid, p.visit_id AS visit_id
+			FROM mdl_trx_visit_procedure p
+			INNER JOIN period_visits v ON v.id = p.visit_id
+			INNER JOIN mdl_mst_doctor md
+				ON md.id = p.doctor_id
+				AND md.staff_uuid IS NOT NULL
+			WHERE p.institution_id = ?
+			  AND p.deleted_at IS NULL
+
+			UNION ALL
+
+			SELECT mn.staff_uuid AS staff_uuid, p.visit_id AS visit_id
+			FROM mdl_trx_visit_procedure p
+			INNER JOIN period_visits v ON v.id = p.visit_id
+			INNER JOIN mdl_mst_nurse mn
+				ON mn.id = p.nurse_id
+				AND mn.staff_uuid IS NOT NULL
+			WHERE p.institution_id = ?
+			  AND p.deleted_at IS NULL
+			  AND p.nurse_id IS NOT NULL
+
+			UNION ALL
+
+			SELECT md.staff_uuid AS staff_uuid, d.visit_id AS visit_id
+			FROM mdl_trx_diagnosis d
+			INNER JOIN period_visits v ON v.id = d.visit_id
+			INNER JOIN mdl_mst_doctor md
+				ON md.id = d.doctor_id
+				AND md.staff_uuid IS NOT NULL
+			WHERE d.institution_id = ?
+			  AND d.deleted_at IS NULL
+
+			UNION ALL
+
+			SELECT md.staff_uuid AS staff_uuid, a.visit_id AS visit_id
+			FROM mdl_trx_anamnesa a
+			INNER JOIN period_visits v ON v.id = a.visit_id
+			INNER JOIN mdl_mst_doctor md
+				ON md.id = a.doctor_id
+				AND md.staff_uuid IS NOT NULL
+			WHERE a.institution_id = ?
+			  AND a.doctor_id IS NOT NULL
+
+			UNION ALL
+
+			SELECT mn.staff_uuid AS staff_uuid, a.visit_id AS visit_id
+			FROM mdl_trx_anamnesa a
+			INNER JOIN period_visits v ON v.id = a.visit_id
+			INNER JOIN mdl_mst_nurse mn
+				ON mn.id = a.nurse_id
+				AND mn.staff_uuid IS NOT NULL
+			WHERE a.institution_id = ?
+			  AND a.nurse_id IS NOT NULL
+
+			UNION ALL
+
+			SELECT m.staff_id AS staff_uuid, m.visit_id AS visit_id
+			FROM mdl_map_visit_contributor m
+			INNER JOIN period_visits v ON v.id = m.visit_id
+			WHERE m.institution_id = ?
+			  AND m.delete_time IS NULL
+		),
+		per_staff AS (
+			SELECT staff_uuid, COUNT(DISTINCT visit_id) AS visit_count
+			FROM raw
+			GROUP BY staff_uuid
+		)
+		SELECT
+			s.uuid AS staff_id,
+			s.name AS name,
+			ps.visit_count AS visit_count,
+			COALESCE(
+				jsonb_agg(DISTINCT r.name) FILTER (WHERE r.name IS NOT NULL),
+				'[]'::jsonb
+			) AS roles
+		FROM per_staff ps
+		INNER JOIN mdl_mst_staff s
+			ON s.uuid = ps.staff_uuid::text
+			AND s.delete_time IS NULL
+		LEFT JOIN mdl_map_role_staff mrs ON mrs.id_mst_staff = s.id
+		LEFT JOIN mdl_mst_role r ON r.id = mrs.id_mst_role AND r.delete_time IS NULL
+		GROUP BY s.uuid, s.name, ps.visit_count
+		ORDER BY s.name ASC, s.uuid ASC
+	`
 )
 
 var _ compensationrepo.ContributorDB = (*Conn)(nil)
@@ -186,6 +287,50 @@ func (c *Conn) DetectForVisit(ctx context.Context, institutionID, visitID int64)
 		for _, row := range rows {
 			out = append(out, row.toAttribution())
 		}
+	}
+	return out, nil
+}
+
+type periodStaffDetectRow struct {
+	StaffID    string `xorm:"staff_id"`
+	Name       string `xorm:"name"`
+	VisitCount int64  `xorm:"visit_count"`
+	Roles      []byte `xorm:"roles"`
+}
+
+func (c *Conn) DetectStaffForPeriod(ctx context.Context, institutionID int64, periodStart, periodEndExclusive time.Time) ([]compensationrepo.PeriodStaffDetection, error) {
+	var rows []periodStaffDetectRow
+	err := c.DB.SlaveDB.Context(ctx).SQL(
+		detectStaffForPeriodSQL,
+		institutionID, periodStart, periodEndExclusive,
+		institutionID,
+		institutionID,
+		institutionID,
+		institutionID,
+		institutionID,
+		institutionID,
+	).Find(&rows)
+	if err != nil {
+		return nil, errors.Wrap(err, wrapMsgDetectStaffForPeriod)
+	}
+
+	out := make([]compensationrepo.PeriodStaffDetection, 0, len(rows))
+	for _, row := range rows {
+		roles := []string{}
+		if len(row.Roles) > 0 {
+			if err := json.Unmarshal(row.Roles, &roles); err != nil {
+				return nil, errors.Wrap(err, wrapMsgDetectStaffForPeriod)
+			}
+			if roles == nil {
+				roles = []string{}
+			}
+		}
+		out = append(out, compensationrepo.PeriodStaffDetection{
+			StaffID:    row.StaffID,
+			Name:       row.Name,
+			Roles:      roles,
+			VisitCount: row.VisitCount,
+		})
 	}
 	return out, nil
 }

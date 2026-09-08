@@ -141,6 +141,8 @@ func RegisterRoutes(m *module) http.Handler {
 					Get("/", m.httpHandler.CompensationPeriodHandler.ListPeriods)
 				periods.With(m.middlewareModule.RequirePermission(permconst.CompensationRead)).
 					Get("/{periodId}", m.httpHandler.CompensationPeriodHandler.GetPeriod)
+				periods.With(m.middlewareModule.RequirePermission(permconst.CompensationRead)).
+					Get("/{periodId}/staffs", m.httpHandler.CompensationPeriodHandler.ListPeriodStaff)
 				periods.With(m.middlewareModule.RequirePermission(permconst.CompensationAssign)).
 					Post("/{periodId}/draft", m.httpHandler.CompensationPeriodHandler.DraftPeriod)
 				periods.With(m.middlewareModule.RequirePermission(permconst.CompensationFinalize)).

@@ -117,3 +117,21 @@ func (h *CompensationPeriodHandler) DeletePeriod(w http.ResponseWriter, r *http.
 	}
 	commonwriter.SetOKWithData(ctx, w, response)
 }
+
+func (h *CompensationPeriodHandler) ListPeriodStaff(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	request := model.ListCompensationPeriodStaffRequest{}
+	err := bindingBind(r, &request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	response, err := h.CompensationPeriodUC.ListPeriodStaff(ctx, chi.URLParam(r, "periodId"), request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+	commonwriter.SetOKWithData(ctx, w, response)
+}

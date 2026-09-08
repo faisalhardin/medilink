@@ -155,10 +155,12 @@ func (f *fakeCompensationPeriodDB) SoftDelete(_ context.Context, institutionID i
 }
 
 type fakeCommissions struct {
-	totals   map[int64]compensationrepo.PeriodCommissionTotals
-	visits   map[int64][]int64
-	sumErr   error
-	visitErr error
+	totals      map[int64]compensationrepo.PeriodCommissionTotals
+	visits      map[int64][]int64
+	byStaff     map[int64][]compensationrepo.StaffCommissionTotals
+	sumErr      error
+	visitErr    error
+	sumStaffErr error
 }
 
 func (f *fakeCommissions) SumByPeriod(_ context.Context, periodID int64) (compensationrepo.PeriodCommissionTotals, error) {
@@ -179,6 +181,16 @@ func (f *fakeCommissions) DistinctVisitIDsByPeriod(_ context.Context, periodID i
 		return nil, nil
 	}
 	return append([]int64(nil), f.visits[periodID]...), nil
+}
+
+func (f *fakeCommissions) SumByStaff(_ context.Context, periodID int64) ([]compensationrepo.StaffCommissionTotals, error) {
+	if f.sumStaffErr != nil {
+		return nil, f.sumStaffErr
+	}
+	if f.byStaff == nil {
+		return nil, nil
+	}
+	return append([]compensationrepo.StaffCommissionTotals(nil), f.byStaff[periodID]...), nil
 }
 
 type fakeVisitLock struct {
@@ -506,4 +518,167 @@ func TestDeletePeriod(t *testing.T) {
 func copyPeriod(p *model.TrxCompensationPeriod) *model.TrxCompensationPeriod {
 	cp := *p
 	return &cp
+}
+
+type fakeContributorDB struct {
+	detections []compensationrepo.PeriodStaffDetection
+	err        error
+	lastInst   int64
+	lastStart  time.Time
+	lastEnd    time.Time
+}
+
+func (f *fakeContributorDB) DetectForVisit(context.Context, int64, int64) ([]compensationrepo.DetectedAttribution, error) {
+	return nil, nil
+}
+
+func (f *fakeContributorDB) DetectStaffForPeriod(_ context.Context, institutionID int64, periodStart, periodEndExclusive time.Time) ([]compensationrepo.PeriodStaffDetection, error) {
+	f.lastInst = institutionID
+	f.lastStart = periodStart
+	f.lastEnd = periodEndExclusive
+	if f.err != nil {
+		return nil, f.err
+	}
+	out := make([]compensationrepo.PeriodStaffDetection, len(f.detections))
+	copy(out, f.detections)
+	return out, nil
+}
+
+func (f *fakeContributorDB) UpsertManualContributor(context.Context, model.MapVisitContributor) error {
+	return nil
+}
+
+func (f *fakeContributorDB) DeleteManualContributor(context.Context, int64, int64, string) (bool, error) {
+	return false, nil
+}
+
+func TestListPeriodStaff(t *testing.T) {
+	open := &model.TrxCompensationPeriod{
+		ID:            7,
+		UUID:          "p-staff",
+		InstitutionID: testInstitutionID,
+		Label:         "Aug 2026",
+		PeriodStart:   time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC),
+		PeriodEnd:     time.Date(2026, 8, 31, 0, 0, 0, 0, time.UTC),
+		Status:        model.CompensationPeriodStatusOpen,
+	}
+
+	t.Run("not found", func(t *testing.T) {
+		uc := newUC(nil, nil, nil, nil)
+		uc.ContributorDB = &fakeContributorDB{}
+		_, err := uc.ListPeriodStaff(testCtx(), "missing", model.ListCompensationPeriodStaffRequest{})
+		if errorName(t, err) != errPeriodNotFound {
+			t.Fatalf("error name = %s, want %s", errorName(t, err), errPeriodNotFound)
+		}
+	})
+
+	t.Run("other institution", func(t *testing.T) {
+		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{{
+			ID:            7,
+			UUID:          "p-staff",
+			InstitutionID: testInstitutionID + 1,
+			PeriodStart:   open.PeriodStart,
+			PeriodEnd:     open.PeriodEnd,
+		}}}
+		uc := newUC(db, nil, nil, nil)
+		uc.ContributorDB = &fakeContributorDB{}
+		_, err := uc.ListPeriodStaff(testCtx(), "p-staff", model.ListCompensationPeriodStaffRequest{})
+		if errorName(t, err) != errPeriodNotFound {
+			t.Fatalf("error name = %s, want %s", errorName(t, err), errPeriodNotFound)
+		}
+	})
+
+	t.Run("assignment status wage zero pagination", func(t *testing.T) {
+		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{copyPeriod(open)}}
+		contributors := &fakeContributorDB{detections: []compensationrepo.PeriodStaffDetection{
+			{StaffID: "s-a", Name: "Ada", Roles: []string{"Doctor"}, VisitCount: 3},
+			{StaffID: "s-b", Name: "Budi", Roles: []string{"Nurse"}, VisitCount: 2},
+			{StaffID: "s-c", Name: "Citra", Roles: nil, VisitCount: 1},
+		}}
+		commissions := &fakeCommissions{byStaff: map[int64][]compensationrepo.StaffCommissionTotals{
+			7: {
+				{StaffID: "s-a", TotalCommission: 1500, VisitCount: 3},
+				{StaffID: "s-b", TotalCommission: 400, VisitCount: 1},
+			},
+		}}
+		uc := newUC(db, commissions, nil, nil)
+		uc.ContributorDB = contributors
+
+		got, err := uc.ListPeriodStaff(testCtx(), "p-staff", model.ListCompensationPeriodStaffRequest{
+			CommonRequestPayload: model.CommonRequestPayload{Limit: 2, Offset: 0},
+		})
+		if err != nil {
+			t.Fatalf("ListPeriodStaff: %v", err)
+		}
+		if got.Total != 3 {
+			t.Fatalf("total = %d, want 3", got.Total)
+		}
+		if len(got.Staff) != 2 {
+			t.Fatalf("len(staff) = %d, want 2", len(got.Staff))
+		}
+		if got.Staff[0].StaffID != "s-a" || got.Staff[0].AssignmentStatus != model.CompensationAssignmentStatusComplete || got.Staff[0].Wage != 0 || got.Staff[0].PayTotal != 1500 {
+			t.Fatalf("staff[0] = %+v", got.Staff[0])
+		}
+		if got.Staff[1].StaffID != "s-b" || got.Staff[1].AssignmentStatus != model.CompensationAssignmentStatusPartial || got.Staff[1].CommissionSubtotal != 400 {
+			t.Fatalf("staff[1] = %+v", got.Staff[1])
+		}
+
+		page2, err := uc.ListPeriodStaff(testCtx(), "p-staff", model.ListCompensationPeriodStaffRequest{
+			CommonRequestPayload: model.CommonRequestPayload{Limit: 2, Offset: 2},
+		})
+		if err != nil {
+			t.Fatalf("ListPeriodStaff page2: %v", err)
+		}
+		if page2.Total != 3 || len(page2.Staff) != 1 {
+			t.Fatalf("page2 total=%d len=%d", page2.Total, len(page2.Staff))
+		}
+		if page2.Staff[0].StaffID != "s-c" || page2.Staff[0].AssignmentStatus != model.CompensationAssignmentStatusUnassigned || page2.Staff[0].PayTotal != 0 {
+			t.Fatalf("staff page2 = %+v", page2.Staff[0])
+		}
+		if page2.Staff[0].Roles == nil || len(page2.Staff[0].Roles) != 0 {
+			t.Fatalf("nil roles should serialize as empty slice: %#v", page2.Staff[0].Roles)
+		}
+		wantEnd := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+		if contributors.lastInst != testInstitutionID || !contributors.lastStart.Equal(open.PeriodStart) || !contributors.lastEnd.Equal(wantEnd) {
+			t.Fatalf("detect window inst=%d start=%s end=%s", contributors.lastInst, contributors.lastStart, contributors.lastEnd)
+		}
+	})
+
+	t.Run("default limit", func(t *testing.T) {
+		detections := make([]compensationrepo.PeriodStaffDetection, 0, 51)
+		for i := 0; i < 51; i++ {
+			detections = append(detections, compensationrepo.PeriodStaffDetection{
+				StaffID:    "s-" + string(rune('a'+i%26)) + string(rune('0'+i/26)),
+				Name:       "N",
+				VisitCount: 1,
+			})
+		}
+		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{copyPeriod(open)}}
+		uc := newUC(db, &fakeCommissions{}, nil, nil)
+		uc.ContributorDB = &fakeContributorDB{detections: detections}
+		got, err := uc.ListPeriodStaff(testCtx(), "p-staff", model.ListCompensationPeriodStaffRequest{})
+		if err != nil {
+			t.Fatalf("ListPeriodStaff: %v", err)
+		}
+		if got.Total != 51 || len(got.Staff) != defaultListLimit {
+			t.Fatalf("total=%d len=%d, want total 51 len %d", got.Total, len(got.Staff), defaultListLimit)
+		}
+	})
+
+	t.Run("contributors only", func(t *testing.T) {
+		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{copyPeriod(open)}}
+		uc := newUC(db, &fakeCommissions{byStaff: map[int64][]compensationrepo.StaffCommissionTotals{
+			7: {{StaffID: "wage-only", TotalCommission: 0, VisitCount: 0}},
+		}}, nil, nil)
+		uc.ContributorDB = &fakeContributorDB{detections: []compensationrepo.PeriodStaffDetection{
+			{StaffID: "s-a", Name: "Ada", VisitCount: 1},
+		}}
+		got, err := uc.ListPeriodStaff(testCtx(), "p-staff", model.ListCompensationPeriodStaffRequest{})
+		if err != nil {
+			t.Fatalf("ListPeriodStaff: %v", err)
+		}
+		if got.Total != 1 || got.Staff[0].StaffID != "s-a" {
+			t.Fatalf("got %+v, want contributors only", got)
+		}
+	})
 }

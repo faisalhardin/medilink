@@ -62,6 +62,15 @@ func (s CompensationPeriodStatus) CanTransition(to CompensationPeriodStatus) boo
 	}
 }
 
+// CompensationAssignmentStatus is staff commission completeness on a payday period.
+type CompensationAssignmentStatus string
+
+const (
+	CompensationAssignmentStatusUnassigned CompensationAssignmentStatus = "unassigned"
+	CompensationAssignmentStatusPartial    CompensationAssignmentStatus = "partial"
+	CompensationAssignmentStatusComplete   CompensationAssignmentStatus = "complete"
+)
+
 // CommissionType is how a visit commission amount is calculated.
 type CommissionType string
 
@@ -319,4 +328,27 @@ type FinalizeCompensationPeriodResponse struct {
 // DeleteCompensationPeriodResponse is the body for DELETE .../periods/{periodId}.
 type DeleteCompensationPeriodResponse struct {
 	Success bool `json:"success"`
+}
+
+// ListCompensationPeriodStaffRequest is the query for GET /v1/compensation-period/{periodId}/staffs.
+type ListCompensationPeriodStaffRequest struct {
+	CommonRequestPayload
+}
+
+// CompensationPeriodStaffRow is one staff on GET /v1/compensation-period/{periodId}/staffs.
+type CompensationPeriodStaffRow struct {
+	StaffID            string                       `json:"staff_id"`
+	Name               string                       `json:"name"`
+	Roles              []string                     `json:"roles"`
+	VisitCount         int64                        `json:"visit_count"`
+	Wage               int64                        `json:"wage"`
+	CommissionSubtotal int64                        `json:"commission_subtotal"`
+	PayTotal           int64                        `json:"pay_total"`
+	AssignmentStatus   CompensationAssignmentStatus `json:"assignment_status"`
+}
+
+// ListCompensationPeriodStaffResponse is the paginated staff list for a payday period.
+type ListCompensationPeriodStaffResponse struct {
+	Staff []CompensationPeriodStaffRow `json:"staff"`
+	Total int                          `json:"total"`
 }
