@@ -11,4 +11,7 @@ type CompensationPeriodHandler interface {
 	ReopenPeriod(w http.ResponseWriter, r *http.Request)
 	DeletePeriod(w http.ResponseWriter, r *http.Request)
 	ListPeriodStaff(w http.ResponseWriter, r *http.Request)
+	GetPeriodStaff(w http.ResponseWriter, r *http.Request)
+	ListPeriodStaffVisits(w http.ResponseWriter, r *http.Request)
+	GeneratePeriodStaffVisits(w http.ResponseWriter, r *http.Request)
 }

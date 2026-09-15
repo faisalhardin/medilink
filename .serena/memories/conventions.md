@@ -30,9 +30,13 @@ Dual-layer convention (see `procedure.go`, `compensation.go`, `anamnesa.go`):
 - Minimal diffs; evidence from logs/API.
 
 ## Domain hotspots
-- Visit owns nested diagnosis, anamnesa, procedure routes.
+- Visit owns nested diagnosis, anamnesa, procedure, visit-contributor routes.
+- Compensation payday: `mem:compensation` — period lifecycle, staff list `/staffs`, generate commissions, Option A revenue base; visit lock columns written only via patient repo.
 - Odontogram: event log + snapshot builder `usecase/odontogram`.
 - SatuSehat FHIR shapes stay in `entity/model/satusehat`; queue separate from HTTP path.
+
+## Repo write ownership
+`internal/repo/<domain>` may only INSERT/UPDATE/DELETE tables that domain owns (column feature name ≠ table owner). Visit rows → patient repo today. Compensation owns wage/period/commission/contributor map tables only. Cross-domain writes: method on owner repo + thin consumer interface in `entity/repo/<consumer>`; honor `xormlib.GetDBSession(ctx)` for shared tx.
 
 ## Style
 - Go 1.19 idioms. Colocated `*_test.go` when present; Makefile suite is not full coverage.

@@ -16,4 +16,7 @@ type CompensationPeriodUC interface {
 	ReopenPeriod(ctx context.Context, periodUUID string) (model.CompensationPeriodResponse, error)
 	DeletePeriod(ctx context.Context, periodUUID string) (model.DeleteCompensationPeriodResponse, error)
 	ListPeriodStaff(ctx context.Context, periodUUID string, req model.ListCompensationPeriodStaffRequest) (model.ListCompensationPeriodStaffResponse, error)
+	GetPeriodStaff(ctx context.Context, req model.GetCompensationPeriodStaffRequest) (model.GetCompensationPeriodStaffResponse, error)
+	ListPeriodStaffVisits(ctx context.Context, req model.ListCompensationPeriodStaffVisitsRequest) (model.ListCompensationPeriodStaffVisitsResponse, error)
+	GeneratePeriodStaffVisits(ctx context.Context, req model.GenerateCompensationPeriodStaffVisitsRequest) (model.GenerateCompensationPeriodStaffVisitsResponse, error)
 }

@@ -90,7 +90,15 @@ func (f *fakeContributorDB) DetectForVisit(_ context.Context, _, _ int64) ([]com
 	return out, nil
 }
 
+func (f *fakeContributorDB) DetectForVisits(context.Context, int64, []int64) ([]compensationrepo.DetectedAttribution, error) {
+	return nil, nil
+}
+
 func (f *fakeContributorDB) DetectStaffForPeriod(context.Context, int64, time.Time, time.Time) ([]compensationrepo.PeriodStaffDetection, error) {
+	return nil, nil
+}
+
+func (f *fakeContributorDB) DetectForPeriodStaff(context.Context, int64, string, time.Time, time.Time) ([]compensationrepo.DetectedAttribution, error) {
 	return nil, nil
 }
 

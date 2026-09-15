@@ -3,36 +3,45 @@ package compensation
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/faisalhardin/medilink/internal/entity/model"
 	compensationrepo "github.com/faisalhardin/medilink/internal/entity/repo/compensation"
+	staffrepo "github.com/faisalhardin/medilink/internal/entity/repo/staff"
 	compensationuc "github.com/faisalhardin/medilink/internal/entity/usecase/compensation"
 	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
 	xormlib "github.com/faisalhardin/medilink/internal/library/db/xorm"
 	"github.com/faisalhardin/medilink/internal/library/middlewares/auth"
 	"github.com/pkg/errors"
+	"github.com/volatiletech/null/v8"
 )
 
 const (
-	wrapCompensationPeriodUCPrefix = "CompensationPeriodUC."
-	wrapMsgCreatePeriod            = wrapCompensationPeriodUCPrefix + "CreatePeriod"
-	wrapMsgListPeriods             = wrapCompensationPeriodUCPrefix + "ListPeriods"
-	wrapMsgGetPeriod               = wrapCompensationPeriodUCPrefix + "GetPeriod"
-	wrapMsgDraftPeriod             = wrapCompensationPeriodUCPrefix + "DraftPeriod"
-	wrapMsgFinalizePeriod          = wrapCompensationPeriodUCPrefix + "FinalizePeriod"
-	wrapMsgReopenPeriod            = wrapCompensationPeriodUCPrefix + "ReopenPeriod"
-	wrapMsgDeletePeriod            = wrapCompensationPeriodUCPrefix + "DeletePeriod"
-	wrapMsgListPeriodStaff         = wrapCompensationPeriodUCPrefix + "ListPeriodStaff"
-	defaultListLimit               = 50
-	maxPeriodLabelLen              = 100
-	errIllegalTransition           = "ILLEGAL_PERIOD_TRANSITION"
-	errInvalidPeriodStatus         = "INVALID_COMPENSATION_PERIOD_STATUS"
-	errDateRangeOverlap            = "PERIOD_DATE_RANGE_OVERLAP"
-	errPeriodNotFound              = "period_not_found"
-	errInvalidPeriodDates          = "invalid_period_dates"
-	errInvalidLabel                = "invalid_label"
+	wrapCompensationPeriodUCPrefix   = "CompensationPeriodUC."
+	wrapMsgCreatePeriod              = wrapCompensationPeriodUCPrefix + "CreatePeriod"
+	wrapMsgListPeriods               = wrapCompensationPeriodUCPrefix + "ListPeriods"
+	wrapMsgGetPeriod                 = wrapCompensationPeriodUCPrefix + "GetPeriod"
+	wrapMsgDraftPeriod               = wrapCompensationPeriodUCPrefix + "DraftPeriod"
+	wrapMsgFinalizePeriod            = wrapCompensationPeriodUCPrefix + "FinalizePeriod"
+	wrapMsgReopenPeriod              = wrapCompensationPeriodUCPrefix + "ReopenPeriod"
+	wrapMsgDeletePeriod              = wrapCompensationPeriodUCPrefix + "DeletePeriod"
+	wrapMsgListPeriodStaff           = wrapCompensationPeriodUCPrefix + "ListPeriodStaff"
+	wrapMsgGetPeriodStaff            = wrapCompensationPeriodUCPrefix + "GetPeriodStaff"
+	wrapMsgListPeriodStaffVisits     = wrapCompensationPeriodUCPrefix + "ListPeriodStaffVisits"
+	wrapMsgGeneratePeriodStaffVisits = wrapCompensationPeriodUCPrefix + "GeneratePeriodStaffVisits"
+	defaultListLimit                 = 50
+	maxPeriodLabelLen                = 100
+	errIllegalTransition             = "ILLEGAL_PERIOD_TRANSITION"
+	errInvalidPeriodStatus           = "INVALID_COMPENSATION_PERIOD_STATUS"
+	errDateRangeOverlap              = "PERIOD_DATE_RANGE_OVERLAP"
+	errPeriodNotFound                = "period_not_found"
+	errInvalidPeriodDates            = "invalid_period_dates"
+	errInvalidLabel                  = "invalid_label"
+	labelSourceProductName           = "product_name"
+	labelSourceICD10Display          = "icd10_display"
 
 	msgInvalidLabel          = "label is required and must be at most 100 characters"
 	msgInvalidPeriodDates    = "period_start and period_end are required and period_end must not be before period_start"
@@ -49,8 +58,9 @@ var _ compensationuc.CompensationPeriodUC = (*CompensationPeriodUC)(nil)
 
 type CompensationPeriodUC struct {
 	CompensationPeriodDB compensationrepo.CompensationPeriodDB
-	Commissions          compensationrepo.CommissionAggregator
+	Commissions          compensationrepo.CommissionDB
 	ContributorDB        compensationrepo.ContributorDB
+	StaffDB              staffrepo.StaffDB
 	VisitLockDB          compensationrepo.VisitLockDB
 	Transaction          xormlib.DBTransactionInterface
 	now                  func() time.Time
@@ -232,6 +242,249 @@ func (u *CompensationPeriodUC) ListPeriodStaff(ctx context.Context, periodUUID s
 		Staff: staff[start:end],
 		Total: total,
 	}, nil
+}
+
+func (u *CompensationPeriodUC) GetPeriodStaff(ctx context.Context, req model.GetCompensationPeriodStaffRequest) (model.GetCompensationPeriodStaffResponse, error) {
+	userDetail, err := u.requireUser(ctx)
+	if err != nil {
+		return model.GetCompensationPeriodStaffResponse{}, err
+	}
+
+	if _, err := u.loadPeriod(ctx, userDetail.InstitutionID, req.PeriodUUID, wrapMsgGetPeriodStaff); err != nil {
+		return model.GetCompensationPeriodStaffResponse{}, err
+	}
+
+	staff, err := u.StaffDB.GetStaffByUUID(ctx, userDetail.InstitutionID, req.StaffID, true)
+	if err != nil {
+		return model.GetCompensationPeriodStaffResponse{}, err
+	}
+
+	return model.GetCompensationPeriodStaffResponse{
+		StaffInfo:    staffInfoFrom(staff),
+		ComputedWage: 0,
+		WageOverride: null.Int64{},
+	}, nil
+}
+
+func (u *CompensationPeriodUC) ListPeriodStaffVisits(ctx context.Context, req model.ListCompensationPeriodStaffVisitsRequest) (model.ListCompensationPeriodStaffVisitsResponse, error) {
+	userDetail, err := u.requireUser(ctx)
+	if err != nil {
+		return model.ListCompensationPeriodStaffVisitsResponse{}, err
+	}
+
+	period, err := u.loadPeriod(ctx, userDetail.InstitutionID, req.PeriodUUID, wrapMsgListPeriodStaffVisits)
+	if err != nil {
+		return model.ListCompensationPeriodStaffVisitsResponse{}, err
+	}
+
+	if _, err := u.StaffDB.GetStaffByUUID(ctx, userDetail.InstitutionID, req.StaffID, true); err != nil {
+		return model.ListCompensationPeriodStaffVisitsResponse{}, err
+	}
+
+	limit := req.Limit
+	if limit <= 0 {
+		limit = defaultListLimit
+	}
+	offset := req.Offset
+	if offset < 0 {
+		offset = 0
+	}
+
+	commissionRows, total, err := u.Commissions.ListByPeriodStaff(ctx, compensationrepo.ListVisitCommissionParams{
+		InstitutionID: userDetail.InstitutionID,
+		PeriodID:      period.ID,
+		StaffID:       req.StaffID,
+		Limit:         limit,
+		Offset:        offset,
+	})
+	if err != nil {
+		return model.ListCompensationPeriodStaffVisitsResponse{}, errors.Wrap(err, wrapMsgListPeriodStaffVisits)
+	}
+
+	visits := make([]model.CompensationPeriodStaffVisitRow, 0, len(commissionRows))
+	for _, commission := range commissionRows {
+		visits = append(visits, staffVisitRowFromList(commission))
+	}
+
+	return model.ListCompensationPeriodStaffVisitsResponse{
+		Visits: visits,
+		Total:  total,
+	}, nil
+}
+
+func (u *CompensationPeriodUC) GeneratePeriodStaffVisits(ctx context.Context, req model.GenerateCompensationPeriodStaffVisitsRequest) (model.GenerateCompensationPeriodStaffVisitsResponse, error) {
+	userDetail, err := u.requireUser(ctx)
+	if err != nil {
+		return model.GenerateCompensationPeriodStaffVisitsResponse{}, err
+	}
+
+	period, err := u.loadPeriod(ctx, userDetail.InstitutionID, req.PeriodUUID, wrapMsgGeneratePeriodStaffVisits)
+	if err != nil {
+		return model.GenerateCompensationPeriodStaffVisitsResponse{}, err
+	}
+
+	if _, err := u.StaffDB.GetStaffByUUID(ctx, userDetail.InstitutionID, req.StaffID, true); err != nil {
+		return model.GenerateCompensationPeriodStaffVisitsResponse{}, err
+	}
+
+	periodEndExclusive := period.PeriodEnd.AddDate(0, 0, 1)
+	detections, err := u.ContributorDB.DetectForPeriodStaff(
+		ctx, userDetail.InstitutionID, req.StaffID, period.PeriodStart, periodEndExclusive,
+	)
+	if err != nil {
+		return model.GenerateCompensationPeriodStaffVisitsResponse{}, errors.Wrap(err, wrapMsgGeneratePeriodStaffVisits)
+	}
+	if len(detections) == 0 {
+		return model.GenerateCompensationPeriodStaffVisitsResponse{GeneratedCount: 0}, nil
+	}
+
+	sourcesByVisit, manualByVisit := sourcesAndManualForStaff(req.StaffID, detections)
+	visitIDs := visitIDsFromDetections(detections)
+
+	rows := make([]model.TrxVisitCommission, 0, len(visitIDs))
+	for _, visitID := range visitIDs {
+		sources := sourcesByVisit[visitID]
+		if sources == nil {
+			sources = []model.ContributionSource{}
+		}
+		var sourcesJSON []byte
+		sourcesJSON, err = json.Marshal(sources)
+		if err != nil {
+			return model.GenerateCompensationPeriodStaffVisitsResponse{}, errors.Wrap(err, wrapMsgGeneratePeriodStaffVisits)
+		}
+		rows = append(rows, model.TrxVisitCommission{
+			PeriodID:             period.ID,
+			VisitID:              visitID,
+			StaffID:              req.StaffID,
+			RevenueBase:          0,
+			CommissionType:       model.CommissionTypeFlat,
+			CommissionFlatAmount: sql.NullInt64{Int64: 0, Valid: true},
+			CommissionAmount:     0,
+			Sources:              sourcesJSON,
+			IncludedManually:     manualByVisit[visitID],
+		})
+	}
+
+	session, err := u.Transaction.Begin(ctx)
+	if err != nil {
+		return model.GenerateCompensationPeriodStaffVisitsResponse{}, errors.Wrap(err, wrapMsgGeneratePeriodStaffVisits)
+	}
+	defer u.Transaction.Finish(session, &err)
+	ctx = xormlib.SetDBSession(ctx, session)
+
+	generated, err := u.Commissions.InsertGeneratedIfMissing(ctx, rows)
+	if err != nil {
+		return model.GenerateCompensationPeriodStaffVisitsResponse{}, errors.Wrap(err, wrapMsgGeneratePeriodStaffVisits)
+	}
+
+	return model.GenerateCompensationPeriodStaffVisitsResponse{GeneratedCount: generated}, nil
+}
+
+func staffInfoFrom(staff model.StaffWithRolesResponse) model.CompensationPeriodStaffInfo {
+	roles := make([]string, 0, len(staff.Roles))
+	for _, role := range staff.Roles {
+		if role.Name != "" {
+			roles = append(roles, role.Name)
+		}
+	}
+	return model.CompensationPeriodStaffInfo{
+		StaffID: staff.UUID,
+		Name:    staff.Name,
+		Roles:   roles,
+	}
+}
+
+func staffVisitRowFromList(commission compensationrepo.VisitCommissionListRow) model.CompensationPeriodStaffVisitRow {
+	visitDate := ""
+	if !commission.VisitDate.IsZero() {
+		visitDate = commission.VisitDate.Format("2006-01-02")
+	}
+	row := model.CompensationPeriodStaffVisitRow{
+		VisitID:     commission.VisitID,
+		PatientName: commission.PatientName,
+		VisitDate:   visitDate,
+		Sources:     sourcesFromJSON(commission.Sources),
+		RevenueBase: commission.RevenueBase,
+	}
+	row.HasContributors = len(row.Sources) > 0
+	if commission.ApprovedAt.Valid {
+		ct := commission.CommissionType
+		row.CommissionType = &ct
+		if commission.CommissionPercent.Valid {
+			row.CommissionPercent = null.Float64{Float64: commission.CommissionPercent.Float64, Valid: true}
+		}
+		if commission.CommissionFlatAmount.Valid {
+			row.CommissionFlatAmount = null.Int64{Int64: commission.CommissionFlatAmount.Int64, Valid: true}
+		}
+		row.CommissionAmount = null.Int64{Int64: commission.CommissionAmount, Valid: true}
+	}
+	return row
+}
+
+func sourcesFromJSON(raw json.RawMessage) []model.ContributionSource {
+	out := make([]model.ContributionSource, 0)
+	if len(raw) == 0 {
+		return out
+	}
+	if err := json.Unmarshal(raw, &out); err != nil || out == nil {
+		return []model.ContributionSource{}
+	}
+	return out
+}
+
+func visitIDsFromDetections(detections []compensationrepo.DetectedAttribution) []int64 {
+	seen := make(map[int64]struct{}, len(detections))
+	ids := make([]int64, 0, len(detections))
+	for _, attr := range detections {
+		if _, ok := seen[attr.VisitID]; ok {
+			continue
+		}
+		seen[attr.VisitID] = struct{}{}
+		ids = append(ids, attr.VisitID)
+	}
+	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+	return ids
+}
+
+func sourcesAndManualForStaff(staffID string, detections []compensationrepo.DetectedAttribution) (map[int64][]model.ContributionSource, map[int64]bool) {
+	sourcesByVisit := make(map[int64][]model.ContributionSource)
+	manualByVisit := make(map[int64]bool)
+	for _, attr := range detections {
+		if attr.StaffID != staffID {
+			continue
+		}
+		sourcesByVisit[attr.VisitID] = append(sourcesByVisit[attr.VisitID], contributionSourceFrom(attr))
+		if attr.Type == model.ContributionSourceTypeManual {
+			manualByVisit[attr.VisitID] = true
+		}
+	}
+	return sourcesByVisit, manualByVisit
+}
+
+func contributionSourceFrom(attr compensationrepo.DetectedAttribution) model.ContributionSource {
+	src := model.ContributionSource{Type: attr.Type}
+	switch attr.Type {
+	case model.ContributionSourceTypeProcedure:
+		if attr.ProcedureID != 0 {
+			src.ProcedureID = null.Int64{Int64: attr.ProcedureID, Valid: true}
+		}
+		if attr.ProductID.Valid {
+			src.ProductID = null.Int64{Int64: attr.ProductID.Int64, Valid: true}
+		}
+		if attr.Label.Valid {
+			src.Label = null.String{String: attr.Label.String, Valid: true}
+			src.LabelSource = null.String{String: labelSourceProductName, Valid: true}
+		}
+	case model.ContributionSourceTypeDiagnosis:
+		if attr.DiagnosisID != 0 {
+			src.DiagnosisID = null.Int64{Int64: attr.DiagnosisID, Valid: true}
+		}
+		if attr.Label.Valid {
+			src.Label = null.String{String: attr.Label.String, Valid: true}
+			src.LabelSource = null.String{String: labelSourceICD10Display, Valid: true}
+		}
+	}
+	return src
 }
 
 func assignmentStatus(visitCount, commissionedVisitCount int64) model.CompensationAssignmentStatus {

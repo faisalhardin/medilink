@@ -216,6 +216,7 @@ type TrxVisitCommission struct {
 	Sources              json.RawMessage `xorm:"'sources' jsonb" json:"-"`
 	Note                 sql.NullString  `xorm:"'note' null" json:"-"`
 	IncludedManually     bool            `xorm:"'included_manually'" json:"-"`
+	ApprovedAt           sql.NullTime    `xorm:"'approved_at' null" json:"-"`
 	CreateTime           time.Time       `xorm:"'create_time' created" json:"-"`
 	UpdateTime           time.Time       `xorm:"'update_time' updated" json:"-"`
 	DeleteTime           *time.Time      `xorm:"'delete_time' deleted" json:"-"`
@@ -351,4 +352,66 @@ type CompensationPeriodStaffRow struct {
 type ListCompensationPeriodStaffResponse struct {
 	Staff []CompensationPeriodStaffRow `json:"staff"`
 	Total int                          `json:"total"`
+}
+
+// GetCompensationPeriodStaffRequest is the request for GET /v1/compensation-period/{periodId}/staff/{staffId}.
+// PeriodUUID and StaffID are set from URL path params.
+type GetCompensationPeriodStaffRequest struct {
+	PeriodUUID string `json:"-" schema:"-"`
+	StaffID    string `json:"-" schema:"-"`
+}
+
+// CompensationPeriodStaffInfo is the staff header on GET .../staff/{staffId}.
+type CompensationPeriodStaffInfo struct {
+	StaffID string   `json:"staff_id"`
+	Name    string   `json:"name"`
+	Roles   []string `json:"roles"`
+}
+
+// GetCompensationPeriodStaffResponse is the header body for GET .../staff/{staffId}.
+type GetCompensationPeriodStaffResponse struct {
+	StaffInfo    CompensationPeriodStaffInfo `json:"staff_info"`
+	ComputedWage int64                       `json:"computed_wage"`
+	WageOverride null.Int64                  `json:"wage_override"`
+}
+
+// ListCompensationPeriodStaffVisitsRequest is the request for GET .../staff/{staffId}/visits.
+// PeriodUUID and StaffID are set from URL path params; Limit/Offset from query.
+type ListCompensationPeriodStaffVisitsRequest struct {
+	PeriodUUID string `json:"-" schema:"-"`
+	StaffID    string `json:"-" schema:"-"`
+	CommonRequestPayload
+}
+
+// CompensationPeriodStaffVisitRow is one visit on GET .../staff/{staffId}/visits.
+// Unassigned commission fields are JSON null (no omitempty).
+type CompensationPeriodStaffVisitRow struct {
+	VisitID              int64                `json:"visit_id"`
+	PatientName          string               `json:"patient_name"`
+	VisitDate            string               `json:"visit_date"`
+	Sources              []ContributionSource `json:"sources"`
+	RevenueBase          int64                `json:"revenue_base"`
+	CommissionType       *CommissionType      `json:"commission_type"`
+	CommissionPercent    null.Float64         `json:"commission_percent"`
+	CommissionFlatAmount null.Int64           `json:"commission_flat_amount"`
+	CommissionAmount     null.Int64           `json:"commission_amount"`
+	HasContributors      bool                 `json:"has_contributors"`
+}
+
+// ListCompensationPeriodStaffVisitsResponse is the body for GET .../staff/{staffId}/visits.
+type ListCompensationPeriodStaffVisitsResponse struct {
+	Visits []CompensationPeriodStaffVisitRow `json:"visits"`
+	Total  int                               `json:"total"`
+}
+
+// GenerateCompensationPeriodStaffVisitsRequest is the request for
+// POST .../staff/{staffId}/visits/generate. PeriodUUID and StaffID are path params.
+type GenerateCompensationPeriodStaffVisitsRequest struct {
+	PeriodUUID string `json:"-" schema:"-"`
+	StaffID    string `json:"-" schema:"-"`
+}
+
+// GenerateCompensationPeriodStaffVisitsResponse is the body for POST .../visits/generate.
+type GenerateCompensationPeriodStaffVisitsResponse struct {
+	GeneratedCount int `json:"generated_count"`
 }

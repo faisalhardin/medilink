@@ -22,7 +22,8 @@ Module: `github.com/faisalhardin/medilink`. Path: workspace `backend/`; sibling 
 Handlers → usecases → repos. Interfaces in `internal/entity/*`; impl in `internal/http|usecase|repo`. Wire in `cmd/api/main.go` + `internal/entity/http` modules.
 
 ## API surface
-Prefix `/v1`. Auth `/v1/auth/*` (Google OAuth/goth, JWT refresh, sessions). Authed: institution, patient, visit (+ diagnosis/anamnesa/procedure), visit-detail, journey, odontogram, staff, recall, lookups (`/icd10|doctor|nurse|icd9cm/search`), admin/product. Health: `GET /ping`.
+Prefix `/v1`. Auth `/v1/auth/*` (Google OAuth/goth, JWT refresh, sessions). Authed: institution, patient, visit (+ diagnosis/anamnesa/procedure/contributors), visit-detail, journey, odontogram, staff, compensation-period, recall, lookups (`/icd10|doctor|nurse|icd9cm/search`), admin/product. Health: `GET /ping`.
+Payday/compensation routes + tables: `mem:compensation`.
 
 ## Invariants
 - JSON snake_case; Go `json` + `xorm` tags. DB cols often `id_mst_*`; soft-delete `delete_time`.
@@ -34,4 +35,4 @@ Prefix `/v1`. Auth `/v1/auth/*` (Google OAuth/goth, JWT refresh, sessions). Auth
 - Deploy: Cloud Build → GCR → Cloud Run `asia-southeast1` (`cloudbuild.yaml`, `deploy.sh`).
 
 ## Related
-Stack: `mem:tech_stack`. Commands: `mem:suggested_commands`. Style: `mem:conventions`. Done checks: `mem:task_completion`.
+Stack: `mem:tech_stack`. Commands: `mem:suggested_commands`. Style: `mem:conventions`. Done checks: `mem:task_completion`. Compensation payday: `mem:compensation`.
