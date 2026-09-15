@@ -9,18 +9,25 @@ import (
 	"github.com/faisalhardin/medilink/internal/entity/model"
 	compensationrepo "github.com/faisalhardin/medilink/internal/entity/repo/compensation"
 	xormlib "github.com/faisalhardin/medilink/internal/library/db/xorm"
+	"github.com/lib/pq"
 	"github.com/pkg/errors"
 )
 
 const (
 	wrapMsgDetectForVisit          = "ContributorDB.DetectForVisit"
+	wrapMsgDetectForVisits         = "ContributorDB.DetectForVisits"
 	wrapMsgDetectStaffForPeriod    = "ContributorDB.DetectStaffForPeriod"
+	wrapMsgDetectForPeriodStaff    = "ContributorDB.DetectForPeriodStaff"
 	wrapMsgUpsertManualContributor = "ContributorDB.UpsertManualContributor"
 	wrapMsgDeleteManualContributor = "ContributorDB.DeleteManualContributor"
+
+	// detect*SQL use visit_id = ANY(?) so DetectForVisit and DetectForVisits share one shape.
+	// Single-visit callers pass pq.Array([]int64{visitID}).
 
 	detectProcedureSQL = `
 		SELECT
 			'procedure' AS source_type,
+			p.visit_id AS visit_id,
 			md.staff_uuid::text AS staff_id,
 			s.name AS name,
 			p.id AS clinical_id,
@@ -36,13 +43,14 @@ const (
 			ON s.uuid = md.staff_uuid::text
 			AND s.delete_time IS NULL
 		WHERE p.institution_id = ?
-		  AND p.visit_id = ?
+		  AND p.visit_id = ANY(?)
 		  AND p.deleted_at IS NULL
 
 		UNION ALL
 
 		SELECT
 			'procedure' AS source_type,
+			p.visit_id AS visit_id,
 			mn.staff_uuid::text AS staff_id,
 			s.name AS name,
 			p.id AS clinical_id,
@@ -58,7 +66,7 @@ const (
 			ON s.uuid = mn.staff_uuid::text
 			AND s.delete_time IS NULL
 		WHERE p.institution_id = ?
-		  AND p.visit_id = ?
+		  AND p.visit_id = ANY(?)
 		  AND p.deleted_at IS NULL
 		  AND p.nurse_id IS NOT NULL
 	`
@@ -66,6 +74,7 @@ const (
 	detectDiagnosisSQL = `
 		SELECT
 			'diagnosis' AS source_type,
+			d.visit_id AS visit_id,
 			md.staff_uuid::text AS staff_id,
 			s.name AS name,
 			d.id AS clinical_id,
@@ -81,13 +90,14 @@ const (
 			ON s.uuid = md.staff_uuid::text
 			AND s.delete_time IS NULL
 		WHERE d.institution_id = ?
-		  AND d.visit_id = ?
+		  AND d.visit_id = ANY(?)
 		  AND d.deleted_at IS NULL
 	`
 
 	detectAnamnesaSQL = `
 		SELECT
 			'anamnesa' AS source_type,
+			a.visit_id AS visit_id,
 			md.staff_uuid::text AS staff_id,
 			s.name AS name,
 			0::bigint AS clinical_id,
@@ -103,13 +113,14 @@ const (
 			ON s.uuid = md.staff_uuid::text
 			AND s.delete_time IS NULL
 		WHERE a.institution_id = ?
-		  AND a.visit_id = ?
+		  AND a.visit_id = ANY(?)
 		  AND a.doctor_id IS NOT NULL
 
 		UNION ALL
 
 		SELECT
 			'anamnesa' AS source_type,
+			a.visit_id AS visit_id,
 			mn.staff_uuid::text AS staff_id,
 			s.name AS name,
 			0::bigint AS clinical_id,
@@ -125,13 +136,14 @@ const (
 			ON s.uuid = mn.staff_uuid::text
 			AND s.delete_time IS NULL
 		WHERE a.institution_id = ?
-		  AND a.visit_id = ?
+		  AND a.visit_id = ANY(?)
 		  AND a.nurse_id IS NOT NULL
 	`
 
 	detectMapSQL = `
 		SELECT
 			'manual' AS source_type,
+			m.visit_id AS visit_id,
 			m.staff_id::text AS staff_id,
 			s.name AS name,
 			m.id AS clinical_id,
@@ -144,8 +156,142 @@ const (
 			ON s.uuid = m.staff_id::text
 			AND s.delete_time IS NULL
 		WHERE m.institution_id = ?
-		  AND m.visit_id = ?
+		  AND m.visit_id = ANY(?)
 		  AND m.delete_time IS NULL
+	`
+
+	// detectForPeriodStaffSQL is the period+staff window with the same source columns as detect*SQL.
+	// Staff name is unused by generate, so mdl_mst_staff is not joined.
+	detectForPeriodStaffSQL = `
+		WITH period_visits AS (
+			SELECT id
+			FROM mdl_trx_patient_visit
+			WHERE id_mst_institution = ?
+			  AND delete_time IS NULL
+			  AND create_time >= ?
+			  AND create_time < ?
+		)
+		SELECT
+			'procedure' AS source_type,
+			p.visit_id AS visit_id,
+			md.staff_uuid::text AS staff_id,
+			''::text AS name,
+			p.id AS clinical_id,
+			p.id AS procedure_id,
+			NULL::bigint AS diagnosis_id,
+			p.product_id AS product_id,
+			p.product_name AS label
+		FROM mdl_trx_visit_procedure p
+		INNER JOIN period_visits v ON v.id = p.visit_id
+		INNER JOIN mdl_mst_doctor md
+			ON md.id = p.doctor_id
+			AND md.staff_uuid IS NOT NULL
+		WHERE p.institution_id = ?
+		  AND p.deleted_at IS NULL
+		  AND md.staff_uuid = ?
+
+		UNION ALL
+
+		SELECT
+			'procedure' AS source_type,
+			p.visit_id AS visit_id,
+			mn.staff_uuid::text AS staff_id,
+			''::text AS name,
+			p.id AS clinical_id,
+			p.id AS procedure_id,
+			NULL::bigint AS diagnosis_id,
+			p.product_id AS product_id,
+			p.product_name AS label
+		FROM mdl_trx_visit_procedure p
+		INNER JOIN period_visits v ON v.id = p.visit_id
+		INNER JOIN mdl_mst_nurse mn
+			ON mn.id = p.nurse_id
+			AND mn.staff_uuid IS NOT NULL
+		WHERE p.institution_id = ?
+		  AND p.deleted_at IS NULL
+		  AND p.nurse_id IS NOT NULL
+		  AND mn.staff_uuid = ?
+
+		UNION ALL
+
+		SELECT
+			'diagnosis' AS source_type,
+			d.visit_id AS visit_id,
+			md.staff_uuid::text AS staff_id,
+			''::text AS name,
+			d.id AS clinical_id,
+			NULL::bigint AS procedure_id,
+			d.id AS diagnosis_id,
+			NULL::bigint AS product_id,
+			d.icd10_display AS label
+		FROM mdl_trx_diagnosis d
+		INNER JOIN period_visits v ON v.id = d.visit_id
+		INNER JOIN mdl_mst_doctor md
+			ON md.id = d.doctor_id
+			AND md.staff_uuid IS NOT NULL
+		WHERE d.institution_id = ?
+		  AND d.deleted_at IS NULL
+		  AND md.staff_uuid = ?
+
+		UNION ALL
+
+		SELECT
+			'anamnesa' AS source_type,
+			a.visit_id AS visit_id,
+			md.staff_uuid::text AS staff_id,
+			''::text AS name,
+			0::bigint AS clinical_id,
+			NULL::bigint AS procedure_id,
+			NULL::bigint AS diagnosis_id,
+			NULL::bigint AS product_id,
+			NULL::text AS label
+		FROM mdl_trx_anamnesa a
+		INNER JOIN period_visits v ON v.id = a.visit_id
+		INNER JOIN mdl_mst_doctor md
+			ON md.id = a.doctor_id
+			AND md.staff_uuid IS NOT NULL
+		WHERE a.institution_id = ?
+		  AND a.doctor_id IS NOT NULL
+		  AND md.staff_uuid = ?
+
+		UNION ALL
+
+		SELECT
+			'anamnesa' AS source_type,
+			a.visit_id AS visit_id,
+			mn.staff_uuid::text AS staff_id,
+			''::text AS name,
+			0::bigint AS clinical_id,
+			NULL::bigint AS procedure_id,
+			NULL::bigint AS diagnosis_id,
+			NULL::bigint AS product_id,
+			NULL::text AS label
+		FROM mdl_trx_anamnesa a
+		INNER JOIN period_visits v ON v.id = a.visit_id
+		INNER JOIN mdl_mst_nurse mn
+			ON mn.id = a.nurse_id
+			AND mn.staff_uuid IS NOT NULL
+		WHERE a.institution_id = ?
+		  AND a.nurse_id IS NOT NULL
+		  AND mn.staff_uuid = ?
+
+		UNION ALL
+
+		SELECT
+			'manual' AS source_type,
+			m.visit_id AS visit_id,
+			m.staff_id::text AS staff_id,
+			''::text AS name,
+			m.id AS clinical_id,
+			NULL::bigint AS procedure_id,
+			NULL::bigint AS diagnosis_id,
+			NULL::bigint AS product_id,
+			NULL::text AS label
+		FROM mdl_map_visit_contributor m
+		INNER JOIN period_visits v ON v.id = m.visit_id
+		WHERE m.institution_id = ?
+		  AND m.delete_time IS NULL
+		  AND m.staff_id = ?
 	`
 
 	// detectStaffForPeriodSQL aggregates contributing staff across visits in a payday window.
@@ -256,6 +402,7 @@ func NewContributorDB(db *xormlib.DBConnect) compensationrepo.ContributorDB {
 
 type detectedRow struct {
 	SourceType  string         `xorm:"source_type"`
+	VisitID     int64          `xorm:"visit_id"`
 	StaffID     string         `xorm:"staff_id"`
 	Name        string         `xorm:"name"`
 	ClinicalID  int64          `xorm:"clinical_id"`
@@ -266,23 +413,35 @@ type detectedRow struct {
 }
 
 func (c *Conn) DetectForVisit(ctx context.Context, institutionID, visitID int64) ([]compensationrepo.DetectedAttribution, error) {
-	out := make([]compensationrepo.DetectedAttribution, 0)
+	out, err := c.DetectForVisits(ctx, institutionID, []int64{visitID})
+	if err != nil {
+		return nil, errors.Wrap(err, wrapMsgDetectForVisit)
+	}
+	return out, nil
+}
 
+func (c *Conn) DetectForVisits(ctx context.Context, institutionID int64, visitIDs []int64) ([]compensationrepo.DetectedAttribution, error) {
+	if len(visitIDs) == 0 {
+		return []compensationrepo.DetectedAttribution{}, nil
+	}
+
+	visitIDsArg := pq.Array(visitIDs)
 	type query struct {
 		sql  string
 		args []interface{}
 	}
 	queries := []query{
-		{detectProcedureSQL, []interface{}{institutionID, visitID, institutionID, visitID}},
-		{detectDiagnosisSQL, []interface{}{institutionID, visitID}},
-		{detectAnamnesaSQL, []interface{}{institutionID, visitID, institutionID, visitID}},
-		{detectMapSQL, []interface{}{institutionID, visitID}},
+		{detectProcedureSQL, []interface{}{institutionID, visitIDsArg, institutionID, visitIDsArg}},
+		{detectDiagnosisSQL, []interface{}{institutionID, visitIDsArg}},
+		{detectAnamnesaSQL, []interface{}{institutionID, visitIDsArg, institutionID, visitIDsArg}},
+		{detectMapSQL, []interface{}{institutionID, visitIDsArg}},
 	}
 
+	out := make([]compensationrepo.DetectedAttribution, 0)
 	for _, q := range queries {
 		rows, err := c.detectRows(ctx, q.sql, q.args...)
 		if err != nil {
-			return nil, errors.Wrap(err, wrapMsgDetectForVisit)
+			return nil, errors.Wrap(err, wrapMsgDetectForVisits)
 		}
 		for _, row := range rows {
 			out = append(out, row.toAttribution())
@@ -335,6 +494,28 @@ func (c *Conn) DetectStaffForPeriod(ctx context.Context, institutionID int64, pe
 	return out, nil
 }
 
+func (c *Conn) DetectForPeriodStaff(ctx context.Context, institutionID int64, staffID string, periodStart, periodEndExclusive time.Time) ([]compensationrepo.DetectedAttribution, error) {
+	rows, err := c.detectRows(
+		ctx,
+		detectForPeriodStaffSQL,
+		institutionID, periodStart, periodEndExclusive,
+		institutionID, staffID,
+		institutionID, staffID,
+		institutionID, staffID,
+		institutionID, staffID,
+		institutionID, staffID,
+		institutionID, staffID,
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, wrapMsgDetectForPeriodStaff)
+	}
+	out := make([]compensationrepo.DetectedAttribution, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, row.toAttribution())
+	}
+	return out, nil
+}
+
 func (c *Conn) detectRows(ctx context.Context, sqlText string, args ...interface{}) ([]detectedRow, error) {
 	var rows []detectedRow
 	err := c.DB.SlaveDB.Context(ctx).SQL(sqlText, args...).Find(&rows)
@@ -347,6 +528,7 @@ func (c *Conn) detectRows(ctx context.Context, sqlText string, args ...interface
 func (r detectedRow) toAttribution() compensationrepo.DetectedAttribution {
 	attr := compensationrepo.DetectedAttribution{
 		Type:          model.ContributionSourceType(r.SourceType),
+		VisitID:       r.VisitID,
 		StaffID:       r.StaffID,
 		Name:          r.Name,
 		ClinicalRowID: r.ClinicalID,

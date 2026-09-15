@@ -23,6 +23,9 @@
 ## Test / clean
 - `make test` → `go test ./tests -v` only
 - Broader: `go test ./...`
+- Compensation UC: `go test ./internal/usecase/compensation/...`
+- Compensation curl: `TOKEN=... ./test_compensation_period_staff.sh` (optional `PERIOD_UUID` `STAFF_ID` `CREATE_PERIOD=1` `SKIP_GENERATE=1`)
+- Postman: import `docs/api/compensation-period.postman_collection.json` (`base_url`, `token`)
 - `make clean` — remove `main`
 
 ## Deploy

@@ -4,17 +4,32 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"strings"
 
 	"github.com/faisalhardin/medilink/internal/entity/model"
 	compensationrepo "github.com/faisalhardin/medilink/internal/entity/repo/compensation"
 	xormlib "github.com/faisalhardin/medilink/internal/library/db/xorm"
-	"github.com/go-xorm/xorm"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 )
 
 const (
-	wrapMsgCommissionUpsert        = "CommissionDB.Upsert"
+	wrapMsgCommissionUpsert          = "CommissionDB.Upsert"
+	wrapMsgCommissionInsertGenerated = "CommissionDB.InsertGeneratedIfMissing"
+	insertGeneratedChunkSize         = 500
+	insertGeneratedRowSQL            = `(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NOW(), NOW())`
+	insertGeneratedHeadSQL           = `
+		INSERT INTO mdl_trx_visit_commission (
+			period_id, visit_id, staff_id,
+			revenue_base, commission_type, commission_percent, commission_flat_amount,
+			commission_amount, sources, note, included_manually, approved_at,
+			create_time, update_time
+		) VALUES `
+	insertGeneratedTailSQL = `
+		ON CONFLICT (period_id, visit_id, staff_id) WHERE delete_time IS NULL
+		DO NOTHING
+		RETURNING id
+	`
 	wrapMsgCommissionList          = "CommissionDB.ListByPeriodStaff"
 	wrapMsgCommissionListCount     = "CommissionDB.ListByPeriodStaffCount"
 	wrapMsgCommissionSumByPeriod   = "CommissionDB.SumByPeriod"
@@ -22,6 +37,40 @@ const (
 	wrapMsgCommissionSumByStaff    = "CommissionDB.SumByStaff"
 	wrapMsgCommissionSumRevenue    = "CommissionDB.SumRevenueByVisitIDs"
 	wrapMsgCommissionWarnings      = "CommissionDB.SoftWarningAggregates"
+
+	listByPeriodStaffSQL = `
+		SELECT
+			c.visit_id,
+			c.staff_id,
+			c.revenue_base,
+			c.commission_type,
+			c.commission_percent,
+			c.commission_flat_amount,
+			c.commission_amount,
+			c.sources,
+			c.approved_at,
+			COALESCE(p.name, '') AS patient_name,
+			v.create_time AS visit_date
+		FROM mdl_trx_visit_commission c
+		LEFT JOIN mdl_trx_patient_visit v
+			ON v.id = c.visit_id
+			AND v.id_mst_institution = ?
+			AND v.delete_time IS NULL
+		LEFT JOIN mdl_mst_patient_institution p
+			ON p.id = v.id_mst_patient
+			AND p.delete_time IS NULL
+		WHERE c.period_id = ?
+		  AND c.staff_id = ?
+		  AND c.delete_time IS NULL
+		ORDER BY c.visit_id ASC, c.id ASC
+	`
+	listByPeriodStaffCountSQL = `
+		SELECT COUNT(*)
+		FROM mdl_trx_visit_commission c
+		WHERE c.period_id = ?
+		  AND c.staff_id = ?
+		  AND c.delete_time IS NULL
+	`
 )
 
 var _ compensationrepo.CommissionDB = (*Conn)(nil)
@@ -89,30 +138,78 @@ func (c *Conn) Upsert(ctx context.Context, row *model.TrxVisitCommission) error 
 	return nil
 }
 
-func (c *Conn) ListByPeriodStaff(ctx context.Context, params compensationrepo.ListVisitCommissionParams) ([]model.TrxVisitCommission, int, error) {
-	countSess := c.commissionListSession(ctx, params)
-	total64, err := countSess.Count(&model.TrxVisitCommission{})
+func (c *Conn) InsertGeneratedIfMissing(ctx context.Context, rows []model.TrxVisitCommission) (int, error) {
+	if len(rows) == 0 {
+		return 0, nil
+	}
+
+	inserted := 0
+	for start := 0; start < len(rows); start += insertGeneratedChunkSize {
+		end := start + insertGeneratedChunkSize
+		if end > len(rows) {
+			end = len(rows)
+		}
+		n, err := c.insertGeneratedChunk(ctx, rows[start:end])
+		if err != nil {
+			return 0, err
+		}
+		inserted += n
+	}
+	return inserted, nil
+}
+
+func (c *Conn) insertGeneratedChunk(ctx context.Context, rows []model.TrxVisitCommission) (int, error) {
+	var b strings.Builder
+	b.WriteString(insertGeneratedHeadSQL)
+	args := make([]interface{}, 0, len(rows)*11)
+	for i := range rows {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		b.WriteString(insertGeneratedRowSQL)
+		row := &rows[i]
+		args = append(args,
+			row.PeriodID,
+			row.VisitID,
+			row.StaffID,
+			row.RevenueBase,
+			row.CommissionType,
+			nullFloat64(row.CommissionPercent),
+			nullInt64(row.CommissionFlatAmount),
+			row.CommissionAmount,
+			jsonbOrNil(row.Sources),
+			nullString(row.Note),
+			row.IncludedManually,
+		)
+	}
+	b.WriteString(insertGeneratedTailSQL)
+
+	res, err := c.writeSession(ctx).SQL(b.String(), args...).QueryInterface()
+	if err != nil {
+		return 0, errors.Wrap(err, wrapMsgCommissionInsertGenerated)
+	}
+	return len(res), nil
+}
+
+func (c *Conn) ListByPeriodStaff(ctx context.Context, params compensationrepo.ListVisitCommissionParams) ([]compensationrepo.VisitCommissionListRow, int, error) {
+	var total64 int64
+	_, err := c.DB.SlaveDB.Context(ctx).SQL(listByPeriodStaffCountSQL, params.PeriodID, params.StaffID).Get(&total64)
 	if err != nil {
 		return nil, 0, errors.Wrap(err, wrapMsgCommissionListCount)
 	}
 
-	sess := c.commissionListSession(ctx, params).OrderBy("visit_id ASC, id ASC")
+	sqlText := listByPeriodStaffSQL
+	args := []interface{}{params.InstitutionID, params.PeriodID, params.StaffID}
 	if params.Limit > 0 {
-		sess = sess.Limit(params.Limit, params.Offset)
+		sqlText += " LIMIT ? OFFSET ?"
+		args = append(args, params.Limit, params.Offset)
 	}
 
-	rows := []model.TrxVisitCommission{}
-	if err := sess.Find(&rows); err != nil {
+	rows := []compensationrepo.VisitCommissionListRow{}
+	if err := c.DB.SlaveDB.Context(ctx).SQL(sqlText, args...).Find(&rows); err != nil {
 		return nil, 0, errors.Wrap(err, wrapMsgCommissionList)
 	}
 	return rows, int(total64), nil
-}
-
-func (c *Conn) commissionListSession(ctx context.Context, params compensationrepo.ListVisitCommissionParams) *xorm.Session {
-	return c.DB.SlaveDB.Context(ctx).
-		Table(model.TrxVisitCommissionTableName).
-		Where("period_id = ?", params.PeriodID).
-		And("staff_id = ?", params.StaffID)
 }
 
 func (c *Conn) SumByPeriod(ctx context.Context, periodID int64) (compensationrepo.PeriodCommissionTotals, error) {

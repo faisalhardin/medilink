@@ -135,3 +135,56 @@ func (h *CompensationPeriodHandler) ListPeriodStaff(w http.ResponseWriter, r *ht
 	}
 	commonwriter.SetOKWithData(ctx, w, response)
 }
+
+func (h *CompensationPeriodHandler) GetPeriodStaff(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	request := model.GetCompensationPeriodStaffRequest{
+		PeriodUUID: chi.URLParam(r, "periodId"),
+		StaffID:    chi.URLParam(r, "staffId"),
+	}
+
+	response, err := h.CompensationPeriodUC.GetPeriodStaff(ctx, request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+	commonwriter.SetOKWithData(ctx, w, response)
+}
+
+func (h *CompensationPeriodHandler) ListPeriodStaffVisits(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	request := model.ListCompensationPeriodStaffVisitsRequest{
+		PeriodUUID: chi.URLParam(r, "periodId"),
+		StaffID:    chi.URLParam(r, "staffId"),
+	}
+	err := bindingBind(r, &request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	response, err := h.CompensationPeriodUC.ListPeriodStaffVisits(ctx, request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+	commonwriter.SetOKWithData(ctx, w, response)
+}
+
+func (h *CompensationPeriodHandler) GeneratePeriodStaffVisits(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	request := model.GenerateCompensationPeriodStaffVisitsRequest{
+		PeriodUUID: chi.URLParam(r, "periodId"),
+		StaffID:    chi.URLParam(r, "staffId"),
+	}
+
+	response, err := h.CompensationPeriodUC.GeneratePeriodStaffVisits(ctx, request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+	commonwriter.SetOKWithData(ctx, w, response)
+}

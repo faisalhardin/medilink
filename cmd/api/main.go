@@ -303,6 +303,7 @@ func main() {
 		CompensationPeriodDB: compensationPeriodDB,
 		Commissions:          commissionDB,
 		ContributorDB:        contributorDB,
+		StaffDB:              staffManagementDB,
 		VisitLockDB:          patientDB,
 		Transaction:          transaction,
 	})

@@ -14,8 +14,10 @@ var ErrContributorAlreadyAdded = errors.New("contributor already added")
 
 // DetectedAttribution is one clinical or map hit for a visit before merge.
 // ClinicalRowID is the winning-type row id (procedure/diagnosis/map); 0 for anamnesa.
+// VisitID is set by DetectForVisits and DetectForPeriodStaff.
 type DetectedAttribution struct {
 	Type          model.ContributionSourceType
+	VisitID       int64
 	StaffID       string
 	Name          string
 	ClinicalRowID int64
@@ -37,7 +39,13 @@ type PeriodStaffDetection struct {
 // Clinical-table writes stay off this repo.
 type ContributorDB interface {
 	DetectForVisit(ctx context.Context, institutionID, visitID int64) ([]DetectedAttribution, error)
+	// DetectForVisits returns attributions for many visits in one batch.
+	// Empty visitIDs returns an empty slice without querying.
+	DetectForVisits(ctx context.Context, institutionID int64, visitIDs []int64) ([]DetectedAttribution, error)
 	DetectStaffForPeriod(ctx context.Context, institutionID int64, periodStart, periodEndExclusive time.Time) ([]PeriodStaffDetection, error)
+	// DetectForPeriodStaff returns this staff's attribution rows in the payday window
+	// (same sources as DetectStaffForPeriod). Empty result is an empty slice.
+	DetectForPeriodStaff(ctx context.Context, institutionID int64, staffID string, periodStart, periodEndExclusive time.Time) ([]DetectedAttribution, error)
 	UpsertManualContributor(ctx context.Context, row model.MapVisitContributor) error
 	DeleteManualContributor(ctx context.Context, institutionID, visitID int64, staffID string) (bool, error)
 }

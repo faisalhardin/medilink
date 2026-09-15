@@ -2,6 +2,9 @@ package compensation
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
+	"time"
 
 	"github.com/faisalhardin/medilink/internal/entity/model"
 )
@@ -32,12 +35,30 @@ type VisitCommissionWarning struct {
 }
 
 // ListVisitCommissionParams filters paginated commission reads for one staff
-// in a payday period. Limit is applied only when greater than 0.
+// in a payday period. InstitutionID scopes the visit/patient join.
+// Limit is applied only when greater than 0.
 type ListVisitCommissionParams struct {
-	PeriodID int64
-	StaffID  string
-	Limit    int
-	Offset   int
+	InstitutionID int64
+	PeriodID      int64
+	StaffID       string
+	Limit         int
+	Offset        int
+}
+
+// VisitCommissionListRow is one live commission row with visit header fields
+// from LEFT JOIN patient visit + patient institution.
+type VisitCommissionListRow struct {
+	VisitID              int64                  `xorm:"visit_id"`
+	StaffID              string                 `xorm:"staff_id"`
+	RevenueBase          int64                  `xorm:"revenue_base"`
+	CommissionType       model.CommissionType   `xorm:"commission_type"`
+	CommissionPercent    sql.NullFloat64        `xorm:"commission_percent"`
+	CommissionFlatAmount sql.NullInt64          `xorm:"commission_flat_amount"`
+	CommissionAmount     int64                  `xorm:"commission_amount"`
+	Sources              json.RawMessage        `xorm:"sources"`
+	ApprovedAt           sql.NullTime           `xorm:"approved_at"`
+	PatientName          string                 `xorm:"patient_name"`
+	VisitDate            time.Time              `xorm:"visit_date"`
 }
 
 // CommissionAggregator reads stored visit-commission rows for a payday period.
@@ -59,11 +80,17 @@ type CommissionDB interface {
 	// a new live row is inserted instead. Nil row returns an error.
 	Upsert(ctx context.Context, row *model.TrxVisitCommission) error
 
+	// InsertGeneratedIfMissing inserts generate-default live rows keyed by
+	// (period_id, visit_id, staff_id). Existing live rows are left unchanged.
+	// Empty rows returns 0 without querying. inserted is the count of new rows.
+	InsertGeneratedIfMissing(ctx context.Context, rows []model.TrxVisitCommission) (inserted int, err error)
+
 	// ListByPeriodStaff returns non-deleted commission rows for the period and
-	// staff, ordered by visit_id ASC, id ASC. total is the unpaginated match
-	// count. Limit/offset apply only when Limit > 0.
+	// staff with patient_name and visit_date joined from the visit, ordered by
+	// visit_id ASC, id ASC. total is the unpaginated match count.
+	// Limit/offset apply only when Limit > 0.
 	// Named to avoid colliding with CompensationPeriodDB.List on the shared Conn.
-	ListByPeriodStaff(ctx context.Context, params ListVisitCommissionParams) ([]model.TrxVisitCommission, int, error)
+	ListByPeriodStaff(ctx context.Context, params ListVisitCommissionParams) ([]VisitCommissionListRow, int, error)
 
 	// SumByStaff returns per-staff commission subtotals for live rows in the
 	// period, ordered by staff_id. Staff with no rows are omitted.
