@@ -386,6 +386,7 @@ type ListCompensationPeriodStaffVisitsRequest struct {
 // CompensationPeriodStaffVisitRow is one visit on GET .../staff/{staffId}/visits.
 // Unassigned commission fields are JSON null (no omitempty).
 type CompensationPeriodStaffVisitRow struct {
+	ID                   int64                `json:"id"`
 	VisitID              int64                `json:"visit_id"`
 	PatientName          string               `json:"patient_name"`
 	VisitDate            string               `json:"visit_date"`
@@ -414,4 +415,20 @@ type GenerateCompensationPeriodStaffVisitsRequest struct {
 // GenerateCompensationPeriodStaffVisitsResponse is the body for POST .../visits/generate.
 type GenerateCompensationPeriodStaffVisitsResponse struct {
 	GeneratedCount int `json:"generated_count"`
+}
+
+// PatchCommissionItemRequest is the body for PATCH /v1/commission-items/{id}.
+// ID is set from the path param.
+type PatchCommissionItemRequest struct {
+	ID                   int64          `json:"-"`
+	CommissionType       CommissionType `json:"commission_type"`
+	CommissionPercent    null.Float64   `json:"commission_percent"`
+	CommissionFlatAmount null.Int64     `json:"commission_flat_amount"`
+	Note                 null.String    `json:"note"`
+}
+
+// PatchCommissionItemResponse is the body for PATCH /v1/commission-items/{id}.
+type PatchCommissionItemResponse struct {
+	UpdatedCount       int   `json:"updated_count"`
+	CommissionSubtotal int64 `json:"commission_subtotal"`
 }

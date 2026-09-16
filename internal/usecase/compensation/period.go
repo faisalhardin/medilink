@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"math"
 	"sort"
 	"strings"
 	"time"
@@ -32,6 +33,7 @@ const (
 	wrapMsgGetPeriodStaff            = wrapCompensationPeriodUCPrefix + "GetPeriodStaff"
 	wrapMsgListPeriodStaffVisits     = wrapCompensationPeriodUCPrefix + "ListPeriodStaffVisits"
 	wrapMsgGeneratePeriodStaffVisits = wrapCompensationPeriodUCPrefix + "GeneratePeriodStaffVisits"
+	wrapMsgPatchCommissionItem       = wrapCompensationPeriodUCPrefix + "PatchCommissionItem"
 	defaultListLimit                 = 50
 	maxPeriodLabelLen                = 100
 	errIllegalTransition             = "ILLEGAL_PERIOD_TRANSITION"
@@ -40,18 +42,26 @@ const (
 	errPeriodNotFound                = "period_not_found"
 	errInvalidPeriodDates            = "invalid_period_dates"
 	errInvalidLabel                  = "invalid_label"
+	errInvalidCommissionType         = "INVALID_COMMISSION_TYPE"
+	errCommissionNotFound            = "COMMISSION_NOT_FOUND"
+	errInvalidCommissionPercent      = "INVALID_COMMISSION_PERCENT"
+	errInvalidCommissionFlatAmount   = "INVALID_COMMISSION_FLAT_AMOUNT"
 	labelSourceProductName           = "product_name"
 	labelSourceICD10Display          = "icd10_display"
 
-	msgInvalidLabel          = "label is required and must be at most 100 characters"
-	msgInvalidPeriodDates    = "period_start and period_end are required and period_end must not be before period_start"
-	msgInvalidPeriodStatus   = "status must be open, draft, or finalized"
-	msgDraftFromOpenOrDraft  = "period can only be drafted from open or draft status"
-	msgReopenFromFinalized   = "period can only be reopened from finalized status"
-	msgDeleteOpenOnly        = "only an open period can be deleted"
-	msgPeriodNotFound        = "period was not found"
-	msgDateRangeOverlap      = "period date range overlaps an existing period"
-	msgFinalizeFromDraftOnly = "period can only be finalized from draft status"
+	msgInvalidLabel                  = "label is required and must be at most 100 characters"
+	msgInvalidPeriodDates            = "period_start and period_end are required and period_end must not be before period_start"
+	msgInvalidPeriodStatus           = "status must be open, draft, or finalized"
+	msgDraftFromOpenOrDraft          = "period can only be drafted from open or draft status"
+	msgReopenFromFinalized           = "period can only be reopened from finalized status"
+	msgDeleteOpenOnly                = "only an open period can be deleted"
+	msgPeriodNotFound                = "period was not found"
+	msgDateRangeOverlap              = "period date range overlaps an existing period"
+	msgFinalizeFromDraftOnly         = "period can only be finalized from draft status"
+	msgInvalidCommissionType         = "commission_type must be percent or flat"
+	msgCommissionNotFound            = "commission item was not found"
+	msgInvalidCommissionPercent      = "commission_percent is required and must be greater than or equal to 0"
+	msgInvalidCommissionFlatAmount   = "commission_flat_amount is required and must be greater than or equal to 0"
 )
 
 var _ compensationuc.CompensationPeriodUC = (*CompensationPeriodUC)(nil)
@@ -380,6 +390,63 @@ func (u *CompensationPeriodUC) GeneratePeriodStaffVisits(ctx context.Context, re
 	return model.GenerateCompensationPeriodStaffVisitsResponse{GeneratedCount: generated}, nil
 }
 
+func (u *CompensationPeriodUC) PatchCommissionItem(ctx context.Context, req model.PatchCommissionItemRequest) (model.PatchCommissionItemResponse, error) {
+	userDetail, err := u.requireUser(ctx)
+	if err != nil {
+		return model.PatchCommissionItemResponse{}, err
+	}
+
+	if req.ID <= 0 {
+		return model.PatchCommissionItemResponse{}, commonerr.SetNewBadRequest(errCommissionNotFound, msgCommissionNotFound)
+	}
+
+	row, found, err := u.Commissions.GetLiveByIDForInstitution(ctx, userDetail.InstitutionID, req.ID)
+	if err != nil {
+		return model.PatchCommissionItemResponse{}, errors.Wrap(err, wrapMsgPatchCommissionItem)
+	}
+	if !found || row == nil {
+		return model.PatchCommissionItemResponse{}, commonerr.SetNewBadRequest(errCommissionNotFound, msgCommissionNotFound)
+	}
+
+	if !req.CommissionType.IsValid() {
+		return model.PatchCommissionItemResponse{}, commonerr.SetNewBadRequest(errInvalidCommissionType, msgInvalidCommissionType)
+	}
+
+	switch req.CommissionType {
+	case model.CommissionTypePercent:
+		if !req.CommissionPercent.Valid || req.CommissionPercent.Float64 < 0 {
+			return model.PatchCommissionItemResponse{}, commonerr.SetNewBadRequest(errInvalidCommissionPercent, msgInvalidCommissionPercent)
+		}
+		row.CommissionType = model.CommissionTypePercent
+		row.CommissionPercent = sql.NullFloat64{Float64: req.CommissionPercent.Float64, Valid: true}
+		row.CommissionFlatAmount = sql.NullInt64{}
+		row.CommissionAmount = int64(math.Round(float64(row.RevenueBase) * req.CommissionPercent.Float64 / 100))
+	case model.CommissionTypeFlat:
+		if !req.CommissionFlatAmount.Valid || req.CommissionFlatAmount.Int64 < 0 {
+			return model.PatchCommissionItemResponse{}, commonerr.SetNewBadRequest(errInvalidCommissionFlatAmount, msgInvalidCommissionFlatAmount)
+		}
+		row.CommissionType = model.CommissionTypeFlat
+		row.CommissionFlatAmount = sql.NullInt64{Int64: req.CommissionFlatAmount.Int64, Valid: true}
+		row.CommissionPercent = sql.NullFloat64{}
+		row.CommissionAmount = req.CommissionFlatAmount.Int64
+	}
+
+	if req.Note.Valid {
+		row.Note = sql.NullString{String: req.Note.String, Valid: true}
+	} else {
+		row.Note = sql.NullString{}
+	}
+
+	if err := u.Commissions.UpdateAssignmentAmounts(ctx, row); err != nil {
+		return model.PatchCommissionItemResponse{}, errors.Wrap(err, wrapMsgPatchCommissionItem)
+	}
+
+	return model.PatchCommissionItemResponse{
+		UpdatedCount:       1,
+		CommissionSubtotal: 0,
+	}, nil
+}
+
 func staffInfoFrom(staff model.StaffWithRolesResponse) model.CompensationPeriodStaffInfo {
 	roles := make([]string, 0, len(staff.Roles))
 	for _, role := range staff.Roles {
@@ -400,6 +467,7 @@ func staffVisitRowFromList(commission compensationrepo.VisitCommissionListRow) m
 		visitDate = commission.VisitDate.Format("2006-01-02")
 	}
 	row := model.CompensationPeriodStaffVisitRow{
+		ID:          commission.ID,
 		VisitID:     commission.VisitID,
 		PatientName: commission.PatientName,
 		VisitDate:   visitDate,

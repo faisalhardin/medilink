@@ -48,17 +48,18 @@ type ListVisitCommissionParams struct {
 // VisitCommissionListRow is one live commission row with visit header fields
 // from LEFT JOIN patient visit + patient institution.
 type VisitCommissionListRow struct {
-	VisitID              int64                  `xorm:"visit_id"`
-	StaffID              string                 `xorm:"staff_id"`
-	RevenueBase          int64                  `xorm:"revenue_base"`
-	CommissionType       model.CommissionType   `xorm:"commission_type"`
-	CommissionPercent    sql.NullFloat64        `xorm:"commission_percent"`
-	CommissionFlatAmount sql.NullInt64          `xorm:"commission_flat_amount"`
-	CommissionAmount     int64                  `xorm:"commission_amount"`
-	Sources              json.RawMessage        `xorm:"sources"`
-	ApprovedAt           sql.NullTime           `xorm:"approved_at"`
-	PatientName          string                 `xorm:"patient_name"`
-	VisitDate            time.Time              `xorm:"visit_date"`
+	ID                   int64                `xorm:"id"`
+	VisitID              int64                `xorm:"visit_id"`
+	StaffID              string               `xorm:"staff_id"`
+	RevenueBase          int64                `xorm:"revenue_base"`
+	CommissionType       model.CommissionType `xorm:"commission_type"`
+	CommissionPercent    sql.NullFloat64      `xorm:"commission_percent"`
+	CommissionFlatAmount sql.NullInt64        `xorm:"commission_flat_amount"`
+	CommissionAmount     int64                `xorm:"commission_amount"`
+	Sources              json.RawMessage      `xorm:"sources"`
+	ApprovedAt           sql.NullTime         `xorm:"approved_at"`
+	PatientName          string               `xorm:"patient_name"`
+	VisitDate            time.Time            `xorm:"visit_date"`
 }
 
 // CommissionAggregator reads stored visit-commission rows for a payday period.
@@ -106,4 +107,13 @@ type CommissionDB interface {
 	// soft warning: combined percent rows > 100, or total resolved IDR greater
 	// than the live visit-product revenue base.
 	SoftWarningAggregates(ctx context.Context, periodID int64) ([]VisitCommissionWarning, error)
+
+	// GetLiveByIDForInstitution returns the live commission row for id when its
+	// period belongs to institutionID. found is false when missing or out of scope.
+	GetLiveByIDForInstitution(ctx context.Context, institutionID, id int64) (*model.TrxVisitCommission, bool, error)
+
+	// UpdateAssignmentAmounts updates only assignment columns on the live row
+	// keyed by id. Does not change revenue_base, sources, included_manually, or
+	// approved_at. Returns an error when zero rows are updated.
+	UpdateAssignmentAmounts(ctx context.Context, row *model.TrxVisitCommission) error
 }

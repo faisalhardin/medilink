@@ -422,7 +422,7 @@ func getSessionKey(userIdentifier, token string) string {
 func GetBearerToken(token string) (string, error) {
 	splitToken := strings.Split(token, "Bearer ")
 	if len(splitToken) != 2 {
-		return "", errors.New("invalid token")
+		return "", commonerr.SetNewUnauthorizedError("invalid token", "Authorization bearer token is missing or invalid")
 	}
 
 	return splitToken[1], nil

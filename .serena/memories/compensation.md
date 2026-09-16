@@ -1,6 +1,6 @@
 # Staff compensation (payday)
 
-Domain under `internal/{entity,http,usecase,repo}/compensation`. Specs: workspace `docs/prd|trd/staff-compensation.md`. Manual API: `docs/api/compensation-period.postman_collection.json`, `test_compensation_period_staff.sh`.
+Domain under `internal/{entity,http,usecase,repo}/compensation`. Specs: workspace `docs/prd|trd/staff-compensation.md`. Manual API: `docs/api/compensation-period.postman_collection.json`, `test_compensation_period_staff.sh`, `test_commission_item_patch.sh` (`MEDIANNE_TOKEN`).
 
 ## Routes (`/v1/compensation-period`, authed + RBAC)
 | Method | Path | Perm |
@@ -17,9 +17,15 @@ Domain under `internal/{entity,http,usecase,repo}/compensation`. Specs: workspac
 | POST | `/{periodId}/reopen` | finalize |
 | DELETE | `/{periodId}` | finalize |
 
+Also (top-level under `/v1`, not nested under period):
+
+| Method | Path | Perm |
+| --- | --- | --- |
+| PATCH | `/commission-items/{id}` | assign |
+
 **Path trap:** list staff is **`/staffs`** (plural). Detail/visits use **`/staff/{staffId}`**. TRD sometimes says `/staff` for list — code wins.
 
-Not wired yet (TRD only): PUT commissions, wage-override, export.
+Not wired yet (TRD only): wage-override, export. Batch commission update deferred.
 
 ## Permissions (`entity/constant/permission`)
 `compensation.read` | `compensation.assign` | `compensation.finalize` | `compensation.manage`
@@ -31,13 +37,19 @@ Dates: API `YYYY-MM-DD` (`compensationPeriodDateLayout`). Detection window: `[pe
 ## Option A valuation
 - Eligibility/sources only: procedure | diagnosis | anamnesa | journey | manual (`ContributionSource`).
 - `revenue_base` = full visit product cart sum — **not** procedure-line filtered.
-- Commission type `percent` | `flat`; amount resolved server-side on approve/upsert (not on generate).
+- Commission type `percent` | `flat`; amount resolved server-side on PATCH `/commission-items/{id}` (not on generate). Uses **stored** `revenue_base` (generate leaves 0 until a later card snapshots cart).
 
 ## Generate + list visits
 - Generate seeds `mdl_trx_visit_commission` from detection; **skip existing** (idempotent).
 - Seed defaults: type `flat`, flat/amount 0, `revenue_base` 0, **`approved_at` NULL**, sources JSON snapshot, `included_manually` from manual source.
-- List visits: if `approved_at` null → JSON nulls for `commission_type`, percent, flat, amount; still return sources/revenue_base/has_contributors.
+- List visits: returns `id` (commission PK). If `approved_at` null → JSON nulls for `commission_type`, percent, flat, amount; still return sources/revenue_base/has_contributors.
 - Schema: `schema/medianne/20260901_add_compensation_tables.sql`, `20260909_add_visit_commission_approved_at.sql`.
+
+## PATCH commission item
+- `PATCH /v1/commission-items/{id}` (`compensation.assign`): updates one live row by id scoped to JWT institution via period.
+- Writes only: `commission_type`, percent XOR flat, `note`, server `commission_amount`. Does **not** set `approved_at` or change `revenue_base` / `sources` / `included_manually`.
+- Response: `{ updated_count: 1, commission_subtotal: 0 }` (real subtotal deferred).
+- Errors: `COMMISSION_NOT_FOUND`, `INVALID_COMMISSION_TYPE`, `INVALID_COMMISSION_PERCENT`, `INVALID_COMMISSION_FLAT_AMOUNT`.
 
 ## Staff list semantics
 - Union of period contributors (detection), not wage-only staff (v1).
@@ -62,6 +74,10 @@ Visit lock cols (`compensation_period_id`, `compensation_locked_at`) live on `md
 - `INVALID_COMPENSATION_PERIOD_STATUS` 400
 - `PERIOD_DATE_RANGE_OVERLAP` 400
 - `ILLEGAL_PERIOD_TRANSITION` 400
+- `COMMISSION_NOT_FOUND` 400
+- `INVALID_COMMISSION_TYPE` 400
+- `INVALID_COMMISSION_PERCENT` 400
+- `INVALID_COMMISSION_FLAT_AMOUNT` 400
 Envelope: `{ error_messages: [{ error_name, error_description }] }` (writer), success `{ data }`.
 
 Map: `mem:core`. Style: `mem:conventions`.
