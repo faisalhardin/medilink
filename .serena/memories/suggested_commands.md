@@ -13,7 +13,10 @@
 ## DB / infra (Darwin)
 - `make docker-run` / `make docker-down` — Timescale/Postgres compose
 - Redis: `./setup-redis.sh` if needed
-- Migrations: `./run-migrations.sh`, `./run-migrations-simple.sh`, `./manual-migrations.sh`, `./scripts/migrate.sh`, `./check_migrations.sh` — SQL in `schema/medianne/`
+- Migrations (Atlas): `make install-atlas`, `make migrate-diff NAME=…`, `make migrate-hash`, `make migrate-status`, `make migrate-apply` — see `schema/README.md`
+- Local apply: `./scripts/migrate.sh` or `make migrate-apply`
+- Prod apply: Cloud SQL Proxy + `DATABASE_URL` + `./run-migrations-simple.sh` (first cutover: `BASELINE=20260901120000`)
+- Status: `./check_migrations.sh` → `atlas migrate status`
 - Cloud SQL: `./start-cloud-sql-proxy.sh`
 
 ## Config
