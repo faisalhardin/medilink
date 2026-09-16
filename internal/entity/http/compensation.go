@@ -14,4 +14,5 @@ type CompensationPeriodHandler interface {
 	GetPeriodStaff(w http.ResponseWriter, r *http.Request)
 	ListPeriodStaffVisits(w http.ResponseWriter, r *http.Request)
 	GeneratePeriodStaffVisits(w http.ResponseWriter, r *http.Request)
+	PatchCommissionItem(w http.ResponseWriter, r *http.Request)
 }

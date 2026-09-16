@@ -159,18 +159,23 @@ func (f *fakeCompensationPeriodDB) SoftDelete(_ context.Context, institutionID i
 }
 
 type fakeCommissions struct {
-	totals         map[int64]compensationrepo.PeriodCommissionTotals
-	visits         map[int64][]int64
-	byStaff        map[int64][]compensationrepo.StaffCommissionTotals
-	listByStaff    map[string][]compensationrepo.VisitCommissionListRow // key: periodID:staffID
-	insertRows     map[string][]model.TrxVisitCommission                 // key: periodID:staffID (generate path)
-	revenueByVisit map[int64]int64
-	sumErr         error
-	visitErr       error
-	sumStaffErr    error
-	listErr        error
-	revenueErr     error
-	insertErr      error
+	totals             map[int64]compensationrepo.PeriodCommissionTotals
+	visits             map[int64][]int64
+	byStaff            map[int64][]compensationrepo.StaffCommissionTotals
+	listByStaff        map[string][]compensationrepo.VisitCommissionListRow // key: periodID:staffID
+	insertRows         map[string][]model.TrxVisitCommission                 // key: periodID:staffID (generate path)
+	revenueByVisit     map[int64]int64
+	liveByID           map[int64]*model.TrxVisitCommission
+	liveInstitutionID  int64
+	updateCalls        []model.TrxVisitCommission
+	sumErr             error
+	visitErr           error
+	sumStaffErr        error
+	listErr            error
+	revenueErr         error
+	insertErr          error
+	getLiveErr         error
+	updateErr          error
 }
 
 func (f *fakeCommissions) SumByPeriod(_ context.Context, periodID int64) (compensationrepo.PeriodCommissionTotals, error) {
@@ -278,6 +283,40 @@ func (f *fakeCommissions) SumRevenueByVisitIDs(_ context.Context, visitIDs []int
 
 func (f *fakeCommissions) SoftWarningAggregates(context.Context, int64) ([]compensationrepo.VisitCommissionWarning, error) {
 	return nil, nil
+}
+
+func (f *fakeCommissions) GetLiveByIDForInstitution(_ context.Context, institutionID, id int64) (*model.TrxVisitCommission, bool, error) {
+	if f.getLiveErr != nil {
+		return nil, false, f.getLiveErr
+	}
+	if f.liveByID == nil {
+		return nil, false, nil
+	}
+	row, ok := f.liveByID[id]
+	if !ok || row == nil {
+		return nil, false, nil
+	}
+	if f.liveInstitutionID != 0 && f.liveInstitutionID != institutionID {
+		return nil, false, nil
+	}
+	cp := *row
+	return &cp, true, nil
+}
+
+func (f *fakeCommissions) UpdateAssignmentAmounts(_ context.Context, row *model.TrxVisitCommission) error {
+	if f.updateErr != nil {
+		return f.updateErr
+	}
+	if row == nil {
+		return errors.New("commission is required")
+	}
+	if f.liveByID == nil {
+		f.liveByID = map[int64]*model.TrxVisitCommission{}
+	}
+	cp := *row
+	f.liveByID[row.ID] = &cp
+	f.updateCalls = append(f.updateCalls, cp)
+	return nil
 }
 
 func listByStaffKey(periodID int64, staffID string) string {
@@ -1019,6 +1058,7 @@ func TestListPeriodStaffVisits(t *testing.T) {
 		commissions := &fakeCommissions{
 			listByStaff: map[string][]compensationrepo.VisitCommissionListRow{
 				listByStaffKey(7, staffID): {{
+					ID:                   99,
 					VisitID:              10,
 					StaffID:              staffID,
 					RevenueBase:          1_200_000,
@@ -1045,6 +1085,9 @@ func TestListPeriodStaffVisits(t *testing.T) {
 			t.Fatalf("total=%d len=%d", got.Total, len(got.Visits))
 		}
 		row := got.Visits[0]
+		if row.ID != 99 {
+			t.Fatalf("id = %d, want 99", row.ID)
+		}
 		if row.VisitID != 10 || row.PatientName != "Ahmad" || row.VisitDate != "2026-08-05" {
 			t.Fatalf("header = %+v", row)
 		}
@@ -1393,6 +1436,218 @@ func TestGeneratePeriodStaffVisits(t *testing.T) {
 		}
 		if again.GeneratedCount != 0 {
 			t.Fatalf("second generated_count = %d", got.GeneratedCount)
+		}
+	})
+}
+
+
+func TestPatchCommissionItem(t *testing.T) {
+	live := &model.TrxVisitCommission{
+		ID:           55,
+		PeriodID:     7,
+		VisitID:      10,
+		StaffID:      "s-a",
+		RevenueBase:  0,
+		CommissionType: model.CommissionTypeFlat,
+		CommissionFlatAmount: sql.NullInt64{Int64: 0, Valid: true},
+		CommissionAmount: 0,
+		IncludedManually: false,
+	}
+
+	t.Run("unauthorized", func(t *testing.T) {
+		uc := newUC(nil, nil, nil, nil)
+		_, err := uc.PatchCommissionItem(context.Background(), model.PatchCommissionItemRequest{ID: 55})
+		if err == nil {
+			t.Fatal("expected unauthorized")
+		}
+	})
+
+	t.Run("id less than or equal zero", func(t *testing.T) {
+		uc := newUC(nil, nil, nil, nil)
+		_, err := uc.PatchCommissionItem(testCtx(), model.PatchCommissionItemRequest{ID: 0})
+		if errorName(t, err) != errCommissionNotFound {
+			t.Fatalf("error name = %s, want %s", errorName(t, err), errCommissionNotFound)
+		}
+	})
+
+	t.Run("unknown id", func(t *testing.T) {
+		uc := newUC(nil, &fakeCommissions{liveByID: map[int64]*model.TrxVisitCommission{}}, nil, nil)
+		_, err := uc.PatchCommissionItem(testCtx(), model.PatchCommissionItemRequest{
+			ID:             999,
+			CommissionType: model.CommissionTypeFlat,
+			CommissionFlatAmount: null.Int64{Int64: 1000, Valid: true},
+		})
+		if errorName(t, err) != errCommissionNotFound {
+			t.Fatalf("error name = %s, want %s", errorName(t, err), errCommissionNotFound)
+		}
+	})
+
+	t.Run("other institution", func(t *testing.T) {
+		cp := *live
+		uc := newUC(nil, &fakeCommissions{
+			liveByID:          map[int64]*model.TrxVisitCommission{55: &cp},
+			liveInstitutionID: testInstitutionID + 1,
+		}, nil, nil)
+		_, err := uc.PatchCommissionItem(testCtx(), model.PatchCommissionItemRequest{
+			ID:             55,
+			CommissionType: model.CommissionTypeFlat,
+			CommissionFlatAmount: null.Int64{Int64: 1000, Valid: true},
+		})
+		if errorName(t, err) != errCommissionNotFound {
+			t.Fatalf("error name = %s, want %s", errorName(t, err), errCommissionNotFound)
+		}
+	})
+
+	t.Run("invalid type", func(t *testing.T) {
+		cp := *live
+		uc := newUC(nil, &fakeCommissions{liveByID: map[int64]*model.TrxVisitCommission{55: &cp}}, nil, nil)
+		_, err := uc.PatchCommissionItem(testCtx(), model.PatchCommissionItemRequest{
+			ID:             55,
+			CommissionType: model.CommissionType("bonus"),
+		})
+		if errorName(t, err) != errInvalidCommissionType {
+			t.Fatalf("error name = %s, want %s", errorName(t, err), errInvalidCommissionType)
+		}
+	})
+
+	t.Run("missing percent", func(t *testing.T) {
+		cp := *live
+		uc := newUC(nil, &fakeCommissions{liveByID: map[int64]*model.TrxVisitCommission{55: &cp}}, nil, nil)
+		_, err := uc.PatchCommissionItem(testCtx(), model.PatchCommissionItemRequest{
+			ID:             55,
+			CommissionType: model.CommissionTypePercent,
+		})
+		if errorName(t, err) != errInvalidCommissionPercent {
+			t.Fatalf("error name = %s, want %s", errorName(t, err), errInvalidCommissionPercent)
+		}
+	})
+
+	t.Run("negative percent", func(t *testing.T) {
+		cp := *live
+		uc := newUC(nil, &fakeCommissions{liveByID: map[int64]*model.TrxVisitCommission{55: &cp}}, nil, nil)
+		_, err := uc.PatchCommissionItem(testCtx(), model.PatchCommissionItemRequest{
+			ID:                55,
+			CommissionType:    model.CommissionTypePercent,
+			CommissionPercent: null.Float64{Float64: -1, Valid: true},
+		})
+		if errorName(t, err) != errInvalidCommissionPercent {
+			t.Fatalf("error name = %s, want %s", errorName(t, err), errInvalidCommissionPercent)
+		}
+	})
+
+	t.Run("missing flat", func(t *testing.T) {
+		cp := *live
+		uc := newUC(nil, &fakeCommissions{liveByID: map[int64]*model.TrxVisitCommission{55: &cp}}, nil, nil)
+		_, err := uc.PatchCommissionItem(testCtx(), model.PatchCommissionItemRequest{
+			ID:             55,
+			CommissionType: model.CommissionTypeFlat,
+		})
+		if errorName(t, err) != errInvalidCommissionFlatAmount {
+			t.Fatalf("error name = %s, want %s", errorName(t, err), errInvalidCommissionFlatAmount)
+		}
+	})
+
+	t.Run("negative flat", func(t *testing.T) {
+		cp := *live
+		uc := newUC(nil, &fakeCommissions{liveByID: map[int64]*model.TrxVisitCommission{55: &cp}}, nil, nil)
+		_, err := uc.PatchCommissionItem(testCtx(), model.PatchCommissionItemRequest{
+			ID:                   55,
+			CommissionType:       model.CommissionTypeFlat,
+			CommissionFlatAmount: null.Int64{Int64: -5, Valid: true},
+		})
+		if errorName(t, err) != errInvalidCommissionFlatAmount {
+			t.Fatalf("error name = %s, want %s", errorName(t, err), errInvalidCommissionFlatAmount)
+		}
+	})
+
+	t.Run("percent with stored revenue base zero", func(t *testing.T) {
+		cp := *live
+		commissions := &fakeCommissions{liveByID: map[int64]*model.TrxVisitCommission{55: &cp}}
+		uc := newUC(nil, commissions, nil, nil)
+		got, err := uc.PatchCommissionItem(testCtx(), model.PatchCommissionItemRequest{
+			ID:                55,
+			CommissionType:    model.CommissionTypePercent,
+			CommissionPercent: null.Float64{Float64: 10, Valid: true},
+			Note:              null.String{String: "ok", Valid: true},
+		})
+		if err != nil {
+			t.Fatalf("PatchCommissionItem: %v", err)
+		}
+		if got.UpdatedCount != 1 || got.CommissionSubtotal != 0 {
+			t.Fatalf("response = %+v", got)
+		}
+		if len(commissions.updateCalls) != 1 {
+			t.Fatalf("update calls = %d", len(commissions.updateCalls))
+		}
+		updated := commissions.updateCalls[0]
+		if updated.CommissionType != model.CommissionTypePercent {
+			t.Fatalf("type = %s", updated.CommissionType)
+		}
+		if !updated.CommissionPercent.Valid || updated.CommissionPercent.Float64 != 10 {
+			t.Fatalf("percent = %+v", updated.CommissionPercent)
+		}
+		if updated.CommissionFlatAmount.Valid {
+			t.Fatalf("flat should be null: %+v", updated.CommissionFlatAmount)
+		}
+		if updated.CommissionAmount != 0 {
+			t.Fatalf("amount = %d, want 0 for revenue_base 0", updated.CommissionAmount)
+		}
+		if !updated.Note.Valid || updated.Note.String != "ok" {
+			t.Fatalf("note = %+v", updated.Note)
+		}
+		if updated.RevenueBase != 0 || updated.ApprovedAt.Valid {
+			t.Fatalf("must not change revenue_base/approved_at: %+v", updated)
+		}
+	})
+
+	t.Run("flat amount", func(t *testing.T) {
+		cp := *live
+		cp.RevenueBase = 500_000
+		commissions := &fakeCommissions{liveByID: map[int64]*model.TrxVisitCommission{55: &cp}}
+		uc := newUC(nil, commissions, nil, nil)
+		got, err := uc.PatchCommissionItem(testCtx(), model.PatchCommissionItemRequest{
+			ID:                   55,
+			CommissionType:       model.CommissionTypeFlat,
+			CommissionFlatAmount: null.Int64{Int64: 25000, Valid: true},
+		})
+		if err != nil {
+			t.Fatalf("PatchCommissionItem: %v", err)
+		}
+		if got.UpdatedCount != 1 || got.CommissionSubtotal != 0 {
+			t.Fatalf("response = %+v", got)
+		}
+		updated := commissions.updateCalls[0]
+		if updated.CommissionType != model.CommissionTypeFlat || updated.CommissionAmount != 25000 {
+			t.Fatalf("updated = %+v", updated)
+		}
+		if updated.CommissionPercent.Valid {
+			t.Fatalf("percent should be null: %+v", updated.CommissionPercent)
+		}
+		if !updated.CommissionFlatAmount.Valid || updated.CommissionFlatAmount.Int64 != 25000 {
+			t.Fatalf("flat = %+v", updated.CommissionFlatAmount)
+		}
+		if updated.RevenueBase != 500_000 {
+			t.Fatalf("revenue_base changed: %d", updated.RevenueBase)
+		}
+	})
+
+	t.Run("idempotent second patch", func(t *testing.T) {
+		cp := *live
+		commissions := &fakeCommissions{liveByID: map[int64]*model.TrxVisitCommission{55: &cp}}
+		uc := newUC(nil, commissions, nil, nil)
+		req := model.PatchCommissionItemRequest{
+			ID:                   55,
+			CommissionType:       model.CommissionTypeFlat,
+			CommissionFlatAmount: null.Int64{Int64: 1000, Valid: true},
+		}
+		if _, err := uc.PatchCommissionItem(testCtx(), req); err != nil {
+			t.Fatalf("first: %v", err)
+		}
+		if _, err := uc.PatchCommissionItem(testCtx(), req); err != nil {
+			t.Fatalf("second: %v", err)
+		}
+		if len(commissions.updateCalls) != 2 {
+			t.Fatalf("update calls = %d", len(commissions.updateCalls))
 		}
 	})
 }

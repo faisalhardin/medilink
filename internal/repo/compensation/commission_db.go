@@ -37,9 +37,12 @@ const (
 	wrapMsgCommissionSumByStaff    = "CommissionDB.SumByStaff"
 	wrapMsgCommissionSumRevenue    = "CommissionDB.SumRevenueByVisitIDs"
 	wrapMsgCommissionWarnings      = "CommissionDB.SoftWarningAggregates"
+	wrapMsgCommissionGetLiveByID   = "CommissionDB.GetLiveByIDForInstitution"
+	wrapMsgCommissionUpdateAmounts = "CommissionDB.UpdateAssignmentAmounts"
 
 	listByPeriodStaffSQL = `
 		SELECT
+			c.id,
 			c.visit_id,
 			c.staff_id,
 			c.revenue_base,
@@ -344,6 +347,82 @@ func (c *Conn) SoftWarningAggregates(ctx context.Context, periodID int64) ([]com
 		return nil, errors.Wrap(err, wrapMsgCommissionWarnings)
 	}
 	return rows, nil
+}
+
+func (c *Conn) GetLiveByIDForInstitution(ctx context.Context, institutionID, id int64) (*model.TrxVisitCommission, bool, error) {
+	const sqlText = `
+		SELECT
+			c.id,
+			c.period_id,
+			c.visit_id,
+			c.staff_id,
+			c.revenue_base,
+			c.commission_type,
+			c.commission_percent,
+			c.commission_flat_amount,
+			c.commission_amount,
+			c.sources,
+			c.note,
+			c.included_manually,
+			c.approved_at,
+			c.create_time,
+			c.update_time,
+			c.delete_time
+		FROM mdl_trx_visit_commission c
+		INNER JOIN mdl_trx_compensation_period p
+			ON p.id = c.period_id
+			AND p.delete_time IS NULL
+		WHERE c.id = ?
+		  AND c.delete_time IS NULL
+		  AND p.institution_id = ?
+	`
+
+	row := &model.TrxVisitCommission{}
+	found, err := c.DB.SlaveDB.Context(ctx).SQL(sqlText, id, institutionID).Get(row)
+	if err != nil {
+		return nil, false, errors.Wrap(err, wrapMsgCommissionGetLiveByID)
+	}
+	if !found {
+		return nil, false, nil
+	}
+	return row, true, nil
+}
+
+func (c *Conn) UpdateAssignmentAmounts(ctx context.Context, row *model.TrxVisitCommission) error {
+	if row == nil {
+		return errors.Wrap(errors.New("commission is required"), wrapMsgCommissionUpdateAmounts)
+	}
+
+	const sqlText = `
+		UPDATE mdl_trx_visit_commission
+		SET
+			commission_type = ?,
+			commission_percent = ?,
+			commission_flat_amount = ?,
+			commission_amount = ?,
+			note = ?,
+			update_time = NOW()
+		WHERE id = ?
+		  AND delete_time IS NULL
+		RETURNING update_time
+	`
+
+	res, err := c.writeSession(ctx).SQL(sqlText,
+		row.CommissionType,
+		nullFloat64(row.CommissionPercent),
+		nullInt64(row.CommissionFlatAmount),
+		row.CommissionAmount,
+		nullString(row.Note),
+		row.ID,
+	).QueryInterface()
+	if err != nil {
+		return errors.Wrap(err, wrapMsgCommissionUpdateAmounts)
+	}
+	if len(res) == 0 {
+		return errors.Wrap(errors.New("commission was not updated"), wrapMsgCommissionUpdateAmounts)
+	}
+	row.UpdateTime = xormlib.ToTime(res[0]["update_time"])
+	return nil
 }
 
 func nullFloat64(v sql.NullFloat64) interface{} {

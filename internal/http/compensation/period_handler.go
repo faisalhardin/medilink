@@ -2,9 +2,11 @@ package compensation
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/faisalhardin/medilink/internal/entity/model"
 	compensationuc "github.com/faisalhardin/medilink/internal/entity/usecase/compensation"
+	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
 	commonwriter "github.com/faisalhardin/medilink/internal/library/common/writer"
 	"github.com/faisalhardin/medilink/internal/library/util/common/binding"
 	"github.com/go-chi/chi/v5"
@@ -182,6 +184,29 @@ func (h *CompensationPeriodHandler) GeneratePeriodStaffVisits(w http.ResponseWri
 	}
 
 	response, err := h.CompensationPeriodUC.GeneratePeriodStaffVisits(ctx, request)
+	if err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+	commonwriter.SetOKWithData(ctx, w, response)
+}
+
+func (h *CompensationPeriodHandler) PatchCommissionItem(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil || id <= 0 {
+		commonwriter.SetError(ctx, w, commonerr.SetNewBadRequest("COMMISSION_NOT_FOUND", "commission item was not found"))
+		return
+	}
+
+	request := model.PatchCommissionItemRequest{ID: id}
+	if err := bindingBind(r, &request); err != nil {
+		commonwriter.SetError(ctx, w, err)
+		return
+	}
+
+	response, err := h.CompensationPeriodUC.PatchCommissionItem(ctx, request)
 	if err != nil {
 		commonwriter.SetError(ctx, w, err)
 		return

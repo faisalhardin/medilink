@@ -134,6 +134,9 @@ func RegisterRoutes(m *module) http.Handler {
 					Patch("/{uuid}/activate", m.httpHandler.StaffHandler.ActivateStaff)
 			})
 
+			authed.With(m.middlewareModule.RequirePermission(permconst.CompensationAssign)).
+				Patch("/commission-items/{id}", m.httpHandler.CompensationPeriodHandler.PatchCommissionItem)
+
 			authed.Route("/compensation-period", func(periods chi.Router) {
 				periods.With(m.middlewareModule.RequirePermission(permconst.CompensationAssign)).
 					Post("/", m.httpHandler.CompensationPeriodHandler.CreatePeriod)
