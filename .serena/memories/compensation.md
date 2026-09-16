@@ -43,7 +43,7 @@ Dates: API `YYYY-MM-DD` (`compensationPeriodDateLayout`). Detection window: `[pe
 - Generate seeds `mdl_trx_visit_commission` from detection; **skip existing** (idempotent).
 - Seed defaults: type `flat`, flat/amount 0, `revenue_base` 0, **`approved_at` NULL**, sources JSON snapshot, `included_manually` from manual source.
 - List visits: returns `id` (commission PK). If `approved_at` null → JSON nulls for `commission_type`, percent, flat, amount; still return sources/revenue_base/has_contributors.
-- Schema: `schema/medianne/20260901_add_compensation_tables.sql`, `20260909_add_visit_commission_approved_at.sql`.
+- Schema: Atlas `schema/migrations/` (baseline includes compensation tables; `20260909120000` approved_at; archive: `schema/archive/medianne/20260901_add_compensation_tables.sql`).
 
 ## PATCH commission item
 - `PATCH /v1/commission-items/{id}` (`compensation.assign`): updates one live row by id scoped to JWT institution via period.

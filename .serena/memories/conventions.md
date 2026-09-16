@@ -26,7 +26,7 @@ Dual-layer convention (see `procedure.go`, `compensation.go`, `anamnesa.go`):
 
 ## Data / SQL
 - No table-row REFERENCES / ON DELETE FK (CLAUDE rule).
-- Schema: new dated `schema/medianne/YYYYMMDD_*.sql`; avoid rewriting applied migrations.
+- Schema: Atlas — edit `schema/schema.sql`, `make migrate-diff NAME=…`, review `schema/migrations/`, apply with `make migrate-apply`. Do not rewrite files already in `atlas.sum`. Archive only: `schema/archive/medianne/`. See `schema/README.md`.
 - Minimal diffs; evidence from logs/API.
 
 ## Domain hotspots

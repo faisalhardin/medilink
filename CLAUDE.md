@@ -29,6 +29,11 @@ Medianne is a Go 1.19 digital health record / healthcare API (patients, visits, 
 * **Data Reference:** Do not use REFERENCE on database table row. Avoid using ON DELETE query.
 * **Model nullability:** Xorm/DB row structs use `database/sql` (`sql.NullInt64`, `sql.NullString`, `sql.NullTime`, `sql.NullFloat64`). JSON request/response and JSONB payload structs use `github.com/volatiletech/null/v8`. Soft-delete stays `*time.Time` + xorm `deleted`. Optional JSONB columns: `json.RawMessage`. Reference: `procedure.go`, `compensation.go`.
 
+### Schema / Atlas
+* Desired DDL: `schema/schema.sql`. Versioned SQL: `schema/migrations/` (+ `atlas.sum`). Historical dated files: `schema/archive/medianne/` (frozen).
+* Change DDL in `schema.sql` → `make migrate-diff NAME=…` → review → `make migrate-hash` if needed → `make migrate-apply`. Never rewrite files already hashed in `atlas.sum`.
+* Never run `atlas schema apply` against prod — only `atlas migrate apply`. Operator steps: `schema/README.md`.
+
 ---
 
 ## Autonomous Bug Fixing

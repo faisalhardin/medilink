@@ -13,7 +13,7 @@ Module: `github.com/faisalhardin/medilink`. Path: workspace `backend/`; sibling 
 - `internal/entity/{model,http,usecase,repo,constant}` — DTOs, interfaces, constants
 - `internal/library` — middleware, errors, DB helpers, validation, idempotency
 - `internal/config` — YAML + vault/env
-- `schema/medianne/` — dated SQL migrations
+- `schema/schema.sql` + `schema/migrations/` — Atlas desired state + versioned SQL; `schema/archive/medianne/` frozen history
 - `files/etc/medilink/` — env YAMLs (dev yaml gitignored; use `*.example`)
 - `docs/` — API/notes
 - `tests/` — package tests (`make test` only runs here)

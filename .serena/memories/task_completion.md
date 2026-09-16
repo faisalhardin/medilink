@@ -6,7 +6,7 @@ From `backend/` after meaningful changes:
 2. **Tests**: `go test ./tests -v`; touched pkgs `go test ./internal/usecase/<pkg>/... ./internal/repo/<pkg>/...` or `go test ./...`
 3. **Vet** (optional): `go vet ./...`
 4. **Routes/DI**: new endpoint registered in `internal/server/routes.go` and wired in `cmd/api/main.go`
-5. **Schema**: new SQL in `schema/medianne/`; migrations still apply (`./check_migrations.sh` when relevant)
+5. **Schema**: change `schema/schema.sql` → `make migrate-diff` → review; or hand-edit `schema/migrations/` + `make migrate-hash`. Status: `./check_migrations.sh` / `make migrate-status`
 6. **Contract**: JSON tags match frontend models when cross-stack
 7. **Secrets**: never commit `*.development.yaml`, vault, `.env`
 
