@@ -1127,11 +1127,63 @@ CREATE INDEX IF NOT EXISTS idx_comp_period_dates
     WHERE delete_time IS NULL;
 
 -- ---------------------------------------------------------------------------
+-- mdl_trx_worksheet — single-staff wrap for visit commissions
+-- ---------------------------------------------------------------------------
+DO $$ BEGIN
+    CREATE TYPE worksheet_status_enum AS ENUM ('pending', 'open', 'finalized');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE worksheet_generate_status_enum AS ENUM ('idle', 'running', 'succeeded', 'failed');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+CREATE TABLE IF NOT EXISTS mdl_trx_worksheet (
+    id                      BIGSERIAL                           PRIMARY KEY,
+    uuid                    UUID                                NOT NULL DEFAULT gen_random_uuid(),
+    institution_id          BIGINT                              NOT NULL,
+    staff_id                UUID                                NOT NULL,
+    label                   VARCHAR(100)                        NOT NULL,
+    period_start            DATE                                NOT NULL,
+    period_end              DATE                                NOT NULL,
+    status                  worksheet_status_enum               NOT NULL DEFAULT 'open',
+    generate_status         worksheet_generate_status_enum      NOT NULL DEFAULT 'idle',
+    compensation_period_id  BIGINT,
+    total_commission        BIGINT,
+    visit_count             INT,
+    generate_started_at     TIMESTAMPTZ,
+    generate_finished_at    TIMESTAMPTZ,
+    generate_error          TEXT,
+    finalized_at            TIMESTAMPTZ,
+    finalized_by            UUID,
+    created_by              UUID,
+    create_time             TIMESTAMPTZ                         NOT NULL DEFAULT NOW(),
+    update_time             TIMESTAMPTZ                         NOT NULL DEFAULT NOW(),
+    delete_time             TIMESTAMPTZ
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uidx_worksheet_uuid
+    ON mdl_trx_worksheet (uuid);
+
+CREATE INDEX IF NOT EXISTS idx_worksheet_institution_staff_status
+    ON mdl_trx_worksheet (institution_id, staff_id, status)
+    WHERE delete_time IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_worksheet_institution_staff_dates
+    ON mdl_trx_worksheet (institution_id, staff_id, period_start, period_end)
+    WHERE delete_time IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_worksheet_compensation_period
+    ON mdl_trx_worksheet (compensation_period_id)
+    WHERE delete_time IS NULL AND compensation_period_id IS NOT NULL;
+
+-- ---------------------------------------------------------------------------
 -- mdl_trx_visit_commission
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS mdl_trx_visit_commission (
     id                      BIGSERIAL               PRIMARY KEY,
-    period_id               BIGINT                  NOT NULL,
+    worksheet_id            BIGINT                  NOT NULL,
     visit_id                BIGINT                  NOT NULL,
     staff_id                UUID                    NOT NULL,
     revenue_base            BIGINT                  NOT NULL,
@@ -1147,12 +1199,16 @@ CREATE TABLE IF NOT EXISTS mdl_trx_visit_commission (
     delete_time             TIMESTAMPTZ
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uidx_commission_period_visit_staff
-    ON mdl_trx_visit_commission (period_id, visit_id, staff_id)
+CREATE UNIQUE INDEX IF NOT EXISTS uidx_commission_worksheet_visit
+    ON mdl_trx_visit_commission (worksheet_id, visit_id)
     WHERE delete_time IS NULL;
 
-CREATE INDEX IF NOT EXISTS idx_commission_period_staff
-    ON mdl_trx_visit_commission (period_id, staff_id)
+CREATE UNIQUE INDEX IF NOT EXISTS uidx_commission_visit_staff
+    ON mdl_trx_visit_commission (visit_id, staff_id)
+    WHERE delete_time IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_commission_worksheet
+    ON mdl_trx_visit_commission (worksheet_id)
     WHERE delete_time IS NULL;
 
 CREATE INDEX IF NOT EXISTS idx_commission_visit
@@ -1189,11 +1245,16 @@ CREATE INDEX IF NOT EXISTS idx_contributor_staff
 -- ---------------------------------------------------------------------------
 ALTER TABLE mdl_trx_patient_visit
     ADD COLUMN IF NOT EXISTS compensation_period_id BIGINT NULL,
-    ADD COLUMN IF NOT EXISTS compensation_locked_at TIMESTAMPTZ NULL;
+    ADD COLUMN IF NOT EXISTS compensation_locked_at TIMESTAMPTZ NULL,
+    ADD COLUMN IF NOT EXISTS worksheet_id BIGINT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_visit_compensation_lock
     ON mdl_trx_patient_visit (compensation_locked_at)
     WHERE compensation_locked_at IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_visit_worksheet_lock
+    ON mdl_trx_patient_visit (worksheet_id)
+    WHERE worksheet_id IS NOT NULL;
 
 
 -- ---- 20260902_add_idx_visit_product_visit.sql ----
@@ -1300,7 +1361,10 @@ CREATE INDEX IF NOT EXISTS idx_contributor_institution_visit
 ALTER TABLE mdl_trx_visit_commission
     ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ;
 
-CREATE INDEX IF NOT EXISTS idx_commission_period_unapproved
-    ON mdl_trx_visit_commission (period_id)
+CREATE INDEX IF NOT EXISTS idx_commission_worksheet_unapproved
+    ON mdl_trx_visit_commission (worksheet_id)
     WHERE delete_time IS NULL AND approved_at IS NULL;
+
+-- ---- 20260917120000_add_worksheet.sql ----
+-- (desired state already reflected above: mdl_trx_worksheet + commission.worksheet_id)
 

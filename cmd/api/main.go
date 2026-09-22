@@ -190,6 +190,7 @@ func main() {
 
 	compensationPeriodDB := compensationrepo.NewCompensationPeriodDB(db)
 	commissionDB := compensationrepo.NewCommissionDB(db)
+	worksheetDB := compensationrepo.NewWorksheetDB(db)
 	contributorDB := compensationrepo.NewContributorDB(db)
 
 	_ = satusehatQueueDB
@@ -301,11 +302,26 @@ func main() {
 
 	compensationPeriodUC := compensationuc.NewCompensationPeriodUC(&compensationuc.CompensationPeriodUC{
 		CompensationPeriodDB: compensationPeriodDB,
-		Commissions:          commissionDB,
+		WorksheetDB:          worksheetDB,
 		ContributorDB:        contributorDB,
 		StaffDB:              staffManagementDB,
-		VisitLockDB:          patientDB,
 		Transaction:          transaction,
+	})
+
+	worksheetUC := compensationuc.NewWorksheetUC(&compensationuc.WorksheetUC{
+		WorksheetDB:   worksheetDB,
+		CommissionDB:  commissionDB,
+		ContributorDB: contributorDB,
+		StaffDB:       staffManagementDB,
+		VisitLockDB:   patientDB,
+		Transaction:   transaction,
+	})
+
+	visitCommissionUC := compensationuc.NewVisitCommissionUC(&compensationuc.VisitCommissionUC{
+		WorksheetDB:   worksheetDB,
+		CommissionDB:  commissionDB,
+		ContributorDB: contributorDB,
+		Transaction:   transaction,
 	})
 
 	// usecase block end
@@ -374,6 +390,15 @@ func main() {
 		CompensationPeriodUC: compensationPeriodUC,
 	})
 
+	worksheetHandler := compensationhandler.NewWorksheetHandler(&compensationhandler.WorksheetHandler{
+		WorksheetUC:       worksheetUC,
+		VisitCommissionUC: visitCommissionUC,
+	})
+
+	visitCommissionHandler := compensationhandler.NewVisitCommissionHandler(&compensationhandler.VisitCommissionHandler{
+		VisitCommissionUC: visitCommissionUC,
+	})
+
 	visitContributorHandler := visithandler.New(&visithandler.VisitContributorHandler{
 		VisitContributorUC: visitContributorUC,
 	})
@@ -402,6 +427,8 @@ func main() {
 			StaffHandler:              staffHandler,
 			ProcedureHandler:          procedureHandler,
 			CompensationPeriodHandler: compensationPeriodHandler,
+			WorksheetHandler:          worksheetHandler,
+			VisitCommissionHandler:    visitCommissionHandler,
 			VisitContributorHandler:   visitContributorHandler,
 		},
 		middlewareModule,

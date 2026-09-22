@@ -23,14 +23,15 @@ func (u *CompensationPeriodUC) FinalizePeriod(ctx context.Context, periodUUID st
 		return model.FinalizeCompensationPeriodResponse{}, err
 	}
 
+	// Idempotent: already finalized — return current totals from worksheets.
 	if period.Status == model.CompensationPeriodStatusFinalized {
-		visitIDs, err := u.Commissions.DistinctVisitIDsByPeriod(ctx, period.ID)
+		totals, err := u.WorksheetDB.SumByCompensationPeriod(ctx, period.ID)
 		if err != nil {
 			return model.FinalizeCompensationPeriodResponse{}, errors.Wrap(err, wrapMsgFinalizePeriod)
 		}
 		return model.FinalizeCompensationPeriodResponse{
 			Period:           period.ToResponse(0),
-			LockedVisitCount: int64(len(visitIDs)),
+			LockedVisitCount: totals.VisitCount,
 		}, nil
 	}
 
@@ -45,11 +46,8 @@ func (u *CompensationPeriodUC) FinalizePeriod(ctx context.Context, periodUUID st
 	defer u.Transaction.Finish(session, &err)
 	ctx = xormlib.SetDBSession(ctx, session)
 
-	totals, err := u.Commissions.SumByPeriod(ctx, period.ID)
-	if err != nil {
-		return model.FinalizeCompensationPeriodResponse{}, errors.Wrap(err, wrapMsgFinalizePeriod)
-	}
-	visitIDs, err := u.Commissions.DistinctVisitIDsByPeriod(ctx, period.ID)
+	// Rollup totals from worksheets attached to this period.
+	totals, err := u.WorksheetDB.SumByCompensationPeriod(ctx, period.ID)
 	if err != nil {
 		return model.FinalizeCompensationPeriodResponse{}, errors.Wrap(err, wrapMsgFinalizePeriod)
 	}
@@ -60,18 +58,14 @@ func (u *CompensationPeriodUC) FinalizePeriod(ctx context.Context, periodUUID st
 		return model.FinalizeCompensationPeriodResponse{}, errors.Wrap(err, wrapMsgFinalizePeriod)
 	}
 
-	lockedCount, err := u.VisitLockDB.LockVisits(ctx, period.ID, visitIDs, now)
-	if err != nil {
-		return model.FinalizeCompensationPeriodResponse{}, errors.Wrap(err, wrapMsgFinalizePeriod)
-	}
-
+	// Visits are locked during worksheet finalize, not payday finalize.
 	return model.FinalizeCompensationPeriodResponse{
 		Period:           period.ToResponse(0),
-		LockedVisitCount: lockedCount,
+		LockedVisitCount: totals.VisitCount,
 	}, nil
 }
 
-func applyPhase1FinalizeTotals(period *model.TrxCompensationPeriod, totals compensationrepo.PeriodCommissionTotals, now time.Time, staffUUID string) {
+func applyPhase1FinalizeTotals(period *model.TrxCompensationPeriod, totals compensationrepo.WorksheetPeriodTotals, now time.Time, staffUUID string) {
 	period.Status = model.CompensationPeriodStatusFinalized
 	period.WageSnapshot = nil
 	period.TotalWage = sql.NullInt64{Int64: 0, Valid: true}

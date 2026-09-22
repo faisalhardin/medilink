@@ -134,9 +134,6 @@ func RegisterRoutes(m *module) http.Handler {
 					Patch("/{uuid}/activate", m.httpHandler.StaffHandler.ActivateStaff)
 			})
 
-			authed.With(m.middlewareModule.RequirePermission(permconst.CompensationAssign)).
-				Patch("/commission-items/{id}", m.httpHandler.CompensationPeriodHandler.PatchCommissionItem)
-
 			authed.Route("/compensation-period", func(periods chi.Router) {
 				periods.With(m.middlewareModule.RequirePermission(permconst.CompensationAssign)).
 					Post("/", m.httpHandler.CompensationPeriodHandler.CreatePeriod)
@@ -148,10 +145,6 @@ func RegisterRoutes(m *module) http.Handler {
 					Get("/{periodId}/staffs", m.httpHandler.CompensationPeriodHandler.ListPeriodStaff)
 				periods.With(m.middlewareModule.RequirePermission(permconst.CompensationRead)).
 					Get("/{periodId}/staff/{staffId}", m.httpHandler.CompensationPeriodHandler.GetPeriodStaff)
-				periods.With(m.middlewareModule.RequirePermission(permconst.CompensationRead)).
-					Get("/{periodId}/staff/{staffId}/visits", m.httpHandler.CompensationPeriodHandler.ListPeriodStaffVisits)
-				periods.With(m.middlewareModule.RequirePermission(permconst.CompensationAssign)).
-					Post("/{periodId}/staff/{staffId}/visits/generate", m.httpHandler.CompensationPeriodHandler.GeneratePeriodStaffVisits)
 				periods.With(m.middlewareModule.RequirePermission(permconst.CompensationAssign)).
 					Post("/{periodId}/draft", m.httpHandler.CompensationPeriodHandler.DraftPeriod)
 				periods.With(m.middlewareModule.RequirePermission(permconst.CompensationFinalize)).
@@ -160,6 +153,38 @@ func RegisterRoutes(m *module) http.Handler {
 					Post("/{periodId}/reopen", m.httpHandler.CompensationPeriodHandler.ReopenPeriod)
 				periods.With(m.middlewareModule.RequirePermission(permconst.CompensationFinalize)).
 					Delete("/{periodId}", m.httpHandler.CompensationPeriodHandler.DeletePeriod)
+			})
+
+			// Worksheet routes (compensation RBAC)
+			authed.Route("/worksheet", func(ws chi.Router) {
+				ws.With(m.middlewareModule.RequirePermission(permconst.CompensationAssign)).
+					Post("/", m.httpHandler.WorksheetHandler.CreateWorksheet)
+				ws.With(m.middlewareModule.RequirePermission(permconst.CompensationRead)).
+					Get("/", m.httpHandler.WorksheetHandler.ListWorksheets)
+				ws.Route("/{id}", func(ws chi.Router) {
+					ws.With(m.middlewareModule.RequirePermission(permconst.CompensationRead)).
+						Get("/", m.httpHandler.WorksheetHandler.GetWorksheet)
+					ws.With(m.middlewareModule.RequirePermission(permconst.CompensationRead)).
+						Get("/commissions", m.httpHandler.WorksheetHandler.ListWorksheetCommissions)
+					ws.With(m.middlewareModule.RequirePermission(permconst.CompensationAssign)).
+						Post("/generate", m.httpHandler.WorksheetHandler.GenerateWorksheetCommissions)
+					ws.With(m.middlewareModule.RequirePermission(permconst.CompensationAssign)).
+						Patch("/", m.httpHandler.WorksheetHandler.PatchWorksheet)
+					ws.With(m.middlewareModule.RequirePermission(permconst.CompensationAssign)).
+						Delete("/", m.httpHandler.WorksheetHandler.DeleteWorksheet)
+					ws.With(m.middlewareModule.RequirePermission(permconst.CompensationFinalize)).
+						Post("/finalize", m.httpHandler.WorksheetHandler.FinalizeWorksheet)
+				})
+			})
+
+			// Visit-commissions: authed only; usecase enforces admin/compensation.* OR self
+			authed.Route("/visit-commissions", func(vc chi.Router) {
+				vc.Post("/generate", m.httpHandler.VisitCommissionHandler.GenerateVisitCommissions)
+				vc.Get("/", m.httpHandler.VisitCommissionHandler.ListVisitCommissions)
+				vc.Route("/{id}", func(vc chi.Router) {
+					vc.Patch("/", m.httpHandler.VisitCommissionHandler.PatchCommissionItem)
+					vc.Delete("/", m.httpHandler.VisitCommissionHandler.ArchiveVisitCommission)
+				})
 			})
 
 			// Recall: doctor reminder for next scheduled control or appointment

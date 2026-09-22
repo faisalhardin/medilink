@@ -12,7 +12,7 @@ import (
 
 const wrapMsgLockVisits = WrapErrMsgPrefix + "LockVisits"
 
-func (c *Conn) LockVisits(ctx context.Context, periodID int64, visitIDs []int64, lockedAt time.Time) (int64, error) {
+func (c *Conn) LockVisits(ctx context.Context, worksheetID int64, visitIDs []int64, lockedAt time.Time) (int64, error) {
 	if len(visitIDs) == 0 {
 		return 0, nil
 	}
@@ -25,9 +25,9 @@ func (c *Conn) LockVisits(ctx context.Context, periodID int64, visitIDs []int64,
 	affected, err := session.
 		Table(model.TrxPatientVisitTableName).
 		In("id", visitIDs).
-		Cols("compensation_period_id", "compensation_locked_at").
+		Cols("worksheet_id", "compensation_locked_at").
 		Update(&model.TrxPatientVisit{
-			CompensationPeriodID: sql.NullInt64{Int64: periodID, Valid: true},
+			WorksheetID:         sql.NullInt64{Int64: worksheetID, Valid: true},
 			CompensationLockedAt: sql.NullTime{Time: lockedAt, Valid: true},
 		})
 	if err != nil {
