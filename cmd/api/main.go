@@ -309,12 +309,13 @@ func main() {
 	})
 
 	worksheetUC := compensationuc.NewWorksheetUC(&compensationuc.WorksheetUC{
-		WorksheetDB:   worksheetDB,
-		CommissionDB:  commissionDB,
-		ContributorDB: contributorDB,
-		StaffDB:       staffManagementDB,
-		VisitLockDB:   patientDB,
-		Transaction:   transaction,
+		WorksheetDB:          worksheetDB,
+		CommissionDB:         commissionDB,
+		ContributorDB:        contributorDB,
+		CompensationPeriodDB: compensationPeriodDB,
+		StaffDB:              staffManagementDB,
+		VisitLockDB:          patientDB,
+		Transaction:          transaction,
 	})
 
 	visitCommissionUC := compensationuc.NewVisitCommissionUC(&compensationuc.VisitCommissionUC{

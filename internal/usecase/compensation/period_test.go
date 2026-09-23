@@ -96,6 +96,19 @@ func (f *fakeCompensationPeriodDB) GetByUUID(_ context.Context, institutionID in
 	return nil, false, nil
 }
 
+func (f *fakeCompensationPeriodDB) GetByID(_ context.Context, institutionID, id int64) (*model.TrxCompensationPeriod, bool, error) {
+	if f.getErr != nil {
+		return nil, false, f.getErr
+	}
+	for _, p := range f.periods {
+		if p.ID == id && p.InstitutionID == institutionID {
+			cp := *p
+			return &cp, true, nil
+		}
+	}
+	return nil, false, nil
+}
+
 func (f *fakeCompensationPeriodDB) List(_ context.Context, params model.ListCompensationPeriodParams) ([]model.TrxCompensationPeriod, int, error) {
 	f.lastList = params
 	if f.listErr != nil {

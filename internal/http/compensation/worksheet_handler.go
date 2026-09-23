@@ -11,8 +11,8 @@ import (
 
 // WorksheetHandler implements the HTTP handler for worksheets.
 type WorksheetHandler struct {
-	WorksheetUC         compensationuc.WorksheetUC
-	VisitCommissionUC   compensationuc.VisitCommissionUC
+	WorksheetUC       compensationuc.WorksheetUC
+	VisitCommissionUC compensationuc.VisitCommissionUC
 }
 
 func NewWorksheetHandler(h *WorksheetHandler) *WorksheetHandler {

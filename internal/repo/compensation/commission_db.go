@@ -42,10 +42,12 @@ const (
 	wrapMsgCommissionGetLiveByID   = "CommissionDB.GetLiveByID"
 	wrapMsgCommissionUpdateAmounts = "CommissionDB.UpdateAssignmentAmounts"
 	wrapMsgCommissionSoftDelete    = "CommissionDB.SoftDelete"
+	wrapMsgCommissionSoftDeleteWS  = "CommissionDB.SoftDeleteByWorksheet"
 
 	listByWorksheetSQL = `
 		SELECT
 			c.id,
+			c.worksheet_id,
 			c.visit_id,
 			c.staff_id,
 			c.revenue_base,
@@ -188,6 +190,7 @@ func (c *CommissionConn) ListByStaffDateRange(ctx context.Context, params compen
 	const listSQL = `
 		SELECT
 			c.id,
+			c.worksheet_id,
 			c.visit_id,
 			c.staff_id,
 			c.revenue_base,
@@ -252,12 +255,11 @@ func (c *CommissionConn) SumValidByWorksheet(ctx context.Context, worksheetID in
 	return total, nil
 }
 
-func (c *CommissionConn) CountValidVisitsByWorksheet(ctx context.Context, worksheetID int64) (int64, error) {
+func (c *CommissionConn) CountVisitsByWorksheet(ctx context.Context, worksheetID int64) (int64, error) {
 	const sqlText = `
 		SELECT COUNT(DISTINCT visit_id)
 		FROM mdl_trx_visit_commission
 		WHERE worksheet_id = ?
-		  AND approved_at IS NOT NULL
 		  AND delete_time IS NULL
 	`
 	var total int64
@@ -339,6 +341,7 @@ func (c *CommissionConn) UpdateAssignmentAmounts(ctx context.Context, row *model
 	const sqlText = `
 		UPDATE mdl_trx_visit_commission
 		SET
+			revenue_base = ?,
 			commission_type = ?,
 			commission_percent = ?,
 			commission_flat_amount = ?,
@@ -352,6 +355,7 @@ func (c *CommissionConn) UpdateAssignmentAmounts(ctx context.Context, row *model
 	`
 
 	res, err := c.commissionWriteSession(ctx).SQL(sqlText,
+		row.RevenueBase,
 		row.CommissionType,
 		nullFloat64(row.CommissionPercent),
 		nullInt64(row.CommissionFlatAmount),
@@ -383,6 +387,21 @@ func (c *CommissionConn) SoftDelete(ctx context.Context, id int64) (bool, error)
 		return false, errors.Wrap(err, wrapMsgCommissionSoftDelete)
 	}
 	return len(res) > 0, nil
+}
+
+func (c *CommissionConn) SoftDeleteByWorksheet(ctx context.Context, worksheetID int64) (int64, error) {
+	const sqlText = `
+		UPDATE mdl_trx_visit_commission
+		SET delete_time = NOW()
+		WHERE worksheet_id = ?
+		  AND delete_time IS NULL
+	`
+	res, err := c.commissionWriteSession(ctx).Exec(sqlText, worksheetID)
+	if err != nil {
+		return 0, errors.Wrap(err, wrapMsgCommissionSoftDeleteWS)
+	}
+	n, _ := res.RowsAffected()
+	return n, nil
 }
 
 func (c *CommissionConn) SumRevenueByVisitIDs(ctx context.Context, visitIDs []int64) (map[int64]int64, error) {

@@ -471,48 +471,6 @@ type GetCompensationPeriodStaffResponse struct {
 	WageOverride null.Int64                  `json:"wage_override"`
 }
 
-// ListCompensationPeriodStaffVisitsRequest is the request for GET .../staff/{staffId}/visits.
-// PeriodUUID and StaffID are set from URL path params; Limit/Offset from query.
-type ListCompensationPeriodStaffVisitsRequest struct {
-	PeriodUUID string `json:"-" schema:"-"`
-	StaffID    string `json:"-" schema:"-"`
-	CommonRequestPayload
-}
-
-// CompensationPeriodStaffVisitRow is one visit on GET .../staff/{staffId}/visits.
-// Unassigned commission fields are JSON null (no omitempty).
-type CompensationPeriodStaffVisitRow struct {
-	ID                   int64                `json:"id"`
-	VisitID              int64                `json:"visit_id"`
-	PatientName          string               `json:"patient_name"`
-	VisitDate            string               `json:"visit_date"`
-	Sources              []ContributionSource `json:"sources"`
-	RevenueBase          int64                `json:"revenue_base"`
-	CommissionType       null.String          `json:"commission_type"`
-	CommissionPercent    null.Float64         `json:"commission_percent"`
-	CommissionFlatAmount null.Int64           `json:"commission_flat_amount"`
-	CommissionAmount     null.Int64           `json:"commission_amount"`
-	HasContributors      bool                 `json:"has_contributors"`
-}
-
-// ListCompensationPeriodStaffVisitsResponse is the body for GET .../staff/{staffId}/visits.
-type ListCompensationPeriodStaffVisitsResponse struct {
-	Visits []CompensationPeriodStaffVisitRow `json:"visits"`
-	Total  int                               `json:"total"`
-}
-
-// GenerateCompensationPeriodStaffVisitsRequest is the request for
-// POST .../staff/{staffId}/visits/generate. PeriodUUID and StaffID are path params.
-type GenerateCompensationPeriodStaffVisitsRequest struct {
-	PeriodUUID string `json:"-" schema:"-"`
-	StaffID    string `json:"-" schema:"-"`
-}
-
-// GenerateCompensationPeriodStaffVisitsResponse is the body for POST .../visits/generate.
-type GenerateCompensationPeriodStaffVisitsResponse struct {
-	GeneratedCount int `json:"generated_count"`
-}
-
 // PatchCommissionItemRequest is the body for PATCH /v1/visit-commissions/{id}.
 // ID is set from the path param.
 type PatchCommissionItemRequest struct {
@@ -575,12 +533,13 @@ type ListWorksheetsResponse struct {
 }
 
 // PatchWorksheetRequest is the body for PATCH /v1/worksheet/{id}.
+// CompensationPeriodID: nil = omit (no change); non-nil invalid = detach; non-nil valid = attach.
 type PatchWorksheetRequest struct {
 	UUID                 string      `json:"-"`
 	Label                null.String `json:"label"`
 	PeriodStart          *Time       `json:"period_start"`
 	PeriodEnd            *Time       `json:"period_end"`
-	CompensationPeriodID null.Int64  `json:"compensation_period_id"`
+	CompensationPeriodID *null.Int64 `json:"compensation_period_id"`
 }
 
 // DeleteWorksheetResponse is the body for DELETE /v1/worksheet/{id}.

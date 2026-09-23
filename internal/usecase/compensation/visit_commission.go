@@ -18,9 +18,13 @@ import (
 	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
 	xormlib "github.com/faisalhardin/medilink/internal/library/db/xorm"
 	"github.com/faisalhardin/medilink/internal/library/middlewares/auth"
+	jsoniter "github.com/json-iterator/go"
 	"github.com/pkg/errors"
 	"github.com/volatiletech/null/v8"
 )
+
+// jsonAPI matches project binding: stdlib-compatible jsoniter API.
+var jsonAPI = jsoniter.ConfigCompatibleWithStandardLibrary
 
 const (
 	wrapVisitCommissionUCPrefix  = "VisitCommissionUC."
@@ -35,9 +39,11 @@ const (
 	errWorksheetGeneratePending     = "WORKSHEET_GENERATE_PENDING"
 	msgWorksheetGeneratePending     = "worksheet generate is in progress"
 	errCommissionLinkedToPayday     = "COMMISSION_WORKSHEET_LINKED_TO_PAYDAY"
-	msgCommissionLinkedToPayday     = "cannot archive commission while worksheet is linked to a payday period"
+	msgCommissionLinkedToPayday     = "cannot modify commission while worksheet is linked to a payday period"
 	errCommissionWorksheetFinalized = "COMMISSION_WORKSHEET_FINALIZED"
 	msgCommissionWorksheetFinalized = "cannot archive commission on a finalized worksheet"
+	errCommissionRevenueStale       = "COMMISSION_REVENUE_STALE"
+	msgCommissionRevenueStale       = "visit revenue has changed; regenerate commission items before assigning"
 	errForbiddenCommission          = "FORBIDDEN"
 	msgForbiddenCommission          = "insufficient permissions for this staff's commissions"
 )
@@ -142,49 +148,61 @@ func (u *VisitCommissionUC) GenerateVisitCommissions(ctx context.Context, req mo
 }
 
 // runGenerateWorker runs in a goroutine and must use a fresh background context.
+// On any failure, defer marks the worksheet generate_status=failed (outside any TX).
 func (u *VisitCommissionUC) runGenerateWorker(w *model.TrxWorksheet) {
 	bgCtx := context.Background()
+	var err error
+	defer func() {
+		if err == nil {
+			return
+		}
+		_ = u.WorksheetDB.MarkGenerateFinished(bgCtx, w.ID, model.WorksheetGenerateStatusFailed, err.Error())
+	}()
+
 	periodEndExclusive := w.PeriodEnd.AddDate(0, 0, 1)
 
-	detections, err := u.ContributorDB.DetectForPeriodStaff(
+	var detections []compensationrepo.DetectedAttribution
+	detections, err = u.ContributorDB.DetectForPeriodStaff(
 		bgCtx, w.InstitutionID, w.StaffID, w.PeriodStart, periodEndExclusive,
 	)
 	if err != nil {
-		_ = u.WorksheetDB.MarkGenerateFinished(bgCtx, w.ID, model.WorksheetGenerateStatusFailed, err.Error())
 		return
 	}
 
-	rows, marshalErr := buildCommissionRows(w.ID, w.StaffID, detections)
-	if marshalErr != nil {
-		_ = u.WorksheetDB.MarkGenerateFinished(bgCtx, w.ID, model.WorksheetGenerateStatusFailed, marshalErr.Error())
+	visitIDs := visitIDsFromDetections(detections)
+	var revenues map[int64]int64
+	revenues, err = u.CommissionDB.SumRevenueByVisitIDs(bgCtx, visitIDs)
+	if err != nil {
+		return
+	}
+
+	var rows []model.TrxVisitCommission
+	rows, err = buildCommissionRows(w.ID, w.StaffID, detections, revenues)
+	if err != nil {
 		return
 	}
 
 	session, err := u.Transaction.Begin(bgCtx)
 	if err != nil {
-		_ = u.WorksheetDB.MarkGenerateFinished(bgCtx, w.ID, model.WorksheetGenerateStatusFailed, err.Error())
 		return
 	}
 	defer u.Transaction.Finish(session, &err)
 	txCtx := xormlib.SetDBSession(bgCtx, session)
 
 	if _, err = u.CommissionDB.InsertGeneratedIfMissing(txCtx, rows); err != nil {
-		_ = u.WorksheetDB.MarkGenerateFinished(bgCtx, w.ID, model.WorksheetGenerateStatusFailed, err.Error())
 		return
 	}
 
 	// Update totals before marking succeeded (valid = approved only; seeds stay 0).
 	if _, err = u.updateWorksheetTotals(txCtx, w.ID); err != nil {
-		_ = u.WorksheetDB.MarkGenerateFinished(bgCtx, w.ID, model.WorksheetGenerateStatusFailed, err.Error())
 		return
 	}
 	if err = u.WorksheetDB.MarkGenerateFinished(txCtx, w.ID, model.WorksheetGenerateStatusSucceeded, ""); err != nil {
-		_ = u.WorksheetDB.MarkGenerateFinished(bgCtx, w.ID, model.WorksheetGenerateStatusFailed, err.Error())
 		return
 	}
 }
 
-func buildCommissionRows(worksheetID int64, staffID string, detections []compensationrepo.DetectedAttribution) ([]model.TrxVisitCommission, error) {
+func buildCommissionRows(worksheetID int64, staffID string, detections []compensationrepo.DetectedAttribution, revenues map[int64]int64) ([]model.TrxVisitCommission, error) {
 	sourcesByVisit, manualByVisit := sourcesAndManualForStaff(staffID, detections)
 	visitIDs := visitIDsFromDetections(detections)
 
@@ -194,15 +212,19 @@ func buildCommissionRows(worksheetID int64, staffID string, detections []compens
 		if sources == nil {
 			sources = []model.ContributionSource{}
 		}
-		sourcesJSON, err := json.Marshal(sources)
+		sourcesJSON, err := jsonAPI.Marshal(sources)
 		if err != nil {
 			return nil, err
+		}
+		revenueBase := int64(0)
+		if revenues != nil {
+			revenueBase = revenues[visitID]
 		}
 		rows = append(rows, model.TrxVisitCommission{
 			WorksheetID:          worksheetID,
 			VisitID:              visitID,
 			StaffID:              staffID,
-			RevenueBase:          0,
+			RevenueBase:          revenueBase,
 			CommissionType:       model.CommissionTypeFlat,
 			CommissionFlatAmount: sql.NullInt64{Int64: 0, Valid: true},
 			CommissionAmount:     0,
@@ -324,6 +346,27 @@ func (u *VisitCommissionUC) PatchCommissionItem(ctx context.Context, req model.P
 	if w.Status != model.WorksheetStatusOpen {
 		return model.PatchCommissionItemResponse{}, commonerr.SetNewBadRequest(errWorksheetNotOpenForPatch, msgWorksheetNotOpenForPatch)
 	}
+	if w.CompensationPeriodID.Valid {
+		return model.PatchCommissionItemResponse{}, commonerr.SetNewBadRequest(errCommissionLinkedToPayday, msgCommissionLinkedToPayday)
+	}
+
+	// Option A: compare stored revenue_base to live full visit product cart.
+	// Seed rows (never assigned) must be regenerated when the cart changed.
+	// Already-assigned rows refresh revenue_base at assignment time.
+	revenues, err := u.CommissionDB.SumRevenueByVisitIDs(ctx, []int64{row.VisitID})
+	if err != nil {
+		return model.PatchCommissionItemResponse{}, errors.Wrap(err, wrapMsgPatchCommission)
+	}
+	liveBase := int64(0)
+	if base, ok := revenues[row.VisitID]; ok {
+		liveBase = base
+	}
+	if liveBase != row.RevenueBase {
+		if !row.ApprovedAt.Valid {
+			return model.PatchCommissionItemResponse{}, commonerr.SetNewBadRequest(errCommissionRevenueStale, msgCommissionRevenueStale)
+		}
+		row.RevenueBase = liveBase
+	}
 
 	switch req.CommissionType {
 	case model.CommissionTypePercent:
@@ -438,12 +481,13 @@ func (u *VisitCommissionUC) ArchiveVisitCommission(ctx context.Context, id int64
 }
 
 // updateWorksheetTotals re-sums approved commissions and writes worksheet totals.
+// visit_count is all live distinct visits; total_commission is approved-only.
 func (u *VisitCommissionUC) updateWorksheetTotals(ctx context.Context, worksheetID int64) (int64, error) {
 	totalCommission, err := u.CommissionDB.SumValidByWorksheet(ctx, worksheetID)
 	if err != nil {
 		return 0, errors.Wrap(err, wrapMsgUpdateWorksheetTotals)
 	}
-	visitCount, err := u.CommissionDB.CountValidVisitsByWorksheet(ctx, worksheetID)
+	visitCount, err := u.CommissionDB.CountVisitsByWorksheet(ctx, worksheetID)
 	if err != nil {
 		return 0, errors.Wrap(err, wrapMsgUpdateWorksheetTotals)
 	}
@@ -515,7 +559,7 @@ func sourcesFromJSON(raw json.RawMessage) []model.ContributionSource {
 	if len(raw) == 0 {
 		return out
 	}
-	if err := json.Unmarshal(raw, &out); err != nil || out == nil {
+	if err := jsonAPI.Unmarshal(raw, &out); err != nil || out == nil {
 		return []model.ContributionSource{}
 	}
 	return out
@@ -529,6 +573,7 @@ func commissionRowToResponse(commission compensationrepo.VisitCommissionListRow)
 	sources := sourcesFromJSON(commission.Sources)
 	row := model.VisitCommissionResponse{
 		ID:              commission.ID,
+		WorksheetID:     commission.WorksheetID,
 		VisitID:         commission.VisitID,
 		PatientName:     commission.PatientName,
 		VisitDate:       visitDate,

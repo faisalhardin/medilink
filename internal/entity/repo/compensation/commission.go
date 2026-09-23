@@ -47,6 +47,7 @@ type ListStaffDateCommissionParams struct {
 // VisitCommissionListRow is one live commission row with visit header fields.
 type VisitCommissionListRow struct {
 	ID                   int64                `xorm:"id"`
+	WorksheetID          int64                `xorm:"worksheet_id"`
 	VisitID              int64                `xorm:"visit_id"`
 	StaffID              string               `xorm:"staff_id"`
 	RevenueBase          int64                `xorm:"revenue_base"`
@@ -81,8 +82,8 @@ type CommissionDB interface {
 	// SumValidByWorksheet sums commission_amount for rows where approved_at IS NOT NULL.
 	SumValidByWorksheet(ctx context.Context, worksheetID int64) (int64, error)
 
-	// CountValidVisitsByWorksheet counts distinct visit_id among approved live rows.
-	CountValidVisitsByWorksheet(ctx context.Context, worksheetID int64) (int64, error)
+	// CountVisitsByWorksheet counts distinct visit_id among all live (non-deleted) rows.
+	CountVisitsByWorksheet(ctx context.Context, worksheetID int64) (int64, error)
 
 	// DistinctVisitIDsByWorksheet returns the deduplicated visit IDs for the worksheet.
 	DistinctVisitIDsByWorksheet(ctx context.Context, worksheetID int64) ([]int64, error)
@@ -91,12 +92,15 @@ type CommissionDB interface {
 	// to institutionID (via join). found is false when missing or out of scope.
 	GetLiveByID(ctx context.Context, institutionID, id int64) (*model.TrxVisitCommission, bool, error)
 
-	// UpdateAssignmentAmounts updates commission_type, commission_percent,
+	// UpdateAssignmentAmounts updates revenue_base, commission_type, commission_percent,
 	// commission_flat_amount, commission_amount, note, approved_at on the live row.
 	UpdateAssignmentAmounts(ctx context.Context, row *model.TrxVisitCommission) error
 
 	// SoftDelete soft-deletes the commission row by id.
 	SoftDelete(ctx context.Context, id int64) (found bool, err error)
+
+	// SoftDeleteByWorksheet soft-deletes all live commission rows for the worksheet.
+	SoftDeleteByWorksheet(ctx context.Context, worksheetID int64) (int64, error)
 
 	// SumRevenueByVisitIDs returns live visit-product cart sums keyed by visit id.
 	SumRevenueByVisitIDs(ctx context.Context, visitIDs []int64) (map[int64]int64, error)

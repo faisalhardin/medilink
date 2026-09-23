@@ -59,7 +59,7 @@ func (c *WorksheetConn) Create(ctx context.Context, w *model.TrxWorksheet) error
 		w.UUID = id.String()
 	}
 	if w.Status == "" {
-		w.Status = model.WorksheetStatusPending
+		w.Status = model.WorksheetStatusOpen
 	}
 	if w.GenerateStatus == "" {
 		w.GenerateStatus = model.WorksheetGenerateStatusIdle

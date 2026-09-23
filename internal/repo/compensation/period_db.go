@@ -15,6 +15,7 @@ const (
 	wrapErrMsgPrefix    = "CompensationPeriodDB."
 	wrapMsgCreate       = wrapErrMsgPrefix + "Create"
 	wrapMsgGetByUUID    = wrapErrMsgPrefix + "GetByUUID"
+	wrapMsgGetByID      = wrapErrMsgPrefix + "GetByID"
 	wrapMsgList         = wrapErrMsgPrefix + "List"
 	wrapMsgListCount    = wrapErrMsgPrefix + "ListCount"
 	wrapMsgUpdate       = wrapErrMsgPrefix + "UpdateStatusAndTotals"
@@ -76,6 +77,22 @@ func (c *Conn) GetByUUID(ctx context.Context, institutionID int64, uuid string) 
 		Get(row)
 	if err != nil {
 		return nil, false, errors.Wrap(err, wrapMsgGetByUUID)
+	}
+	if !ok {
+		return nil, false, nil
+	}
+	return row, true, nil
+}
+
+func (c *Conn) GetByID(ctx context.Context, institutionID, id int64) (*model.TrxCompensationPeriod, bool, error) {
+	row := &model.TrxCompensationPeriod{}
+	ok, err := c.DB.SlaveDB.Context(ctx).
+		Table(model.TrxCompensationPeriodTableName).
+		Where("id = ?", id).
+		And("institution_id = ?", institutionID).
+		Get(row)
+	if err != nil {
+		return nil, false, errors.Wrap(err, wrapMsgGetByID)
 	}
 	if !ok {
 		return nil, false, nil
