@@ -163,4 +163,7 @@ func TestCompensationTableNames(t *testing.T) {
 	if got := (MapVisitContributor{}).TableName(); got != MapVisitContributorTableName {
 		t.Errorf("MapVisitContributor.TableName() = %q, want %q", got, MapVisitContributorTableName)
 	}
+	if got := (TrxWorksheet{}).TableName(); got != TrxWorksheetTableName {
+		t.Errorf("TrxWorksheet.TableName() = %q, want %q", got, TrxWorksheetTableName)
+	}
 }

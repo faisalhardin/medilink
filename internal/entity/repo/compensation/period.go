@@ -19,6 +19,10 @@ type CompensationPeriodDB interface {
 	// found is false when the row is missing or already soft-deleted.
 	GetByUUID(ctx context.Context, institutionID int64, uuid string) (*model.TrxCompensationPeriod, bool, error)
 
+	// GetByID loads a non-deleted period by primary key scoped to the institution.
+	// found is false when the row is missing or already soft-deleted.
+	GetByID(ctx context.Context, institutionID, id int64) (*model.TrxCompensationPeriod, bool, error)
+
 	// List returns non-deleted periods for the institution, optionally filtered
 	// by status, ordered by period_start DESC, period_end DESC. total is the
 	// unpaginated match count. Limit/offset apply only when Limit > 0.

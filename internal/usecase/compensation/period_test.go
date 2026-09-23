@@ -3,10 +3,8 @@ package compensation
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"net/http"
-	"strconv"
 	"testing"
 	"time"
 
@@ -15,7 +13,6 @@ import (
 	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
 	"github.com/faisalhardin/medilink/internal/library/middlewares/auth"
 	"github.com/go-xorm/xorm"
-	"github.com/volatiletech/null/v8"
 )
 
 const (
@@ -99,6 +96,19 @@ func (f *fakeCompensationPeriodDB) GetByUUID(_ context.Context, institutionID in
 	return nil, false, nil
 }
 
+func (f *fakeCompensationPeriodDB) GetByID(_ context.Context, institutionID, id int64) (*model.TrxCompensationPeriod, bool, error) {
+	if f.getErr != nil {
+		return nil, false, f.getErr
+	}
+	for _, p := range f.periods {
+		if p.ID == id && p.InstitutionID == institutionID {
+			cp := *p
+			return &cp, true, nil
+		}
+	}
+	return nil, false, nil
+}
+
 func (f *fakeCompensationPeriodDB) List(_ context.Context, params model.ListCompensationPeriodParams) ([]model.TrxCompensationPeriod, int, error) {
 	f.lastList = params
 	if f.listErr != nil {
@@ -158,187 +168,59 @@ func (f *fakeCompensationPeriodDB) SoftDelete(_ context.Context, institutionID i
 	return false, nil
 }
 
-type fakeCommissions struct {
-	totals             map[int64]compensationrepo.PeriodCommissionTotals
-	visits             map[int64][]int64
-	byStaff            map[int64][]compensationrepo.StaffCommissionTotals
-	listByStaff        map[string][]compensationrepo.VisitCommissionListRow // key: periodID:staffID
-	insertRows         map[string][]model.TrxVisitCommission                 // key: periodID:staffID (generate path)
-	revenueByVisit     map[int64]int64
-	liveByID           map[int64]*model.TrxVisitCommission
-	liveInstitutionID  int64
-	updateCalls        []model.TrxVisitCommission
-	sumErr             error
-	visitErr           error
-	sumStaffErr        error
-	listErr            error
-	revenueErr         error
-	insertErr          error
-	getLiveErr         error
-	updateErr          error
+// fakeWorksheetDB implements compensationrepo.WorksheetDB for tests.
+type fakeWorksheetDB struct {
+	// periodTotals maps compensationPeriodID → WorksheetPeriodTotals
+	periodTotals map[int64]compensationrepo.WorksheetPeriodTotals
+	// staffTotals maps compensationPeriodID → per-staff totals
+	staffTotals map[int64][]compensationrepo.StaffCommissionTotals
+	sumErr      error
+	staffErr    error
 }
 
-func (f *fakeCommissions) SumByPeriod(_ context.Context, periodID int64) (compensationrepo.PeriodCommissionTotals, error) {
-	if f.sumErr != nil {
-		return compensationrepo.PeriodCommissionTotals{}, f.sumErr
-	}
-	if f.totals == nil {
-		return compensationrepo.PeriodCommissionTotals{}, nil
-	}
-	return f.totals[periodID], nil
+func (f *fakeWorksheetDB) Create(_ context.Context, _ *model.TrxWorksheet) error { return nil }
+func (f *fakeWorksheetDB) GetByUUID(_ context.Context, _ int64, _ string) (*model.TrxWorksheet, bool, error) {
+	return nil, false, nil
 }
-
-func (f *fakeCommissions) DistinctVisitIDsByPeriod(_ context.Context, periodID int64) ([]int64, error) {
-	if f.visitErr != nil {
-		return nil, f.visitErr
-	}
-	if f.visits == nil {
-		return nil, nil
-	}
-	return append([]int64(nil), f.visits[periodID]...), nil
+func (f *fakeWorksheetDB) GetByID(_ context.Context, _ int64) (*model.TrxWorksheet, bool, error) {
+	return nil, false, nil
 }
-
-func (f *fakeCommissions) SumByStaff(_ context.Context, periodID int64) ([]compensationrepo.StaffCommissionTotals, error) {
-	if f.sumStaffErr != nil {
-		return nil, f.sumStaffErr
-	}
-	if f.byStaff == nil {
-		return nil, nil
-	}
-	return append([]compensationrepo.StaffCommissionTotals(nil), f.byStaff[periodID]...), nil
-}
-
-func (f *fakeCommissions) Upsert(context.Context, *model.TrxVisitCommission) error {
-	return nil
-}
-
-func (f *fakeCommissions) InsertGeneratedIfMissing(_ context.Context, rows []model.TrxVisitCommission) (int, error) {
-	if f.insertErr != nil {
-		return 0, f.insertErr
-	}
-	if f.insertRows == nil {
-		f.insertRows = map[string][]model.TrxVisitCommission{}
-	}
-	inserted := 0
-	for i := range rows {
-		row := rows[i]
-		key := listByStaffKey(row.PeriodID, row.StaffID)
-		exists := false
-		for _, existing := range f.insertRows[key] {
-			if existing.VisitID == row.VisitID {
-				exists = true
-				break
-			}
-		}
-		if exists {
-			continue
-		}
-		f.insertRows[key] = append(f.insertRows[key], row)
-		inserted++
-	}
-	return inserted, nil
-}
-
-func (f *fakeCommissions) ListByPeriodStaff(_ context.Context, params compensationrepo.ListVisitCommissionParams) ([]compensationrepo.VisitCommissionListRow, int, error) {
-	if f.listErr != nil {
-		return nil, 0, f.listErr
-	}
-	if f.listByStaff == nil {
-		return nil, 0, nil
-	}
-	key := listByStaffKey(params.PeriodID, params.StaffID)
-	rows := f.listByStaff[key]
-	total := len(rows)
-	if params.Limit <= 0 {
-		return append([]compensationrepo.VisitCommissionListRow(nil), rows...), total, nil
-	}
-	offset := params.Offset
-	if offset < 0 {
-		offset = 0
-	}
-	if offset > total {
-		offset = total
-	}
-	end := offset + params.Limit
-	if end > total {
-		end = total
-	}
-	return append([]compensationrepo.VisitCommissionListRow(nil), rows[offset:end]...), total, nil
-}
-
-func (f *fakeCommissions) SumRevenueByVisitIDs(_ context.Context, visitIDs []int64) (map[int64]int64, error) {
-	if f.revenueErr != nil {
-		return nil, f.revenueErr
-	}
-	out := make(map[int64]int64, len(visitIDs))
-	for _, id := range visitIDs {
-		if f.revenueByVisit != nil {
-			if v, ok := f.revenueByVisit[id]; ok {
-				out[id] = v
-			}
-		}
-	}
-	return out, nil
-}
-
-func (f *fakeCommissions) SoftWarningAggregates(context.Context, int64) ([]compensationrepo.VisitCommissionWarning, error) {
+func (f *fakeWorksheetDB) List(_ context.Context, _ model.ListWorksheetsRequest) ([]model.TrxWorksheet, error) {
 	return nil, nil
 }
-
-func (f *fakeCommissions) GetLiveByIDForInstitution(_ context.Context, institutionID, id int64) (*model.TrxVisitCommission, bool, error) {
-	if f.getLiveErr != nil {
-		return nil, false, f.getLiveErr
-	}
-	if f.liveByID == nil {
-		return nil, false, nil
-	}
-	row, ok := f.liveByID[id]
-	if !ok || row == nil {
-		return nil, false, nil
-	}
-	if f.liveInstitutionID != 0 && f.liveInstitutionID != institutionID {
-		return nil, false, nil
-	}
-	cp := *row
-	return &cp, true, nil
+func (f *fakeWorksheetDB) Update(_ context.Context, _ *model.TrxWorksheet) error { return nil }
+func (f *fakeWorksheetDB) SoftDelete(_ context.Context, _ int64, _ string) (bool, error) {
+	return false, nil
 }
-
-func (f *fakeCommissions) UpdateAssignmentAmounts(_ context.Context, row *model.TrxVisitCommission) error {
-	if f.updateErr != nil {
-		return f.updateErr
-	}
-	if row == nil {
-		return errors.New("commission is required")
-	}
-	if f.liveByID == nil {
-		f.liveByID = map[int64]*model.TrxVisitCommission{}
-	}
-	cp := *row
-	f.liveByID[row.ID] = &cp
-	f.updateCalls = append(f.updateCalls, cp)
+func (f *fakeWorksheetDB) MarkGeneratePending(_ context.Context, _ int64) error { return nil }
+func (f *fakeWorksheetDB) MarkGenerateFinished(_ context.Context, _ int64, _ model.WorksheetGenerateStatus, _ string) error {
 	return nil
 }
-
-func listByStaffKey(periodID int64, staffID string) string {
-	return strconv.FormatInt(periodID, 10) + ":" + staffID
+func (f *fakeWorksheetDB) UpdateTotals(_ context.Context, _ int64, _ int64, _ int64) error {
+	return nil
+}
+func (f *fakeWorksheetDB) ExistsOverlapping(_ context.Context, _ int64, _ string, _, _ time.Time, _ int64) (bool, error) {
+	return false, nil
 }
 
-type fakeVisitLock struct {
-	locked map[int64][]int64
-	calls  int
-	err    error
+func (f *fakeWorksheetDB) SumByCompensationPeriod(_ context.Context, compensationPeriodID int64) (compensationrepo.WorksheetPeriodTotals, error) {
+	if f.sumErr != nil {
+		return compensationrepo.WorksheetPeriodTotals{}, f.sumErr
+	}
+	if f.periodTotals == nil {
+		return compensationrepo.WorksheetPeriodTotals{}, nil
+	}
+	return f.periodTotals[compensationPeriodID], nil
 }
 
-func (f *fakeVisitLock) LockVisits(_ context.Context, periodID int64, visitIDs []int64, _ time.Time) (int64, error) {
-	f.calls++
-	if f.err != nil {
-		return 0, f.err
+func (f *fakeWorksheetDB) SumByStaffForCompensationPeriod(_ context.Context, compensationPeriodID int64) ([]compensationrepo.StaffCommissionTotals, error) {
+	if f.staffErr != nil {
+		return nil, f.staffErr
 	}
-	if f.locked == nil {
-		f.locked = map[int64][]int64{}
+	if f.staffTotals == nil {
+		return nil, nil
 	}
-	f.locked[periodID] = append([]int64(nil), visitIDs...)
-	return int64(len(visitIDs)), nil
+	return append([]compensationrepo.StaffCommissionTotals(nil), f.staffTotals[compensationPeriodID]...), nil
 }
 
 type fakeTx struct {
@@ -363,23 +245,19 @@ func (t *fakeTx) Finish(_ *xorm.Session, err *error) {
 	}
 }
 
-func newUC(db *fakeCompensationPeriodDB, commissions *fakeCommissions, locks *fakeVisitLock, tx *fakeTx) *CompensationPeriodUC {
+func newUC(db *fakeCompensationPeriodDB, worksheets *fakeWorksheetDB, tx *fakeTx) *CompensationPeriodUC {
 	if db == nil {
 		db = &fakeCompensationPeriodDB{}
 	}
-	if commissions == nil {
-		commissions = &fakeCommissions{}
-	}
-	if locks == nil {
-		locks = &fakeVisitLock{}
+	if worksheets == nil {
+		worksheets = &fakeWorksheetDB{}
 	}
 	if tx == nil {
 		tx = &fakeTx{}
 	}
 	return &CompensationPeriodUC{
 		CompensationPeriodDB: db,
-		Commissions:          commissions,
-		VisitLockDB:          locks,
+		WorksheetDB:          worksheets,
 		Transaction:          tx,
 		now: func() time.Time {
 			return time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
@@ -390,7 +268,7 @@ func newUC(db *fakeCompensationPeriodDB, commissions *fakeCommissions, locks *fa
 func TestCreatePeriod(t *testing.T) {
 	t.Run("happy path", func(t *testing.T) {
 		db := &fakeCompensationPeriodDB{}
-		uc := newUC(db, nil, nil, nil)
+		uc := newUC(db, nil, nil)
 		got, err := uc.CreatePeriod(testCtx(), createReq("Aug 2026", "2026-08-01", "2026-08-31"))
 		if err != nil {
 			t.Fatalf("CreatePeriod: %v", err)
@@ -411,7 +289,7 @@ func TestCreatePeriod(t *testing.T) {
 			PeriodEnd:     time.Date(2026, 8, 31, 0, 0, 0, 0, time.UTC),
 			Status:        model.CompensationPeriodStatusOpen,
 		}}}
-		uc := newUC(db, nil, nil, nil)
+		uc := newUC(db, nil, nil)
 		_, err := uc.CreatePeriod(testCtx(), createReq("Overlap", "2026-08-01", "2026-08-15"))
 		if errorName(t, err) != errDateRangeOverlap {
 			t.Fatalf("error name = %s, want %s", errorName(t, err), errDateRangeOverlap)
@@ -419,7 +297,7 @@ func TestCreatePeriod(t *testing.T) {
 	})
 
 	t.Run("end before start", func(t *testing.T) {
-		uc := newUC(nil, nil, nil, nil)
+		uc := newUC(nil, nil, nil)
 		_, err := uc.CreatePeriod(testCtx(), createReq("Bad", "2026-08-31", "2026-08-01"))
 		if errorName(t, err) != errInvalidPeriodDates {
 			t.Fatalf("error name = %s, want %s", errorName(t, err), errInvalidPeriodDates)
@@ -427,7 +305,7 @@ func TestCreatePeriod(t *testing.T) {
 	})
 
 	t.Run("empty label", func(t *testing.T) {
-		uc := newUC(nil, nil, nil, nil)
+		uc := newUC(nil, nil, nil)
 		_, err := uc.CreatePeriod(testCtx(), createReq("  ", "2026-08-01", "2026-08-31"))
 		if errorName(t, err) != errInvalidLabel {
 			t.Fatalf("error name = %s, want %s", errorName(t, err), errInvalidLabel)
@@ -435,7 +313,7 @@ func TestCreatePeriod(t *testing.T) {
 	})
 
 	t.Run("unauthorized", func(t *testing.T) {
-		uc := newUC(nil, nil, nil, nil)
+		uc := newUC(nil, nil, nil)
 		_, err := uc.CreatePeriod(context.Background(), createReq("Aug", "2026-08-01", "2026-08-31"))
 		if err == nil {
 			t.Fatal("expected unauthorized")
@@ -445,7 +323,7 @@ func TestCreatePeriod(t *testing.T) {
 
 func TestListPeriods_DefaultLimit(t *testing.T) {
 	db := &fakeCompensationPeriodDB{}
-	uc := newUC(db, nil, nil, nil)
+	uc := newUC(db, nil, nil)
 	_, err := uc.ListPeriods(testCtx(), model.ListCompensationPeriodsRequest{})
 	if err != nil {
 		t.Fatalf("ListPeriods: %v", err)
@@ -464,7 +342,7 @@ func TestListPeriods_ExplicitLimitAndInvalidStatus(t *testing.T) {
 		{UUID: "b", InstitutionID: testInstitutionID, Status: model.CompensationPeriodStatusOpen, Label: "B"},
 		{UUID: "c", InstitutionID: testInstitutionID, Status: model.CompensationPeriodStatusOpen, Label: "C"},
 	}}
-	uc := newUC(db, nil, nil, nil)
+	uc := newUC(db, nil, nil)
 
 	got, err := uc.ListPeriods(testCtx(), model.ListCompensationPeriodsRequest{
 		CommonRequestPayload: model.CommonRequestPayload{Limit: 2, Offset: 1},
@@ -486,7 +364,7 @@ func TestListPeriods_ExplicitLimitAndInvalidStatus(t *testing.T) {
 }
 
 func TestGetPeriod_NotFound(t *testing.T) {
-	uc := newUC(nil, nil, nil, nil)
+	uc := newUC(nil, nil, nil)
 	_, err := uc.GetPeriod(testCtx(), "missing")
 	if errorName(t, err) != errPeriodNotFound {
 		t.Fatalf("error name = %s, want %s", errorName(t, err), errPeriodNotFound)
@@ -506,10 +384,10 @@ func TestDraftPeriod(t *testing.T) {
 
 	t.Run("open to draft", func(t *testing.T) {
 		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{copyPeriod(open)}}
-		commissions := &fakeCommissions{totals: map[int64]compensationrepo.PeriodCommissionTotals{
+		worksheets := &fakeWorksheetDB{periodTotals: map[int64]compensationrepo.WorksheetPeriodTotals{
 			1: {TotalCommission: 1000, StaffCount: 2, VisitCount: 4},
 		}}
-		uc := newUC(db, commissions, nil, nil)
+		uc := newUC(db, worksheets, nil)
 		got, err := uc.DraftPeriod(testCtx(), "p1")
 		if err != nil {
 			t.Fatalf("DraftPeriod: %v", err)
@@ -526,7 +404,7 @@ func TestDraftPeriod(t *testing.T) {
 		p := copyPeriod(open)
 		p.Status = model.CompensationPeriodStatusDraft
 		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{p}}
-		uc := newUC(db, &fakeCommissions{}, nil, nil)
+		uc := newUC(db, &fakeWorksheetDB{}, nil)
 		got, err := uc.DraftPeriod(testCtx(), "p1")
 		if err != nil {
 			t.Fatalf("DraftPeriod: %v", err)
@@ -540,7 +418,7 @@ func TestDraftPeriod(t *testing.T) {
 		p := copyPeriod(open)
 		p.Status = model.CompensationPeriodStatusFinalized
 		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{p}}
-		uc := newUC(db, nil, nil, nil)
+		uc := newUC(db, nil, nil)
 		_, err := uc.DraftPeriod(testCtx(), "p1")
 		if errorName(t, err) != errIllegalTransition {
 			t.Fatalf("error name = %s, want %s", errorName(t, err), errIllegalTransition)
@@ -560,7 +438,7 @@ func TestDraftPeriod(t *testing.T) {
 			Status:        model.CompensationPeriodStatusOpen,
 		}
 		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{p, other}}
-		uc := newUC(db, nil, nil, nil)
+		uc := newUC(db, nil, nil)
 		_, err := uc.DraftPeriod(testCtx(), "p1")
 		if errorName(t, err) != errDateRangeOverlap {
 			t.Fatalf("error name = %s, want %s", errorName(t, err), errDateRangeOverlap)
@@ -569,7 +447,6 @@ func TestDraftPeriod(t *testing.T) {
 }
 
 func TestReopenPeriod(t *testing.T) {
-	locks := &fakeVisitLock{locked: map[int64][]int64{1: {10, 11}}}
 	db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{{
 		ID:            1,
 		UUID:          "p1",
@@ -580,19 +457,13 @@ func TestReopenPeriod(t *testing.T) {
 		FinalizedAt:   sql.NullTime{Time: time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC), Valid: true},
 		FinalizedBy:   sql.NullString{String: testStaffUUID, Valid: true},
 	}}}
-	uc := newUC(db, nil, locks, nil)
+	uc := newUC(db, nil, nil)
 	got, err := uc.ReopenPeriod(testCtx(), "p1")
 	if err != nil {
 		t.Fatalf("ReopenPeriod: %v", err)
 	}
 	if got.Status != model.CompensationPeriodStatusDraft {
 		t.Fatalf("status = %s", got.Status)
-	}
-	if locks.calls != 0 {
-		t.Fatalf("LockVisits calls = %d, want 0", locks.calls)
-	}
-	if len(locks.locked[1]) != 2 {
-		t.Fatalf("lock state cleared: %+v", locks.locked)
 	}
 	if !got.FinalizedAt.Valid {
 		t.Fatal("finalized_at should remain after reopen")
@@ -614,7 +485,7 @@ func TestDeletePeriod(t *testing.T) {
 
 	t.Run("open ok", func(t *testing.T) {
 		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{copyPeriod(open)}}
-		uc := newUC(db, nil, nil, nil)
+		uc := newUC(db, nil, nil)
 		got, err := uc.DeletePeriod(testCtx(), "p1")
 		if err != nil || !got.Success {
 			t.Fatalf("DeletePeriod: %+v %v", got, err)
@@ -633,7 +504,7 @@ func TestDeletePeriod(t *testing.T) {
 			p := copyPeriod(open)
 			p.Status = status
 			db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{p}}
-			uc := newUC(db, nil, nil, nil)
+			uc := newUC(db, nil, nil)
 			_, err := uc.DeletePeriod(testCtx(), "p1")
 			if errorName(t, err) != errIllegalTransition {
 				t.Fatalf("error name = %s", errorName(t, err))
@@ -746,8 +617,8 @@ func (f *fakeStaffDB) DeactivateStaff(context.Context, int64, string) error {
 	return nil
 }
 func (f *fakeStaffDB) ActivateStaff(context.Context, int64, string) error { return nil }
-func (f *fakeStaffDB) AssignRole(context.Context, int64, int64) error     { return nil }
-func (f *fakeStaffDB) UnassignRole(context.Context, int64, int64) error   { return nil }
+func (f *fakeStaffDB) AssignRole(context.Context, int64, int64) error      { return nil }
+func (f *fakeStaffDB) UnassignRole(context.Context, int64, int64) error    { return nil }
 func (f *fakeStaffDB) HasRoleAssignment(context.Context, int64, int64) (bool, error) {
 	return false, nil
 }
@@ -779,7 +650,7 @@ func TestListPeriodStaff(t *testing.T) {
 	}
 
 	t.Run("not found", func(t *testing.T) {
-		uc := newUC(nil, nil, nil, nil)
+		uc := newUC(nil, nil, nil)
 		uc.ContributorDB = &fakeContributorDB{}
 		_, err := uc.ListPeriodStaff(testCtx(), "missing", model.ListCompensationPeriodStaffRequest{})
 		if errorName(t, err) != errPeriodNotFound {
@@ -795,7 +666,7 @@ func TestListPeriodStaff(t *testing.T) {
 			PeriodStart:   open.PeriodStart,
 			PeriodEnd:     open.PeriodEnd,
 		}}}
-		uc := newUC(db, nil, nil, nil)
+		uc := newUC(db, nil, nil)
 		uc.ContributorDB = &fakeContributorDB{}
 		_, err := uc.ListPeriodStaff(testCtx(), "p-staff", model.ListCompensationPeriodStaffRequest{})
 		if errorName(t, err) != errPeriodNotFound {
@@ -810,13 +681,13 @@ func TestListPeriodStaff(t *testing.T) {
 			{StaffID: "s-b", Name: "Budi", Roles: []string{"Nurse"}, VisitCount: 2},
 			{StaffID: "s-c", Name: "Citra", Roles: nil, VisitCount: 1},
 		}}
-		commissions := &fakeCommissions{byStaff: map[int64][]compensationrepo.StaffCommissionTotals{
+		worksheets := &fakeWorksheetDB{staffTotals: map[int64][]compensationrepo.StaffCommissionTotals{
 			7: {
 				{StaffID: "s-a", TotalCommission: 1500, VisitCount: 3},
 				{StaffID: "s-b", TotalCommission: 400, VisitCount: 1},
 			},
 		}}
-		uc := newUC(db, commissions, nil, nil)
+		uc := newUC(db, worksheets, nil)
 		uc.ContributorDB = contributors
 
 		got, err := uc.ListPeriodStaff(testCtx(), "p-staff", model.ListCompensationPeriodStaffRequest{
@@ -869,7 +740,7 @@ func TestListPeriodStaff(t *testing.T) {
 			})
 		}
 		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{copyPeriod(open)}}
-		uc := newUC(db, &fakeCommissions{}, nil, nil)
+		uc := newUC(db, &fakeWorksheetDB{}, nil)
 		uc.ContributorDB = &fakeContributorDB{detections: detections}
 		got, err := uc.ListPeriodStaff(testCtx(), "p-staff", model.ListCompensationPeriodStaffRequest{})
 		if err != nil {
@@ -882,9 +753,10 @@ func TestListPeriodStaff(t *testing.T) {
 
 	t.Run("contributors only", func(t *testing.T) {
 		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{copyPeriod(open)}}
-		uc := newUC(db, &fakeCommissions{byStaff: map[int64][]compensationrepo.StaffCommissionTotals{
+		worksheets := &fakeWorksheetDB{staffTotals: map[int64][]compensationrepo.StaffCommissionTotals{
 			7: {{StaffID: "wage-only", TotalCommission: 0, VisitCount: 0}},
-		}}, nil, nil)
+		}}
+		uc := newUC(db, worksheets, nil)
 		uc.ContributorDB = &fakeContributorDB{detections: []compensationrepo.PeriodStaffDetection{
 			{StaffID: "s-a", Name: "Ada", VisitCount: 1},
 		}}
@@ -918,7 +790,7 @@ func TestGetPeriodStaff(t *testing.T) {
 	}
 
 	t.Run("unauthorized", func(t *testing.T) {
-		uc := newUC(nil, nil, nil, nil)
+		uc := newUC(nil, nil, nil)
 		_, err := uc.GetPeriodStaff(context.Background(), model.GetCompensationPeriodStaffRequest{
 			PeriodUUID: "p-staff",
 			StaffID:    staffID,
@@ -929,7 +801,7 @@ func TestGetPeriodStaff(t *testing.T) {
 	})
 
 	t.Run("period not found", func(t *testing.T) {
-		uc := newUC(nil, nil, nil, nil)
+		uc := newUC(nil, nil, nil)
 		uc.StaffDB = &fakeStaffDB{staff: staff}
 		_, err := uc.GetPeriodStaff(testCtx(), model.GetCompensationPeriodStaffRequest{
 			PeriodUUID: "missing",
@@ -942,7 +814,7 @@ func TestGetPeriodStaff(t *testing.T) {
 
 	t.Run("staff not found", func(t *testing.T) {
 		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{copyPeriod(open)}}
-		uc := newUC(db, nil, nil, nil)
+		uc := newUC(db, nil, nil)
 		uc.StaffDB = &fakeStaffDB{err: commonerr.SetNewError(http.StatusNotFound, "staff_not_found", "staff was not found in this institution")}
 		_, err := uc.GetPeriodStaff(testCtx(), model.GetCompensationPeriodStaffRequest{
 			PeriodUUID: "p-staff",
@@ -955,7 +827,7 @@ func TestGetPeriodStaff(t *testing.T) {
 
 	t.Run("header staff_info wage stubs empty roles", func(t *testing.T) {
 		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{copyPeriod(open)}}
-		uc := newUC(db, nil, nil, nil)
+		uc := newUC(db, nil, nil)
 		uc.StaffDB = &fakeStaffDB{staff: staff}
 
 		got, err := uc.GetPeriodStaff(testCtx(), model.GetCompensationPeriodStaffRequest{
@@ -982,672 +854,6 @@ func TestGetPeriodStaff(t *testing.T) {
 		}
 		if emptyRoles.StaffInfo.Roles == nil || len(emptyRoles.StaffInfo.Roles) != 0 {
 			t.Fatalf("roles should be empty slice: %#v", emptyRoles.StaffInfo.Roles)
-		}
-	})
-}
-
-func TestListPeriodStaffVisits(t *testing.T) {
-	open := &model.TrxCompensationPeriod{
-		ID:            7,
-		UUID:          "p-staff",
-		InstitutionID: testInstitutionID,
-		Label:         "Aug 2026",
-		PeriodStart:   time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC),
-		PeriodEnd:     time.Date(2026, 8, 31, 0, 0, 0, 0, time.UTC),
-		Status:        model.CompensationPeriodStatusOpen,
-	}
-	staffID := "s-a"
-	staff := model.StaffWithRolesResponse{
-		UUID: staffID,
-		Name: "Ada",
-		Roles: []model.StaffRoleResponse{
-			{RoleID: 1, Name: "Doctor"},
-		},
-	}
-
-	t.Run("unauthorized", func(t *testing.T) {
-		uc := newUC(nil, nil, nil, nil)
-		_, err := uc.ListPeriodStaffVisits(context.Background(), model.ListCompensationPeriodStaffVisitsRequest{
-			PeriodUUID: "p-staff",
-			StaffID:    staffID,
-		})
-		if err == nil {
-			t.Fatal("expected unauthorized")
-		}
-	})
-
-	t.Run("period not found", func(t *testing.T) {
-		uc := newUC(nil, nil, nil, nil)
-		uc.StaffDB = &fakeStaffDB{staff: staff}
-		uc.ContributorDB = &fakeContributorDB{}
-		_, err := uc.ListPeriodStaffVisits(testCtx(), model.ListCompensationPeriodStaffVisitsRequest{
-			PeriodUUID: "missing",
-			StaffID:    staffID,
-		})
-		if errorName(t, err) != errPeriodNotFound {
-			t.Fatalf("error name = %s, want %s", errorName(t, err), errPeriodNotFound)
-		}
-	})
-
-	t.Run("staff not found", func(t *testing.T) {
-		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{copyPeriod(open)}}
-		uc := newUC(db, nil, nil, nil)
-		uc.StaffDB = &fakeStaffDB{err: commonerr.SetNewError(http.StatusNotFound, "staff_not_found", "staff was not found in this institution")}
-		uc.ContributorDB = &fakeContributorDB{}
-		_, err := uc.ListPeriodStaffVisits(testCtx(), model.ListCompensationPeriodStaffVisitsRequest{
-			PeriodUUID: "p-staff",
-			StaffID:    staffID,
-		})
-		if errorName(t, err) != "staff_not_found" {
-			t.Fatalf("error name = %s, want staff_not_found", errorName(t, err))
-		}
-	})
-
-	t.Run("unapproved generated row json null commission stored revenue sources", func(t *testing.T) {
-		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{copyPeriod(open)}}
-		srcJSON, err := json.Marshal([]model.ContributionSource{{
-			Type:        model.ContributionSourceTypeProcedure,
-			ProcedureID: null.Int64{Int64: 101, Valid: true},
-			ProductID:   null.Int64{Int64: 45, Valid: true},
-			Label:       null.String{String: "Scaling", Valid: true},
-			LabelSource: null.String{String: labelSourceProductName, Valid: true},
-		}})
-		if err != nil {
-			t.Fatal(err)
-		}
-		commissions := &fakeCommissions{
-			listByStaff: map[string][]compensationrepo.VisitCommissionListRow{
-				listByStaffKey(7, staffID): {{
-					ID:                   99,
-					VisitID:              10,
-					StaffID:              staffID,
-					RevenueBase:          1_200_000,
-					CommissionType:       model.CommissionTypeFlat,
-					CommissionFlatAmount: sql.NullInt64{Int64: 0, Valid: true},
-					CommissionAmount:     0,
-					Sources:              srcJSON,
-					PatientName:          "Ahmad",
-					VisitDate:            time.Date(2026, 8, 5, 9, 0, 0, 0, time.UTC),
-				}},
-			},
-		}
-		uc := newUC(db, commissions, nil, nil)
-		uc.StaffDB = &fakeStaffDB{staff: staff}
-
-		got, err := uc.ListPeriodStaffVisits(testCtx(), model.ListCompensationPeriodStaffVisitsRequest{
-			PeriodUUID: "p-staff",
-			StaffID:    staffID,
-		})
-		if err != nil {
-			t.Fatalf("ListPeriodStaffVisits: %v", err)
-		}
-		if got.Total != 1 || len(got.Visits) != 1 {
-			t.Fatalf("total=%d len=%d", got.Total, len(got.Visits))
-		}
-		row := got.Visits[0]
-		if row.ID != 99 {
-			t.Fatalf("id = %d, want 99", row.ID)
-		}
-		if row.VisitID != 10 || row.PatientName != "Ahmad" || row.VisitDate != "2026-08-05" {
-			t.Fatalf("header = %+v", row)
-		}
-		if row.RevenueBase != 1_200_000 {
-			t.Fatalf("revenue_base = %d, want stored snapshot", row.RevenueBase)
-		}
-		if row.CommissionType != nil || row.CommissionPercent.Valid || row.CommissionFlatAmount.Valid || row.CommissionAmount.Valid {
-			t.Fatalf("unapproved commission should be null: %+v", row)
-		}
-		if !row.HasContributors || len(row.Sources) != 1 || row.Sources[0].Type != model.ContributionSourceTypeProcedure {
-			t.Fatalf("sources/has_contributors = %+v", row)
-		}
-		if !row.Sources[0].Label.Valid || row.Sources[0].Label.String != "Scaling" {
-			t.Fatalf("source label = %+v", row.Sources[0])
-		}
-	})
-
-	t.Run("approved row emits stored type amount", func(t *testing.T) {
-		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{copyPeriod(open)}}
-		ct := model.CommissionTypeFlat
-		commissions := &fakeCommissions{
-			listByStaff: map[string][]compensationrepo.VisitCommissionListRow{
-				listByStaffKey(7, staffID): {{
-					VisitID:              99,
-					StaffID:              staffID,
-					RevenueBase:          0,
-					CommissionType:       ct,
-					CommissionFlatAmount: sql.NullInt64{Int64: 25_000, Valid: true},
-					CommissionAmount:     25_000,
-					ApprovedAt:           sql.NullTime{Time: time.Date(2026, 8, 20, 0, 0, 0, 0, time.UTC), Valid: true},
-					PatientName:          "Orphan",
-					VisitDate:            time.Date(2026, 8, 14, 0, 0, 0, 0, time.UTC),
-				}},
-			},
-		}
-		uc := newUC(db, commissions, nil, nil)
-		uc.StaffDB = &fakeStaffDB{staff: staff}
-
-		got, err := uc.ListPeriodStaffVisits(testCtx(), model.ListCompensationPeriodStaffVisitsRequest{
-			PeriodUUID: "p-staff",
-			StaffID:    staffID,
-		})
-		if err != nil {
-			t.Fatalf("ListPeriodStaffVisits: %v", err)
-		}
-		row := got.Visits[0]
-		if row.VisitID != 99 || row.HasContributors || len(row.Sources) != 0 {
-			t.Fatalf("row = %+v", row)
-		}
-		if row.Sources == nil {
-			t.Fatal("sources must be empty slice not nil")
-		}
-		if row.RevenueBase != 0 {
-			t.Fatalf("revenue_base = %d", row.RevenueBase)
-		}
-		if row.CommissionType == nil || *row.CommissionType != model.CommissionTypeFlat {
-			t.Fatalf("commission_type = %v", row.CommissionType)
-		}
-		if !row.CommissionFlatAmount.Valid || row.CommissionFlatAmount.Int64 != 25_000 {
-			t.Fatalf("flat = %+v", row.CommissionFlatAmount)
-		}
-		if !row.CommissionAmount.Valid || row.CommissionAmount.Int64 != 25_000 {
-			t.Fatalf("amount = %+v", row.CommissionAmount)
-		}
-	})
-
-	t.Run("approved percent uses stored snapshot not live cart", func(t *testing.T) {
-		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{copyPeriod(open)}}
-		srcJSON, err := json.Marshal([]model.ContributionSource{{Type: model.ContributionSourceTypeAnamnesa}})
-		if err != nil {
-			t.Fatal(err)
-		}
-		ct := model.CommissionTypePercent
-		commissions := &fakeCommissions{
-			listByStaff: map[string][]compensationrepo.VisitCommissionListRow{
-				listByStaffKey(7, staffID): {{
-					VisitID:           10,
-					StaffID:           staffID,
-					RevenueBase:       500_000,
-					CommissionType:    ct,
-					CommissionPercent: sql.NullFloat64{Float64: 15, Valid: true},
-					CommissionAmount:  75_000,
-					Sources:           srcJSON,
-					ApprovedAt:        sql.NullTime{Time: time.Date(2026, 8, 20, 0, 0, 0, 0, time.UTC), Valid: true},
-					PatientName:       "A",
-					VisitDate:         time.Date(2026, 8, 5, 0, 0, 0, 0, time.UTC),
-				}},
-			},
-			revenueByVisit: map[int64]int64{10: 1_200_000},
-		}
-		uc := newUC(db, commissions, nil, nil)
-		uc.StaffDB = &fakeStaffDB{staff: staff}
-
-		got, err := uc.ListPeriodStaffVisits(testCtx(), model.ListCompensationPeriodStaffVisitsRequest{
-			PeriodUUID: "p-staff",
-			StaffID:    staffID,
-		})
-		if err != nil {
-			t.Fatalf("ListPeriodStaffVisits: %v", err)
-		}
-		row := got.Visits[0]
-		if row.RevenueBase != 500_000 {
-			t.Fatalf("revenue_base = %d, want stored 500000", row.RevenueBase)
-		}
-		if row.CommissionType == nil || *row.CommissionType != model.CommissionTypePercent {
-			t.Fatalf("type = %v", row.CommissionType)
-		}
-		if !row.HasContributors || len(row.Sources) != 1 || row.Sources[0].Type != model.ContributionSourceTypeAnamnesa {
-			t.Fatalf("sources = %+v", row)
-		}
-	})
-
-	t.Run("sql pagination empty sources", func(t *testing.T) {
-		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{copyPeriod(open)}}
-		ct := model.CommissionTypeFlat
-		commissions := &fakeCommissions{
-			listByStaff: map[string][]compensationrepo.VisitCommissionListRow{
-				listByStaffKey(7, staffID): {
-					{VisitID: 10, StaffID: staffID, CommissionType: ct, CommissionAmount: 2, ApprovedAt: sql.NullTime{Valid: true, Time: time.Unix(1, 0).UTC()}, PatientName: "A", VisitDate: time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)},
-					{VisitID: 20, StaffID: staffID, CommissionType: ct, CommissionAmount: 3, ApprovedAt: sql.NullTime{Valid: true, Time: time.Unix(1, 0).UTC()}, PatientName: "B", VisitDate: time.Date(2026, 8, 2, 0, 0, 0, 0, time.UTC)},
-					{VisitID: 30, StaffID: staffID, CommissionType: ct, CommissionAmount: 1, ApprovedAt: sql.NullTime{Valid: true, Time: time.Unix(1, 0).UTC()}, PatientName: "C", VisitDate: time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)},
-				},
-			},
-		}
-		uc := newUC(db, commissions, nil, nil)
-		uc.StaffDB = &fakeStaffDB{staff: staff}
-
-		got, err := uc.ListPeriodStaffVisits(testCtx(), model.ListCompensationPeriodStaffVisitsRequest{
-			PeriodUUID:           "p-staff",
-			StaffID:              staffID,
-			CommonRequestPayload: model.CommonRequestPayload{Limit: 2, Offset: 0},
-		})
-		if err != nil {
-			t.Fatalf("ListPeriodStaffVisits: %v", err)
-		}
-		if got.Total != 3 {
-			t.Fatalf("total = %d, want 3", got.Total)
-		}
-		if len(got.Visits) != 2 || got.Visits[0].VisitID != 10 || got.Visits[1].VisitID != 20 {
-			t.Fatalf("page1 visits = %+v", got.Visits)
-		}
-		if got.Visits[0].Sources == nil || len(got.Visits[0].Sources) != 0 {
-			t.Fatalf("visit 10 sources should be empty slice: %#v", got.Visits[0].Sources)
-		}
-
-		page2, err := uc.ListPeriodStaffVisits(testCtx(), model.ListCompensationPeriodStaffVisitsRequest{
-			PeriodUUID:           "p-staff",
-			StaffID:              staffID,
-			CommonRequestPayload: model.CommonRequestPayload{Limit: 2, Offset: 2},
-		})
-		if err != nil {
-			t.Fatalf("page2: %v", err)
-		}
-		if page2.Total != 3 || len(page2.Visits) != 1 || page2.Visits[0].VisitID != 30 {
-			t.Fatalf("page2 = total=%d visits=%+v", page2.Total, page2.Visits)
-		}
-	})
-
-	t.Run("default limit and empty visits", func(t *testing.T) {
-		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{copyPeriod(open)}}
-		rows := make([]compensationrepo.VisitCommissionListRow, 0, 51)
-		for i := int64(1); i <= 51; i++ {
-			rows = append(rows, compensationrepo.VisitCommissionListRow{
-				VisitID: i, StaffID: staffID, PatientName: "P", VisitDate: time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC),
-			})
-		}
-		uc := newUC(db, &fakeCommissions{listByStaff: map[string][]compensationrepo.VisitCommissionListRow{
-			listByStaffKey(7, staffID): rows,
-		}}, nil, nil)
-		uc.StaffDB = &fakeStaffDB{staff: staff}
-
-		got, err := uc.ListPeriodStaffVisits(testCtx(), model.ListCompensationPeriodStaffVisitsRequest{
-			PeriodUUID: "p-staff",
-			StaffID:    staffID,
-		})
-		if err != nil {
-			t.Fatalf("ListPeriodStaffVisits: %v", err)
-		}
-		if got.Total != 51 || len(got.Visits) != defaultListLimit {
-			t.Fatalf("total=%d len=%d", got.Total, len(got.Visits))
-		}
-
-		ucEmpty := newUC(db, &fakeCommissions{}, nil, nil)
-		ucEmpty.StaffDB = &fakeStaffDB{staff: staff}
-		empty, err := ucEmpty.ListPeriodStaffVisits(testCtx(), model.ListCompensationPeriodStaffVisitsRequest{
-			PeriodUUID: "p-staff",
-			StaffID:    staffID,
-		})
-		if err != nil {
-			t.Fatalf("empty: %v", err)
-		}
-		if empty.Total != 0 || empty.Visits == nil || len(empty.Visits) != 0 {
-			t.Fatalf("empty visits = %+v", empty)
-		}
-	})
-}
-
-func TestGeneratePeriodStaffVisits(t *testing.T) {
-	open := &model.TrxCompensationPeriod{
-		ID:            7,
-		UUID:          "p-staff",
-		InstitutionID: testInstitutionID,
-		Label:         "Aug 2026",
-		PeriodStart:   time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC),
-		PeriodEnd:     time.Date(2026, 8, 31, 0, 0, 0, 0, time.UTC),
-		Status:        model.CompensationPeriodStatusOpen,
-	}
-	staffID := "s-a"
-	staff := model.StaffWithRolesResponse{UUID: staffID, Name: "Ada"}
-
-	t.Run("unauthorized", func(t *testing.T) {
-		uc := newUC(nil, nil, nil, nil)
-		_, err := uc.GeneratePeriodStaffVisits(context.Background(), model.GenerateCompensationPeriodStaffVisitsRequest{
-			PeriodUUID: "p-staff",
-			StaffID:    staffID,
-		})
-		if err == nil {
-			t.Fatal("expected unauthorized")
-		}
-	})
-
-	t.Run("period not found", func(t *testing.T) {
-		uc := newUC(nil, nil, nil, nil)
-		uc.StaffDB = &fakeStaffDB{staff: staff}
-		uc.ContributorDB = &fakeContributorDB{}
-		_, err := uc.GeneratePeriodStaffVisits(testCtx(), model.GenerateCompensationPeriodStaffVisitsRequest{
-			PeriodUUID: "missing",
-			StaffID:    staffID,
-		})
-		if errorName(t, err) != errPeriodNotFound {
-			t.Fatalf("error name = %s, want %s", errorName(t, err), errPeriodNotFound)
-		}
-	})
-
-	t.Run("staff not found", func(t *testing.T) {
-		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{copyPeriod(open)}}
-		uc := newUC(db, nil, nil, nil)
-		uc.StaffDB = &fakeStaffDB{err: commonerr.SetNewError(http.StatusNotFound, "staff_not_found", "staff was not found in this institution")}
-		uc.ContributorDB = &fakeContributorDB{}
-		_, err := uc.GeneratePeriodStaffVisits(testCtx(), model.GenerateCompensationPeriodStaffVisitsRequest{
-			PeriodUUID: "p-staff",
-			StaffID:    staffID,
-		})
-		if errorName(t, err) != "staff_not_found" {
-			t.Fatalf("error name = %s, want staff_not_found", errorName(t, err))
-		}
-	})
-
-	t.Run("empty detection returns zero", func(t *testing.T) {
-		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{copyPeriod(open)}}
-		uc := newUC(db, nil, nil, nil)
-		uc.StaffDB = &fakeStaffDB{staff: staff}
-		uc.ContributorDB = &fakeContributorDB{}
-		got, err := uc.GeneratePeriodStaffVisits(testCtx(), model.GenerateCompensationPeriodStaffVisitsRequest{
-			PeriodUUID: "p-staff",
-			StaffID:    staffID,
-		})
-		if err != nil {
-			t.Fatalf("GeneratePeriodStaffVisits: %v", err)
-		}
-		if got.GeneratedCount != 0 {
-			t.Fatalf("generated_count = %d", got.GeneratedCount)
-		}
-	})
-
-	t.Run("inserts missing defaults and skips existing", func(t *testing.T) {
-		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{copyPeriod(open)}}
-		existing := model.TrxVisitCommission{
-			PeriodID:          7,
-			VisitID:           10,
-			StaffID:           staffID,
-			RevenueBase:       9,
-			CommissionType:    model.CommissionTypePercent,
-			CommissionPercent: sql.NullFloat64{Float64: 10, Valid: true},
-			CommissionAmount:  90,
-			ApprovedAt:        sql.NullTime{Valid: true, Time: time.Unix(1, 0).UTC()},
-		}
-		commissions := &fakeCommissions{
-			insertRows: map[string][]model.TrxVisitCommission{
-				listByStaffKey(7, staffID): {existing},
-			},
-		}
-		contributors := &fakeContributorDB{
-			attributions: []compensationrepo.DetectedAttribution{
-				{Type: model.ContributionSourceTypeProcedure, VisitID: 10, StaffID: staffID, ProcedureID: 101, Label: sql.NullString{String: "Scaling", Valid: true}},
-				{Type: model.ContributionSourceTypeManual, VisitID: 20, StaffID: staffID},
-			},
-		}
-		uc := newUC(db, commissions, nil, nil)
-		uc.ContributorDB = contributors
-		uc.StaffDB = &fakeStaffDB{staff: staff}
-
-		got, err := uc.GeneratePeriodStaffVisits(testCtx(), model.GenerateCompensationPeriodStaffVisitsRequest{
-			PeriodUUID: "p-staff",
-			StaffID:    staffID,
-		})
-		if err != nil {
-			t.Fatalf("GeneratePeriodStaffVisits: %v", err)
-		}
-		if got.GeneratedCount != 1 {
-			t.Fatalf("generated_count = %d, want 1", got.GeneratedCount)
-		}
-
-		rows := commissions.insertRows[listByStaffKey(7, staffID)]
-		if len(rows) != 2 {
-			t.Fatalf("rows = %d", len(rows))
-		}
-		if rows[0].CommissionType != model.CommissionTypePercent || !rows[0].ApprovedAt.Valid {
-			t.Fatalf("existing row mutated: %+v", rows[0])
-		}
-		var created model.TrxVisitCommission
-		for _, row := range rows {
-			if row.VisitID == 20 {
-				created = row
-			}
-		}
-		if created.VisitID != 20 {
-			t.Fatal("missing generated visit 20")
-		}
-		if created.CommissionType != model.CommissionTypeFlat || created.CommissionAmount != 0 {
-			t.Fatalf("defaults = %+v", created)
-		}
-		if !created.CommissionFlatAmount.Valid || created.CommissionFlatAmount.Int64 != 0 {
-			t.Fatalf("flat default = %+v", created.CommissionFlatAmount)
-		}
-		if created.ApprovedAt.Valid {
-			t.Fatalf("approved_at should be null: %+v", created.ApprovedAt)
-		}
-		if created.RevenueBase != 0 {
-			t.Fatalf("revenue_base = %d, want 0", created.RevenueBase)
-		}
-		if !created.IncludedManually {
-			t.Fatal("included_manually should be true for map source")
-		}
-		var sources []model.ContributionSource
-		if err := json.Unmarshal(created.Sources, &sources); err != nil || len(sources) != 1 || sources[0].Type != model.ContributionSourceTypeManual {
-			t.Fatalf("sources = %s", created.Sources)
-		}
-
-		again, err := uc.GeneratePeriodStaffVisits(testCtx(), model.GenerateCompensationPeriodStaffVisitsRequest{
-			PeriodUUID: "p-staff",
-			StaffID:    staffID,
-		})
-		if err != nil {
-			t.Fatalf("second generate: %v", err)
-		}
-		if again.GeneratedCount != 0 {
-			t.Fatalf("second generated_count = %d", got.GeneratedCount)
-		}
-	})
-}
-
-
-func TestPatchCommissionItem(t *testing.T) {
-	live := &model.TrxVisitCommission{
-		ID:           55,
-		PeriodID:     7,
-		VisitID:      10,
-		StaffID:      "s-a",
-		RevenueBase:  0,
-		CommissionType: model.CommissionTypeFlat,
-		CommissionFlatAmount: sql.NullInt64{Int64: 0, Valid: true},
-		CommissionAmount: 0,
-		IncludedManually: false,
-	}
-
-	t.Run("unauthorized", func(t *testing.T) {
-		uc := newUC(nil, nil, nil, nil)
-		_, err := uc.PatchCommissionItem(context.Background(), model.PatchCommissionItemRequest{ID: 55})
-		if err == nil {
-			t.Fatal("expected unauthorized")
-		}
-	})
-
-	t.Run("id less than or equal zero", func(t *testing.T) {
-		uc := newUC(nil, nil, nil, nil)
-		_, err := uc.PatchCommissionItem(testCtx(), model.PatchCommissionItemRequest{ID: 0})
-		if errorName(t, err) != errCommissionNotFound {
-			t.Fatalf("error name = %s, want %s", errorName(t, err), errCommissionNotFound)
-		}
-	})
-
-	t.Run("unknown id", func(t *testing.T) {
-		uc := newUC(nil, &fakeCommissions{liveByID: map[int64]*model.TrxVisitCommission{}}, nil, nil)
-		_, err := uc.PatchCommissionItem(testCtx(), model.PatchCommissionItemRequest{
-			ID:             999,
-			CommissionType: model.CommissionTypeFlat,
-			CommissionFlatAmount: null.Int64{Int64: 1000, Valid: true},
-		})
-		if errorName(t, err) != errCommissionNotFound {
-			t.Fatalf("error name = %s, want %s", errorName(t, err), errCommissionNotFound)
-		}
-	})
-
-	t.Run("other institution", func(t *testing.T) {
-		cp := *live
-		uc := newUC(nil, &fakeCommissions{
-			liveByID:          map[int64]*model.TrxVisitCommission{55: &cp},
-			liveInstitutionID: testInstitutionID + 1,
-		}, nil, nil)
-		_, err := uc.PatchCommissionItem(testCtx(), model.PatchCommissionItemRequest{
-			ID:             55,
-			CommissionType: model.CommissionTypeFlat,
-			CommissionFlatAmount: null.Int64{Int64: 1000, Valid: true},
-		})
-		if errorName(t, err) != errCommissionNotFound {
-			t.Fatalf("error name = %s, want %s", errorName(t, err), errCommissionNotFound)
-		}
-	})
-
-	t.Run("invalid type", func(t *testing.T) {
-		cp := *live
-		uc := newUC(nil, &fakeCommissions{liveByID: map[int64]*model.TrxVisitCommission{55: &cp}}, nil, nil)
-		_, err := uc.PatchCommissionItem(testCtx(), model.PatchCommissionItemRequest{
-			ID:             55,
-			CommissionType: model.CommissionType("bonus"),
-		})
-		if errorName(t, err) != errInvalidCommissionType {
-			t.Fatalf("error name = %s, want %s", errorName(t, err), errInvalidCommissionType)
-		}
-	})
-
-	t.Run("missing percent", func(t *testing.T) {
-		cp := *live
-		uc := newUC(nil, &fakeCommissions{liveByID: map[int64]*model.TrxVisitCommission{55: &cp}}, nil, nil)
-		_, err := uc.PatchCommissionItem(testCtx(), model.PatchCommissionItemRequest{
-			ID:             55,
-			CommissionType: model.CommissionTypePercent,
-		})
-		if errorName(t, err) != errInvalidCommissionPercent {
-			t.Fatalf("error name = %s, want %s", errorName(t, err), errInvalidCommissionPercent)
-		}
-	})
-
-	t.Run("negative percent", func(t *testing.T) {
-		cp := *live
-		uc := newUC(nil, &fakeCommissions{liveByID: map[int64]*model.TrxVisitCommission{55: &cp}}, nil, nil)
-		_, err := uc.PatchCommissionItem(testCtx(), model.PatchCommissionItemRequest{
-			ID:                55,
-			CommissionType:    model.CommissionTypePercent,
-			CommissionPercent: null.Float64{Float64: -1, Valid: true},
-		})
-		if errorName(t, err) != errInvalidCommissionPercent {
-			t.Fatalf("error name = %s, want %s", errorName(t, err), errInvalidCommissionPercent)
-		}
-	})
-
-	t.Run("missing flat", func(t *testing.T) {
-		cp := *live
-		uc := newUC(nil, &fakeCommissions{liveByID: map[int64]*model.TrxVisitCommission{55: &cp}}, nil, nil)
-		_, err := uc.PatchCommissionItem(testCtx(), model.PatchCommissionItemRequest{
-			ID:             55,
-			CommissionType: model.CommissionTypeFlat,
-		})
-		if errorName(t, err) != errInvalidCommissionFlatAmount {
-			t.Fatalf("error name = %s, want %s", errorName(t, err), errInvalidCommissionFlatAmount)
-		}
-	})
-
-	t.Run("negative flat", func(t *testing.T) {
-		cp := *live
-		uc := newUC(nil, &fakeCommissions{liveByID: map[int64]*model.TrxVisitCommission{55: &cp}}, nil, nil)
-		_, err := uc.PatchCommissionItem(testCtx(), model.PatchCommissionItemRequest{
-			ID:                   55,
-			CommissionType:       model.CommissionTypeFlat,
-			CommissionFlatAmount: null.Int64{Int64: -5, Valid: true},
-		})
-		if errorName(t, err) != errInvalidCommissionFlatAmount {
-			t.Fatalf("error name = %s, want %s", errorName(t, err), errInvalidCommissionFlatAmount)
-		}
-	})
-
-	t.Run("percent with stored revenue base zero", func(t *testing.T) {
-		cp := *live
-		commissions := &fakeCommissions{liveByID: map[int64]*model.TrxVisitCommission{55: &cp}}
-		uc := newUC(nil, commissions, nil, nil)
-		got, err := uc.PatchCommissionItem(testCtx(), model.PatchCommissionItemRequest{
-			ID:                55,
-			CommissionType:    model.CommissionTypePercent,
-			CommissionPercent: null.Float64{Float64: 10, Valid: true},
-			Note:              null.String{String: "ok", Valid: true},
-		})
-		if err != nil {
-			t.Fatalf("PatchCommissionItem: %v", err)
-		}
-		if got.UpdatedCount != 1 || got.CommissionSubtotal != 0 {
-			t.Fatalf("response = %+v", got)
-		}
-		if len(commissions.updateCalls) != 1 {
-			t.Fatalf("update calls = %d", len(commissions.updateCalls))
-		}
-		updated := commissions.updateCalls[0]
-		if updated.CommissionType != model.CommissionTypePercent {
-			t.Fatalf("type = %s", updated.CommissionType)
-		}
-		if !updated.CommissionPercent.Valid || updated.CommissionPercent.Float64 != 10 {
-			t.Fatalf("percent = %+v", updated.CommissionPercent)
-		}
-		if updated.CommissionFlatAmount.Valid {
-			t.Fatalf("flat should be null: %+v", updated.CommissionFlatAmount)
-		}
-		if updated.CommissionAmount != 0 {
-			t.Fatalf("amount = %d, want 0 for revenue_base 0", updated.CommissionAmount)
-		}
-		if !updated.Note.Valid || updated.Note.String != "ok" {
-			t.Fatalf("note = %+v", updated.Note)
-		}
-		if updated.RevenueBase != 0 || updated.ApprovedAt.Valid {
-			t.Fatalf("must not change revenue_base/approved_at: %+v", updated)
-		}
-	})
-
-	t.Run("flat amount", func(t *testing.T) {
-		cp := *live
-		cp.RevenueBase = 500_000
-		commissions := &fakeCommissions{liveByID: map[int64]*model.TrxVisitCommission{55: &cp}}
-		uc := newUC(nil, commissions, nil, nil)
-		got, err := uc.PatchCommissionItem(testCtx(), model.PatchCommissionItemRequest{
-			ID:                   55,
-			CommissionType:       model.CommissionTypeFlat,
-			CommissionFlatAmount: null.Int64{Int64: 25000, Valid: true},
-		})
-		if err != nil {
-			t.Fatalf("PatchCommissionItem: %v", err)
-		}
-		if got.UpdatedCount != 1 || got.CommissionSubtotal != 0 {
-			t.Fatalf("response = %+v", got)
-		}
-		updated := commissions.updateCalls[0]
-		if updated.CommissionType != model.CommissionTypeFlat || updated.CommissionAmount != 25000 {
-			t.Fatalf("updated = %+v", updated)
-		}
-		if updated.CommissionPercent.Valid {
-			t.Fatalf("percent should be null: %+v", updated.CommissionPercent)
-		}
-		if !updated.CommissionFlatAmount.Valid || updated.CommissionFlatAmount.Int64 != 25000 {
-			t.Fatalf("flat = %+v", updated.CommissionFlatAmount)
-		}
-		if updated.RevenueBase != 500_000 {
-			t.Fatalf("revenue_base changed: %d", updated.RevenueBase)
-		}
-	})
-
-	t.Run("idempotent second patch", func(t *testing.T) {
-		cp := *live
-		commissions := &fakeCommissions{liveByID: map[int64]*model.TrxVisitCommission{55: &cp}}
-		uc := newUC(nil, commissions, nil, nil)
-		req := model.PatchCommissionItemRequest{
-			ID:                   55,
-			CommissionType:       model.CommissionTypeFlat,
-			CommissionFlatAmount: null.Int64{Int64: 1000, Valid: true},
-		}
-		if _, err := uc.PatchCommissionItem(testCtx(), req); err != nil {
-			t.Fatalf("first: %v", err)
-		}
-		if _, err := uc.PatchCommissionItem(testCtx(), req); err != nil {
-			t.Fatalf("second: %v", err)
-		}
-		if len(commissions.updateCalls) != 2 {
-			t.Fatalf("update calls = %d", len(commissions.updateCalls))
 		}
 	})
 }

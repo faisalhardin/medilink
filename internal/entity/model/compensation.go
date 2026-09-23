@@ -13,6 +13,37 @@ const (
 	TrxCompensationPeriodTableName = "mdl_trx_compensation_period"
 	TrxVisitCommissionTableName    = "mdl_trx_visit_commission"
 	MapVisitContributorTableName   = "mdl_map_visit_contributor"
+	TrxWorksheetTableName          = "mdl_trx_worksheet"
+)
+
+// ─── Worksheet enums ──────────────────────────────────────────────────────────
+
+// WorksheetStatus is the lifecycle of a single-staff commission worksheet.
+type WorksheetStatus string
+
+const (
+	WorksheetStatusPending   WorksheetStatus = "pending"
+	WorksheetStatusOpen      WorksheetStatus = "open"
+	WorksheetStatusFinalized WorksheetStatus = "finalized"
+)
+
+func (s WorksheetStatus) IsValid() bool {
+	switch s {
+	case WorksheetStatusPending, WorksheetStatusOpen, WorksheetStatusFinalized:
+		return true
+	default:
+		return false
+	}
+}
+
+// WorksheetGenerateStatus tracks the async generate worker.
+type WorksheetGenerateStatus string
+
+const (
+	WorksheetGenerateStatusIdle      WorksheetGenerateStatus = "idle"
+	WorksheetGenerateStatusRunning   WorksheetGenerateStatus = "running"
+	WorksheetGenerateStatusSucceeded WorksheetGenerateStatus = "succeeded"
+	WorksheetGenerateStatusFailed    WorksheetGenerateStatus = "failed"
 )
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
@@ -109,6 +140,71 @@ func (t ContributionSourceType) IsValid() bool {
 
 // ─── Xorm entities ────────────────────────────────────────────────────────────
 
+// TrxWorksheet is a single-staff wrap for visit commissions.
+type TrxWorksheet struct {
+	ID                   int64                   `xorm:"'id' pk autoincr" json:"-"`
+	UUID                 string                  `xorm:"'uuid'" json:"-"`
+	InstitutionID        int64                   `xorm:"'institution_id'" json:"-"`
+	StaffID              string                  `xorm:"'staff_id'" json:"-"`
+	Label                string                  `xorm:"'label'" json:"-"`
+	PeriodStart          time.Time               `xorm:"'period_start'" json:"-"`
+	PeriodEnd            time.Time               `xorm:"'period_end'" json:"-"`
+	Status               WorksheetStatus         `xorm:"'status'" json:"-"`
+	GenerateStatus       WorksheetGenerateStatus `xorm:"'generate_status'" json:"-"`
+	CompensationPeriodID sql.NullInt64           `xorm:"'compensation_period_id' null" json:"-"`
+	TotalCommission      int64                   `xorm:"'total_commission'" json:"-"`
+	VisitCount           int64                   `xorm:"'visit_count'" json:"-"`
+	GenerateStartedAt    sql.NullTime            `xorm:"'generate_started_at' null" json:"-"`
+	GenerateFinishedAt   sql.NullTime            `xorm:"'generate_finished_at' null" json:"-"`
+	GenerateError        sql.NullString          `xorm:"'generate_error' null" json:"-"`
+	FinalizedAt          sql.NullTime            `xorm:"'finalized_at' null" json:"-"`
+	FinalizedBy          sql.NullString          `xorm:"'finalized_by' null" json:"-"`
+	CreatedBy            sql.NullString          `xorm:"'created_by' null" json:"-"`
+	CreateTime           time.Time               `xorm:"'create_time' created" json:"-"`
+	UpdateTime           time.Time               `xorm:"'update_time' updated" json:"-"`
+	DeleteTime           *time.Time              `xorm:"'delete_time' deleted" json:"-"`
+}
+
+func (TrxWorksheet) TableName() string {
+	return TrxWorksheetTableName
+}
+
+const worksheetDateLayout = "2006-01-02"
+
+// ToResponse converts a TrxWorksheet row to the JSON DTO.
+func (w TrxWorksheet) ToResponse() WorksheetResponse {
+	return WorksheetResponse{
+		UUID:                 w.UUID,
+		StaffID:              w.StaffID,
+		Label:                w.Label,
+		PeriodStart:          w.PeriodStart.UTC().Format(worksheetDateLayout),
+		PeriodEnd:            w.PeriodEnd.UTC().Format(worksheetDateLayout),
+		Status:               w.Status,
+		GenerateStatus:       w.GenerateStatus,
+		CompensationPeriodID: nullInt64ToNullable(w.CompensationPeriodID),
+		TotalCommission:      w.TotalCommission,
+		VisitCount:           w.VisitCount,
+		GenerateStartedAt:    nullTimeFromSQL(w.GenerateStartedAt),
+		GenerateFinishedAt:   nullTimeFromSQL(w.GenerateFinishedAt),
+		GenerateError:        nullStringToNullable(w.GenerateError),
+		FinalizedAt:          nullTimeFromSQL(w.FinalizedAt),
+	}
+}
+
+func nullInt64ToNullable(v sql.NullInt64) null.Int64 {
+	if !v.Valid {
+		return null.Int64{}
+	}
+	return null.Int64From(v.Int64)
+}
+
+func nullStringToNullable(v sql.NullString) null.String {
+	if !v.Valid {
+		return null.String{}
+	}
+	return null.StringFrom(v.String)
+}
+
 // MstStaffWage is a staff wage contract for an institution.
 type MstStaffWage struct {
 	ID            int64          `xorm:"'id' pk autoincr" json:"-"`
@@ -202,10 +298,10 @@ type ListCompensationPeriodParams struct {
 	Offset        int
 }
 
-// TrxVisitCommission is a per-visit, per-staff commission row within a payday period.
+// TrxVisitCommission is a per-visit, per-staff commission row within a worksheet.
 type TrxVisitCommission struct {
 	ID                   int64           `xorm:"'id' pk autoincr" json:"-"`
-	PeriodID             int64           `xorm:"'period_id'" json:"-"`
+	WorksheetID          int64           `xorm:"'worksheet_id'" json:"-"`
 	VisitID              int64           `xorm:"'visit_id'" json:"-"`
 	StaffID              string          `xorm:"'staff_id'" json:"-"`
 	RevenueBase          int64           `xorm:"'revenue_base'" json:"-"`
@@ -375,49 +471,7 @@ type GetCompensationPeriodStaffResponse struct {
 	WageOverride null.Int64                  `json:"wage_override"`
 }
 
-// ListCompensationPeriodStaffVisitsRequest is the request for GET .../staff/{staffId}/visits.
-// PeriodUUID and StaffID are set from URL path params; Limit/Offset from query.
-type ListCompensationPeriodStaffVisitsRequest struct {
-	PeriodUUID string `json:"-" schema:"-"`
-	StaffID    string `json:"-" schema:"-"`
-	CommonRequestPayload
-}
-
-// CompensationPeriodStaffVisitRow is one visit on GET .../staff/{staffId}/visits.
-// Unassigned commission fields are JSON null (no omitempty).
-type CompensationPeriodStaffVisitRow struct {
-	ID                   int64                `json:"id"`
-	VisitID              int64                `json:"visit_id"`
-	PatientName          string               `json:"patient_name"`
-	VisitDate            string               `json:"visit_date"`
-	Sources              []ContributionSource `json:"sources"`
-	RevenueBase          int64                `json:"revenue_base"`
-	CommissionType       *CommissionType      `json:"commission_type"`
-	CommissionPercent    null.Float64         `json:"commission_percent"`
-	CommissionFlatAmount null.Int64           `json:"commission_flat_amount"`
-	CommissionAmount     null.Int64           `json:"commission_amount"`
-	HasContributors      bool                 `json:"has_contributors"`
-}
-
-// ListCompensationPeriodStaffVisitsResponse is the body for GET .../staff/{staffId}/visits.
-type ListCompensationPeriodStaffVisitsResponse struct {
-	Visits []CompensationPeriodStaffVisitRow `json:"visits"`
-	Total  int                               `json:"total"`
-}
-
-// GenerateCompensationPeriodStaffVisitsRequest is the request for
-// POST .../staff/{staffId}/visits/generate. PeriodUUID and StaffID are path params.
-type GenerateCompensationPeriodStaffVisitsRequest struct {
-	PeriodUUID string `json:"-" schema:"-"`
-	StaffID    string `json:"-" schema:"-"`
-}
-
-// GenerateCompensationPeriodStaffVisitsResponse is the body for POST .../visits/generate.
-type GenerateCompensationPeriodStaffVisitsResponse struct {
-	GeneratedCount int `json:"generated_count"`
-}
-
-// PatchCommissionItemRequest is the body for PATCH /v1/commission-items/{id}.
+// PatchCommissionItemRequest is the body for PATCH /v1/visit-commissions/{id}.
 // ID is set from the path param.
 type PatchCommissionItemRequest struct {
 	ID                   int64          `json:"-"`
@@ -427,8 +481,126 @@ type PatchCommissionItemRequest struct {
 	Note                 null.String    `json:"note"`
 }
 
-// PatchCommissionItemResponse is the body for PATCH /v1/commission-items/{id}.
+// PatchCommissionItemResponse is the body for PATCH /v1/visit-commissions/{id}.
 type PatchCommissionItemResponse struct {
 	UpdatedCount       int   `json:"updated_count"`
 	CommissionSubtotal int64 `json:"commission_subtotal"`
+}
+
+// ─── Worksheet DTOs ───────────────────────────────────────────────────────────
+
+// CreateWorksheetRequest is the body for POST /v1/worksheet.
+type CreateWorksheetRequest struct {
+	StaffID     string `json:"staff_id"`
+	Label       string `json:"label"`
+	PeriodStart Time   `json:"period_start"`
+	PeriodEnd   Time   `json:"period_end"`
+}
+
+// ListWorksheetsRequest is the query for GET /v1/worksheet.
+// Cursor is the last worksheet id from the previous page (exclusive); empty = first page.
+type ListWorksheetsRequest struct {
+	StaffID              string          `schema:"staff_id"`
+	Status               WorksheetStatus `schema:"status"`
+	CompensationPeriodID null.Int64      `schema:"-"`
+	Cursor               string          `schema:"cursor"`
+	Limit                int             `schema:"limit"`
+	InstitutionID        int64           `schema:"-"`
+}
+
+// WorksheetResponse is the public worksheet shape.
+type WorksheetResponse struct {
+	UUID                 string                  `json:"uuid"`
+	StaffID              string                  `json:"staff_id"`
+	Label                string                  `json:"label"`
+	PeriodStart          string                  `json:"period_start"`
+	PeriodEnd            string                  `json:"period_end"`
+	Status               WorksheetStatus         `json:"status"`
+	GenerateStatus       WorksheetGenerateStatus `json:"generate_status"`
+	CompensationPeriodID null.Int64              `json:"compensation_period_id"`
+	TotalCommission      int64                   `json:"total_commission"`
+	VisitCount           int64                   `json:"visit_count"`
+	GenerateStartedAt    null.Time               `json:"generate_started_at"`
+	GenerateFinishedAt   null.Time               `json:"generate_finished_at"`
+	GenerateError        null.String             `json:"generate_error"`
+	FinalizedAt          null.Time               `json:"finalized_at"`
+}
+
+// ListWorksheetsResponse is a cursor-paginated worksheet list (no total count).
+type ListWorksheetsResponse struct {
+	Worksheets []WorksheetResponse `json:"worksheets"`
+	NextCursor null.String         `json:"next_cursor"`
+}
+
+// PatchWorksheetRequest is the body for PATCH /v1/worksheet/{id}.
+// CompensationPeriodID: nil = omit (no change); non-nil invalid = detach; non-nil valid = attach.
+type PatchWorksheetRequest struct {
+	UUID                 string      `json:"-"`
+	Label                null.String `json:"label"`
+	PeriodStart          *Time       `json:"period_start"`
+	PeriodEnd            *Time       `json:"period_end"`
+	CompensationPeriodID *null.Int64 `json:"compensation_period_id"`
+}
+
+// DeleteWorksheetResponse is the body for DELETE /v1/worksheet/{id}.
+type DeleteWorksheetResponse struct {
+	Success bool `json:"success"`
+}
+
+// FinalizeWorksheetResponse is the body for POST /v1/worksheet/{id}/finalize.
+type FinalizeWorksheetResponse struct {
+	Worksheet        WorksheetResponse `json:"worksheet"`
+	LockedVisitCount int64             `json:"locked_visit_count"`
+}
+
+// GenerateVisitCommissionsRequest is the body for POST /v1/visit-commissions/generate.
+// IncludeGenerate must be true to start the async worker; false returns current status without generating.
+type GenerateVisitCommissionsRequest struct {
+	WorksheetID     string `json:"worksheet_id"`
+	IncludeGenerate bool   `json:"include_generate"`
+}
+
+// GenerateVisitCommissionsResponse is the body for POST /v1/visit-commissions/generate (202 Accepted).
+type GenerateVisitCommissionsResponse struct {
+	UUID           string                  `json:"uuid"`
+	Status         WorksheetStatus         `json:"status"`
+	GenerateStatus WorksheetGenerateStatus `json:"generate_status"`
+}
+
+// ListVisitCommissionsRequest is the query for GET /v1/visit-commissions
+// (?staff_id=&start=&end=) or GET /v1/worksheet/{id}/commissions.
+type ListVisitCommissionsRequest struct {
+	WorksheetUUID string `json:"-" schema:"-"`
+	StaffID       string `schema:"staff_id"`
+	Start         Time   `schema:"start"`
+	End           Time   `schema:"end"`
+	CommonRequestPayload
+}
+
+// VisitCommissionResponse is one commission row on GET /v1/visit-commissions.
+type VisitCommissionResponse struct {
+	ID                   int64                `json:"id"`
+	WorksheetID          int64                `json:"worksheet_id"`
+	VisitID              int64                `json:"visit_id"`
+	PatientName          string               `json:"patient_name"`
+	VisitDate            string               `json:"visit_date"`
+	Sources              []ContributionSource `json:"sources"`
+	RevenueBase          int64                `json:"revenue_base"`
+	CommissionType       null.String          `json:"commission_type"`
+	CommissionPercent    null.Float64         `json:"commission_percent"`
+	CommissionFlatAmount null.Int64           `json:"commission_flat_amount"`
+	CommissionAmount     null.Int64           `json:"commission_amount"`
+	HasContributors      bool                 `json:"has_contributors"`
+	ApprovedAt           null.Time            `json:"approved_at"`
+}
+
+// ListVisitCommissionsResponse is the body for GET /v1/visit-commissions.
+type ListVisitCommissionsResponse struct {
+	Commissions []VisitCommissionResponse `json:"commissions"`
+	Total       int                       `json:"total"`
+}
+
+// ArchiveVisitCommissionResponse is the body for DELETE /v1/visit-commissions/{id}.
+type ArchiveVisitCommissionResponse struct {
+	Success bool `json:"success"`
 }

@@ -9,14 +9,7 @@ import (
 	"github.com/faisalhardin/medilink/internal/entity/model"
 )
 
-// PeriodCommissionTotals is the institution-level snapshot computed from commission rows.
-type PeriodCommissionTotals struct {
-	TotalCommission int64 `xorm:"total_commission"`
-	StaffCount      int64 `xorm:"staff_count"`
-	VisitCount      int64 `xorm:"visit_count"`
-}
-
-// StaffCommissionTotals is the per-staff commission subtotal within a payday period.
+// StaffCommissionTotals is the per-staff commission subtotal within a period or worksheet.
 type StaffCommissionTotals struct {
 	StaffID         string `xorm:"staff_id"`
 	TotalCommission int64  `xorm:"total_commission"`
@@ -24,9 +17,6 @@ type StaffCommissionTotals struct {
 }
 
 // VisitCommissionWarning is a visit that exceeds a soft-warning threshold.
-// PercentSum is the sum of percent-type commission_percent values only.
-// CommissionIDR is the sum of all resolved commission_amount values.
-// RevenueBase is the live visit-product cart sum (missing cart = 0).
 type VisitCommissionWarning struct {
 	VisitID       int64   `xorm:"visit_id"`
 	PercentSum    float64 `xorm:"percent_sum"`
@@ -34,21 +24,30 @@ type VisitCommissionWarning struct {
 	RevenueBase   int64   `xorm:"revenue_base"`
 }
 
-// ListVisitCommissionParams filters paginated commission reads for one staff
-// in a payday period. InstitutionID scopes the visit/patient join.
+// ListVisitCommissionParams filters paginated commission reads for one worksheet.
+// InstitutionID is used for visit/patient joins.
 // Limit is applied only when greater than 0.
 type ListVisitCommissionParams struct {
 	InstitutionID int64
-	PeriodID      int64
-	StaffID       string
+	WorksheetID   int64
 	Limit         int
 	Offset        int
 }
 
-// VisitCommissionListRow is one live commission row with visit header fields
-// from LEFT JOIN patient visit + patient institution.
+// ListStaffDateCommissionParams filters commissions by staff and visit date range.
+type ListStaffDateCommissionParams struct {
+	InstitutionID int64
+	StaffID       string
+	Start         time.Time
+	EndExclusive  time.Time
+	Limit         int
+	Offset        int
+}
+
+// VisitCommissionListRow is one live commission row with visit header fields.
 type VisitCommissionListRow struct {
 	ID                   int64                `xorm:"id"`
+	WorksheetID          int64                `xorm:"worksheet_id"`
 	VisitID              int64                `xorm:"visit_id"`
 	StaffID              string               `xorm:"staff_id"`
 	RevenueBase          int64                `xorm:"revenue_base"`
@@ -62,58 +61,50 @@ type VisitCommissionListRow struct {
 	VisitDate            time.Time            `xorm:"visit_date"`
 }
 
-// CommissionAggregator reads stored visit-commission rows for a payday period.
-// Implemented by the commission repository card; the period usecase depends on this contract.
-type CommissionAggregator interface {
-	SumByPeriod(ctx context.Context, periodID int64) (PeriodCommissionTotals, error)
-	DistinctVisitIDsByPeriod(ctx context.Context, periodID int64) ([]int64, error)
-	SumByStaff(ctx context.Context, periodID int64) ([]StaffCommissionTotals, error)
-}
-
 // CommissionDB is the data-access contract for mdl_trx_visit_commission.
-// Mutating methods honour an active xorm session from the request context
-// (see internal/library/db/xorm.GetDBSession).
+// All methods are worksheet-scoped (worksheet_id replaces period_id).
+// Mutating methods honour an active xorm session from the request context.
 type CommissionDB interface {
-	CommissionAggregator
-
-	// Upsert inserts or overwrites the live row keyed by
-	// (period_id, visit_id, staff_id). Soft-deleted rows are not resurrected;
-	// a new live row is inserted instead. Nil row returns an error.
-	Upsert(ctx context.Context, row *model.TrxVisitCommission) error
-
 	// InsertGeneratedIfMissing inserts generate-default live rows keyed by
-	// (period_id, visit_id, staff_id). Existing live rows are left unchanged.
-	// Empty rows returns 0 without querying. inserted is the count of new rows.
+	// (worksheet_id, visit_id). Existing live rows are left unchanged.
+	// Empty rows returns 0 without querying.
 	InsertGeneratedIfMissing(ctx context.Context, rows []model.TrxVisitCommission) (inserted int, err error)
 
-	// ListByPeriodStaff returns non-deleted commission rows for the period and
-	// staff with patient_name and visit_date joined from the visit, ordered by
-	// visit_id ASC, id ASC. total is the unpaginated match count.
-	// Limit/offset apply only when Limit > 0.
-	// Named to avoid colliding with CompensationPeriodDB.List on the shared Conn.
-	ListByPeriodStaff(ctx context.Context, params ListVisitCommissionParams) ([]VisitCommissionListRow, int, error)
+	// ListByWorksheet returns non-deleted commission rows for the worksheet,
+	// joined with visit/patient for patient_name and visit_date.
+	// Ordered visit_id ASC, id ASC. total is the unpaginated count.
+	ListByWorksheet(ctx context.Context, params ListVisitCommissionParams) ([]VisitCommissionListRow, int, error)
 
-	// SumByStaff returns per-staff commission subtotals for live rows in the
-	// period, ordered by staff_id. Staff with no rows are omitted.
-	SumByStaff(ctx context.Context, periodID int64) ([]StaffCommissionTotals, error)
+	// ListByStaffDateRange returns live commissions for staff whose visit create_time
+	// is in [start, endExclusive), scoped to institution.
+	ListByStaffDateRange(ctx context.Context, params ListStaffDateCommissionParams) ([]VisitCommissionListRow, int, error)
 
-	// SumRevenueByVisitIDs returns live visit-product cart sums keyed by
-	// visit id: ROUND(SUM(COALESCE(adjusted_price, total_price))). Empty or
-	// nil visitIDs returns an empty map without querying. Visits with no
-	// product lines are omitted (caller treats missing as 0).
+	// SumValidByWorksheet sums commission_amount for rows where approved_at IS NOT NULL.
+	SumValidByWorksheet(ctx context.Context, worksheetID int64) (int64, error)
+
+	// CountVisitsByWorksheet counts distinct visit_id among all live (non-deleted) rows.
+	CountVisitsByWorksheet(ctx context.Context, worksheetID int64) (int64, error)
+
+	// DistinctVisitIDsByWorksheet returns the deduplicated visit IDs for the worksheet.
+	DistinctVisitIDsByWorksheet(ctx context.Context, worksheetID int64) ([]int64, error)
+
+	// GetLiveByID returns the live commission row for id when its worksheet belongs
+	// to institutionID (via join). found is false when missing or out of scope.
+	GetLiveByID(ctx context.Context, institutionID, id int64) (*model.TrxVisitCommission, bool, error)
+
+	// UpdateAssignmentAmounts updates revenue_base, commission_type, commission_percent,
+	// commission_flat_amount, commission_amount, note, approved_at on the live row.
+	UpdateAssignmentAmounts(ctx context.Context, row *model.TrxVisitCommission) error
+
+	// SoftDelete soft-deletes the commission row by id.
+	SoftDelete(ctx context.Context, id int64) (found bool, err error)
+
+	// SoftDeleteByWorksheet soft-deletes all live commission rows for the worksheet.
+	SoftDeleteByWorksheet(ctx context.Context, worksheetID int64) (int64, error)
+
+	// SumRevenueByVisitIDs returns live visit-product cart sums keyed by visit id.
 	SumRevenueByVisitIDs(ctx context.Context, visitIDs []int64) (map[int64]int64, error)
 
-	// SoftWarningAggregates returns only visits in the period that violate a
-	// soft warning: combined percent rows > 100, or total resolved IDR greater
-	// than the live visit-product revenue base.
-	SoftWarningAggregates(ctx context.Context, periodID int64) ([]VisitCommissionWarning, error)
-
-	// GetLiveByIDForInstitution returns the live commission row for id when its
-	// period belongs to institutionID. found is false when missing or out of scope.
-	GetLiveByIDForInstitution(ctx context.Context, institutionID, id int64) (*model.TrxVisitCommission, bool, error)
-
-	// UpdateAssignmentAmounts updates only assignment columns on the live row
-	// keyed by id. Does not change revenue_base, sources, included_manually, or
-	// approved_at. Returns an error when zero rows are updated.
-	UpdateAssignmentAmounts(ctx context.Context, row *model.TrxVisitCommission) error
+	// SoftWarningAggregates returns visits in the worksheet that violate soft warnings.
+	SoftWarningAggregates(ctx context.Context, worksheetID int64) ([]VisitCommissionWarning, error)
 }

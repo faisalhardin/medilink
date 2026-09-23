@@ -12,7 +12,22 @@ type CompensationPeriodHandler interface {
 	DeletePeriod(w http.ResponseWriter, r *http.Request)
 	ListPeriodStaff(w http.ResponseWriter, r *http.Request)
 	GetPeriodStaff(w http.ResponseWriter, r *http.Request)
-	ListPeriodStaffVisits(w http.ResponseWriter, r *http.Request)
-	GeneratePeriodStaffVisits(w http.ResponseWriter, r *http.Request)
+}
+
+type WorksheetHandler interface {
+	CreateWorksheet(w http.ResponseWriter, r *http.Request)
+	ListWorksheets(w http.ResponseWriter, r *http.Request)
+	GetWorksheet(w http.ResponseWriter, r *http.Request)
+	ListWorksheetCommissions(w http.ResponseWriter, r *http.Request)
+	GenerateWorksheetCommissions(w http.ResponseWriter, r *http.Request)
+	PatchWorksheet(w http.ResponseWriter, r *http.Request)
+	DeleteWorksheet(w http.ResponseWriter, r *http.Request)
+	FinalizeWorksheet(w http.ResponseWriter, r *http.Request)
+}
+
+type VisitCommissionHandler interface {
+	GenerateVisitCommissions(w http.ResponseWriter, r *http.Request)
+	ListVisitCommissions(w http.ResponseWriter, r *http.Request)
 	PatchCommissionItem(w http.ResponseWriter, r *http.Request)
+	ArchiveVisitCommission(w http.ResponseWriter, r *http.Request)
 }

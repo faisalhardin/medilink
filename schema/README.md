@@ -34,10 +34,13 @@ atlas version
    make migrate-diff NAME=add_foo
    ```
 
-3. Review `schema/migrations/*_add_foo.sql`. For `CREATE INDEX CONCURRENTLY`, add at the top:
+3. Review `schema/migrations/*_add_foo.sql`. For `CREATE INDEX CONCURRENTLY`, put this at the top **followed by two blank lines** (required for Atlas to parse the directive):
 
    ```sql
    -- atlas:txmode none
+
+
+   CREATE INDEX CONCURRENTLY ...
    ```
 
 4. After any hand-edit of migration SQL:

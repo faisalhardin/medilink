@@ -26,6 +26,7 @@ type TrxPatientVisit struct {
 	ProductCart                 json.RawMessage `xorm:"'product_cart'" json:"product_cart"`
 	CompensationPeriodID        sql.NullInt64   `xorm:"'compensation_period_id' null" json:"-"`
 	CompensationLockedAt        sql.NullTime    `xorm:"'compensation_locked_at' null" json:"-"`
+	WorksheetID                 sql.NullInt64   `xorm:"'worksheet_id' null" json:"-"`
 }
 
 func (tbl *TrxPatientVisit) BeforeUpdate() {
