@@ -79,7 +79,14 @@ func (u *VisitContributorUC) ListVisitContributors(ctx context.Context, visitID 
 		return merged[i].StaffID < merged[j].StaffID
 	})
 
-	return model.ListVisitContributorsResponse{Contributors: merged}, nil
+	locked := null.Time{}
+	if visit.CompensationLockedAt.Valid {
+		locked = null.TimeFrom(visit.CompensationLockedAt.Time)
+	}
+	return model.ListVisitContributorsResponse{
+		Contributors:         merged,
+		CompensationLockedAt: locked,
+	}, nil
 }
 
 func (u *VisitContributorUC) AddVisitContributor(ctx context.Context, visitID int64, staffID string) (model.AddVisitContributorResponse, error) {

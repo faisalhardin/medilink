@@ -48,6 +48,7 @@ type ListStaffDateCommissionParams struct {
 type VisitCommissionListRow struct {
 	ID                   int64                `xorm:"id"`
 	WorksheetID          int64                `xorm:"worksheet_id"`
+	WorksheetUUID        string               `xorm:"worksheet_uuid"`
 	VisitID              int64                `xorm:"visit_id"`
 	StaffID              string               `xorm:"staff_id"`
 	RevenueBase          int64                `xorm:"revenue_base"`

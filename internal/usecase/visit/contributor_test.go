@@ -160,6 +160,29 @@ func byStaff(t *testing.T, rows []model.VisitContributorResponse) map[string]mod
 	return out
 }
 
+func TestListVisitContributors_LockedAt(t *testing.T) {
+	lockedAt := time.Date(2026, 9, 2, 8, 0, 0, 0, time.UTC)
+	visit := liveVisit()
+	visit.CompensationLockedAt = sql.NullTime{Time: lockedAt, Valid: true}
+	uc := newUC(visit, nil)
+
+	resp, err := uc.ListVisitContributors(testCtx(), testVisitID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !resp.CompensationLockedAt.Valid || !resp.CompensationLockedAt.Time.Equal(lockedAt) {
+		t.Fatalf("compensation_locked_at = %+v", resp.CompensationLockedAt)
+	}
+
+	open, err := newUC(liveVisit(), nil).ListVisitContributors(testCtx(), testVisitID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if open.CompensationLockedAt.Valid {
+		t.Fatal("unlocked visit must return null compensation_locked_at")
+	}
+}
+
 func TestListVisitContributors_MergeClinicalAndMap(t *testing.T) {
 	uc := newUC(liveVisit(), []compensationrepo.DetectedAttribution{
 		{
