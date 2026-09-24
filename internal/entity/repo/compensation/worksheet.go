@@ -23,6 +23,7 @@ type WorksheetDB interface {
 
 	// GetByUUID loads a non-deleted worksheet scoped to the institution.
 	// found is false when missing or already soft-deleted.
+	// LEFT JOINs mdl_trx_compensation_period to populate CompensationPeriodUUID.
 	GetByUUID(ctx context.Context, institutionID int64, uuid string) (*model.TrxWorksheet, bool, error)
 
 	// GetByID loads a worksheet by its primary key (used in background workers).
@@ -32,7 +33,7 @@ type WorksheetDB interface {
 	// filtered by staff_id and status, ordered by id DESC. Cursor is the last
 	// seen id (exclusive); empty means first page. Returns at most Limit rows
 	// (Limit+1 fetched internally by the usecase to detect a next page).
-	// No total count.
+	// No total count. LEFT JOINs payday period for CompensationPeriodUUID.
 	List(ctx context.Context, params model.ListWorksheetsRequest) ([]model.TrxWorksheet, error)
 
 	// Update writes label, period_start, period_end, compensation_period_id

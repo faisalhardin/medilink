@@ -2,6 +2,7 @@ package compensation
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/faisalhardin/medilink/internal/entity/model"
@@ -74,12 +75,20 @@ func (c *WorksheetConn) Create(ctx context.Context, w *model.TrxWorksheet) error
 }
 
 func (c *WorksheetConn) GetByUUID(ctx context.Context, institutionID int64, uuid string) (*model.TrxWorksheet, bool, error) {
+	const sqlText = `
+		SELECT w.*,
+		       p.uuid AS compensation_period_uuid
+		FROM mdl_trx_worksheet w
+		LEFT JOIN mdl_trx_compensation_period p
+		  ON p.id = w.compensation_period_id
+		 AND p.institution_id = w.institution_id
+		 AND p.delete_time IS NULL
+		WHERE w.uuid = ?
+		  AND w.institution_id = ?
+		  AND w.delete_time IS NULL
+	`
 	row := &model.TrxWorksheet{}
-	ok, err := c.DB.SlaveDB.Context(ctx).
-		Table(model.TrxWorksheetTableName).
-		Where("uuid = ?", uuid).
-		And("institution_id = ?", institutionID).
-		Get(row)
+	ok, err := c.DB.SlaveDB.Context(ctx).SQL(sqlText, uuid, institutionID).Get(row)
 	if err != nil {
 		return nil, false, errors.Wrap(err, wrapMsgWorksheetGetByUUID)
 	}
@@ -105,25 +114,39 @@ func (c *WorksheetConn) GetByID(ctx context.Context, id int64) (*model.TrxWorksh
 }
 
 func (c *WorksheetConn) List(ctx context.Context, params model.ListWorksheetsRequest) ([]model.TrxWorksheet, error) {
-	sess := c.DB.SlaveDB.Context(ctx).
-		Table(model.TrxWorksheetTableName).
-		Where("institution_id = ?", params.InstitutionID).
-		OrderBy("id DESC")
+	args := []interface{}{params.InstitutionID}
+	var b strings.Builder
+	b.WriteString(`
+		SELECT w.*,
+		       p.uuid AS compensation_period_uuid
+		FROM mdl_trx_worksheet w
+		LEFT JOIN mdl_trx_compensation_period p
+		  ON p.id = w.compensation_period_id
+		 AND p.institution_id = w.institution_id
+		 AND p.delete_time IS NULL
+		WHERE w.institution_id = ?
+		  AND w.delete_time IS NULL
+	`)
 	if params.StaffID != "" {
-		sess = sess.And("staff_id = ?", params.StaffID)
+		b.WriteString(` AND w.staff_id = ?`)
+		args = append(args, params.StaffID)
 	}
 	if params.Status != "" {
-		sess = sess.And("status = ?", params.Status)
+		b.WriteString(` AND w.status = ?`)
+		args = append(args, string(params.Status))
 	}
 	if params.Cursor != "" {
-		sess = sess.And("id < ?", params.Cursor)
+		b.WriteString(` AND w.id < ?`)
+		args = append(args, params.Cursor)
 	}
+	b.WriteString(` ORDER BY w.id DESC`)
 	if params.Limit > 0 {
-		sess = sess.Limit(params.Limit)
+		b.WriteString(` LIMIT ?`)
+		args = append(args, params.Limit)
 	}
 
 	rows := []model.TrxWorksheet{}
-	if err := sess.Find(&rows); err != nil {
+	if err := c.DB.SlaveDB.Context(ctx).SQL(b.String(), args...).Find(&rows); err != nil {
 		return nil, errors.Wrap(err, wrapMsgWorksheetList)
 	}
 	return rows, nil

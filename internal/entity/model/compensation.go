@@ -142,27 +142,29 @@ func (t ContributionSourceType) IsValid() bool {
 
 // TrxWorksheet is a single-staff wrap for visit commissions.
 type TrxWorksheet struct {
-	ID                   int64                   `xorm:"'id' pk autoincr" json:"-"`
-	UUID                 string                  `xorm:"'uuid'" json:"-"`
-	InstitutionID        int64                   `xorm:"'institution_id'" json:"-"`
-	StaffID              string                  `xorm:"'staff_id'" json:"-"`
-	Label                string                  `xorm:"'label'" json:"-"`
-	PeriodStart          time.Time               `xorm:"'period_start'" json:"-"`
-	PeriodEnd            time.Time               `xorm:"'period_end'" json:"-"`
-	Status               WorksheetStatus         `xorm:"'status'" json:"-"`
-	GenerateStatus       WorksheetGenerateStatus `xorm:"'generate_status'" json:"-"`
-	CompensationPeriodID sql.NullInt64           `xorm:"'compensation_period_id' null" json:"-"`
-	TotalCommission      int64                   `xorm:"'total_commission'" json:"-"`
-	VisitCount           int64                   `xorm:"'visit_count'" json:"-"`
-	GenerateStartedAt    sql.NullTime            `xorm:"'generate_started_at' null" json:"-"`
-	GenerateFinishedAt   sql.NullTime            `xorm:"'generate_finished_at' null" json:"-"`
-	GenerateError        sql.NullString          `xorm:"'generate_error' null" json:"-"`
-	FinalizedAt          sql.NullTime            `xorm:"'finalized_at' null" json:"-"`
-	FinalizedBy          sql.NullString          `xorm:"'finalized_by' null" json:"-"`
-	CreatedBy            sql.NullString          `xorm:"'created_by' null" json:"-"`
-	CreateTime           time.Time               `xorm:"'create_time' created" json:"-"`
-	UpdateTime           time.Time               `xorm:"'update_time' updated" json:"-"`
-	DeleteTime           *time.Time              `xorm:"'delete_time' deleted" json:"-"`
+	ID                     int64                   `xorm:"'id' pk autoincr" json:"-"`
+	UUID                   string                  `xorm:"'uuid'" json:"-"`
+	InstitutionID          int64                   `xorm:"'institution_id'" json:"-"`
+	StaffID                string                  `xorm:"'staff_id'" json:"-"`
+	Label                  string                  `xorm:"'label'" json:"-"`
+	PeriodStart            time.Time               `xorm:"'period_start'" json:"-"`
+	PeriodEnd              time.Time               `xorm:"'period_end'" json:"-"`
+	Status                 WorksheetStatus         `xorm:"'status'" json:"-"`
+	GenerateStatus         WorksheetGenerateStatus `xorm:"'generate_status'" json:"-"`
+	CompensationPeriodID   sql.NullInt64           `xorm:"'compensation_period_id' null" json:"-"`
+	TotalCommission        int64                   `xorm:"'total_commission'" json:"-"`
+	VisitCount             int64                   `xorm:"'visit_count'" json:"-"`
+	GenerateStartedAt      sql.NullTime            `xorm:"'generate_started_at' null" json:"-"`
+	GenerateFinishedAt     sql.NullTime            `xorm:"'generate_finished_at' null" json:"-"`
+	GenerateError          sql.NullString          `xorm:"'generate_error' null" json:"-"`
+	FinalizedAt            sql.NullTime            `xorm:"'finalized_at' null" json:"-"`
+	FinalizedBy            sql.NullString          `xorm:"'finalized_by' null" json:"-"`
+	CreatedBy              sql.NullString          `xorm:"'created_by' null" json:"-"`
+	CreateTime             time.Time               `xorm:"'create_time' created" json:"-"`
+	UpdateTime             time.Time               `xorm:"'update_time' updated" json:"-"`
+	DeleteTime             *time.Time              `xorm:"'delete_time' deleted" json:"-"`
+	// CompensationPeriodUUID is filled by GetByUUID/List via LEFT JOIN; not a DB column.
+	CompensationPeriodUUID sql.NullString          `xorm:"<- 'compensation_period_uuid'" json:"-"`
 }
 
 func (TrxWorksheet) TableName() string {
@@ -172,30 +174,24 @@ func (TrxWorksheet) TableName() string {
 const worksheetDateLayout = "2006-01-02"
 
 // ToResponse converts a TrxWorksheet row to the JSON DTO.
+// CompensationPeriodUUID comes from the worksheet query join (or is set after attach).
 func (w TrxWorksheet) ToResponse() WorksheetResponse {
 	return WorksheetResponse{
-		UUID:                 w.UUID,
-		StaffID:              w.StaffID,
-		Label:                w.Label,
-		PeriodStart:          w.PeriodStart.UTC().Format(worksheetDateLayout),
-		PeriodEnd:            w.PeriodEnd.UTC().Format(worksheetDateLayout),
-		Status:               w.Status,
-		GenerateStatus:       w.GenerateStatus,
-		CompensationPeriodID: nullInt64ToNullable(w.CompensationPeriodID),
-		TotalCommission:      w.TotalCommission,
-		VisitCount:           w.VisitCount,
-		GenerateStartedAt:    nullTimeFromSQL(w.GenerateStartedAt),
-		GenerateFinishedAt:   nullTimeFromSQL(w.GenerateFinishedAt),
-		GenerateError:        nullStringToNullable(w.GenerateError),
-		FinalizedAt:          nullTimeFromSQL(w.FinalizedAt),
+		UUID:                   w.UUID,
+		StaffID:                w.StaffID,
+		Label:                  w.Label,
+		PeriodStart:            w.PeriodStart.UTC().Format(worksheetDateLayout),
+		PeriodEnd:              w.PeriodEnd.UTC().Format(worksheetDateLayout),
+		Status:                 w.Status,
+		GenerateStatus:         w.GenerateStatus,
+		CompensationPeriodUUID: nullStringToNullable(w.CompensationPeriodUUID),
+		TotalCommission:        w.TotalCommission,
+		VisitCount:             w.VisitCount,
+		GenerateStartedAt:      nullTimeFromSQL(w.GenerateStartedAt),
+		GenerateFinishedAt:     nullTimeFromSQL(w.GenerateFinishedAt),
+		GenerateError:          nullStringToNullable(w.GenerateError),
+		FinalizedAt:            nullTimeFromSQL(w.FinalizedAt),
 	}
-}
-
-func nullInt64ToNullable(v sql.NullInt64) null.Int64 {
-	if !v.Valid {
-		return null.Int64{}
-	}
-	return null.Int64From(v.Int64)
 }
 
 func nullStringToNullable(v sql.NullString) null.String {
@@ -509,21 +505,23 @@ type ListWorksheetsRequest struct {
 }
 
 // WorksheetResponse is the public worksheet shape.
+// CompensationPeriodUUID is the public payday period UUID when attached (null when unattached).
+// Internal BIGINT FK is not exposed.
 type WorksheetResponse struct {
-	UUID                 string                  `json:"uuid"`
-	StaffID              string                  `json:"staff_id"`
-	Label                string                  `json:"label"`
-	PeriodStart          string                  `json:"period_start"`
-	PeriodEnd            string                  `json:"period_end"`
-	Status               WorksheetStatus         `json:"status"`
-	GenerateStatus       WorksheetGenerateStatus `json:"generate_status"`
-	CompensationPeriodID null.Int64              `json:"compensation_period_id"`
-	TotalCommission      int64                   `json:"total_commission"`
-	VisitCount           int64                   `json:"visit_count"`
-	GenerateStartedAt    null.Time               `json:"generate_started_at"`
-	GenerateFinishedAt   null.Time               `json:"generate_finished_at"`
-	GenerateError        null.String             `json:"generate_error"`
-	FinalizedAt          null.Time               `json:"finalized_at"`
+	UUID                   string                  `json:"uuid"`
+	StaffID                string                  `json:"staff_id"`
+	Label                  string                  `json:"label"`
+	PeriodStart            string                  `json:"period_start"`
+	PeriodEnd              string                  `json:"period_end"`
+	Status                 WorksheetStatus         `json:"status"`
+	GenerateStatus         WorksheetGenerateStatus `json:"generate_status"`
+	CompensationPeriodUUID null.String             `json:"compensation_period_uuid"`
+	TotalCommission        int64                   `json:"total_commission"`
+	VisitCount             int64                   `json:"visit_count"`
+	GenerateStartedAt      null.Time               `json:"generate_started_at"`
+	GenerateFinishedAt     null.Time               `json:"generate_finished_at"`
+	GenerateError          null.String             `json:"generate_error"`
+	FinalizedAt            null.Time               `json:"finalized_at"`
 }
 
 // ListWorksheetsResponse is a cursor-paginated worksheet list (no total count).
@@ -533,13 +531,14 @@ type ListWorksheetsResponse struct {
 }
 
 // PatchWorksheetRequest is the body for PATCH /v1/worksheet/{id}.
-// CompensationPeriodID: nil = omit (no change); non-nil invalid = detach; non-nil valid = attach.
+// CompensationPeriodUUID: nil = omit (no change); non-nil invalid/empty = detach;
+// non-nil valid string = attach by public period UUID.
 type PatchWorksheetRequest struct {
-	UUID                 string      `json:"-"`
-	Label                null.String `json:"label"`
-	PeriodStart          *Time       `json:"period_start"`
-	PeriodEnd            *Time       `json:"period_end"`
-	CompensationPeriodID *null.Int64 `json:"compensation_period_id"`
+	UUID                   string       `json:"-"`
+	Label                  null.String  `json:"label"`
+	PeriodStart            *Time        `json:"period_start"`
+	PeriodEnd              *Time        `json:"period_end"`
+	CompensationPeriodUUID *null.String `json:"compensation_period_uuid"`
 }
 
 // DeleteWorksheetResponse is the body for DELETE /v1/worksheet/{id}.
