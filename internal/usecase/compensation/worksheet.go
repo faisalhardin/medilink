@@ -218,12 +218,14 @@ func (u *WorksheetUC) PatchWorksheet(ctx context.Context, req model.PatchWorkshe
 		}
 	}
 
-	if req.CompensationPeriodID != nil {
-		if !req.CompensationPeriodID.Valid || req.CompensationPeriodID.Int64 <= 0 {
-			// JSON null or non-positive → detach payday link.
+	if req.CompensationPeriodUUID != nil {
+		if !req.CompensationPeriodUUID.Valid || strings.TrimSpace(req.CompensationPeriodUUID.String) == "" {
+			// JSON null or empty → detach payday link.
 			w.CompensationPeriodID = sql.NullInt64{}
+			w.CompensationPeriodUUID = sql.NullString{}
 		} else {
-			period, found, pErr := u.CompensationPeriodDB.GetByID(ctx, userDetail.InstitutionID, req.CompensationPeriodID.Int64)
+			periodUUID := strings.TrimSpace(req.CompensationPeriodUUID.String)
+			period, found, pErr := u.CompensationPeriodDB.GetByUUID(ctx, userDetail.InstitutionID, periodUUID)
 			if pErr != nil {
 				return model.WorksheetResponse{}, errors.Wrap(pErr, wrapMsgPatchWorksheet)
 			}
@@ -234,6 +236,7 @@ func (u *WorksheetUC) PatchWorksheet(ctx context.Context, req model.PatchWorkshe
 				return model.WorksheetResponse{}, commonerr.SetNewBadRequest(errPaydayPeriodFinalized, msgPaydayPeriodFinalized)
 			}
 			w.CompensationPeriodID = sql.NullInt64{Int64: period.ID, Valid: true}
+			w.CompensationPeriodUUID = sql.NullString{String: period.UUID, Valid: true}
 		}
 	}
 
