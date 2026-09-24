@@ -8,6 +8,7 @@ import (
 	"github.com/faisalhardin/medilink/internal/entity/model"
 	compensationrepo "github.com/faisalhardin/medilink/internal/entity/repo/compensation"
 	xormlib "github.com/faisalhardin/medilink/internal/library/db/xorm"
+	utilcommon "github.com/faisalhardin/medilink/internal/library/util/common"
 	"github.com/go-xorm/xorm"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
@@ -150,6 +151,10 @@ func (c *WorksheetConn) List(ctx context.Context, params model.ListWorksheetsReq
 	if params.Status != "" {
 		b.WriteString(` AND w.status = ?`)
 		args = append(args, string(params.Status))
+	}
+	if !params.PeriodStart.Time().IsZero() && !params.PeriodEnd.Time().IsZero() {
+		b.WriteString(` AND w.period_start <= ? AND w.period_end >= ?`)
+		args = append(args, utilcommon.DateOnly(params.PeriodEnd.Time()), utilcommon.DateOnly(params.PeriodStart.Time()))
 	}
 	if params.Cursor != "" {
 		b.WriteString(` AND w.id < ?`)

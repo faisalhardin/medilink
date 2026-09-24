@@ -30,8 +30,8 @@ type WorksheetDB interface {
 	GetByID(ctx context.Context, id int64) (*model.TrxWorksheet, bool, error)
 
 	// List returns non-deleted worksheets for the institution, optionally
-	// filtered by staff_id, status, and compensation_period_uuid, ordered by
-	// id DESC. Cursor is the last seen id (exclusive); empty means first page.
+	// filtered by staff_id, status, compensation_period_uuid, and an optional
+	// overlapping period_start/period_end, ordered by id DESC. Cursor is the last seen id (exclusive); empty means first page.
 	// Returns at most Limit rows (Limit+1 fetched internally by the usecase
 	// to detect a next page). No total count.
 	// When CompensationPeriodUUID is set, INNER JOINs the payday period so

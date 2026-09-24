@@ -219,6 +219,38 @@ func TestListWorksheets_PassesPeriodUUID(t *testing.T) {
 	}
 }
 
+func TestListWorksheets_PassesDateOverlap(t *testing.T) {
+	wsDB := &patchFakeWorksheetDB{byUUID: map[string]*model.TrxWorksheet{}}
+	uc := newWorksheetUC(wsDB, nil)
+	start := time.Date(2026, 9, 1, 15, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 9, 30, 0, 0, 0, 0, time.UTC)
+
+	_, err := uc.ListWorksheets(testCtx(), model.ListWorksheetsRequest{
+		PeriodStart: model.Time(start),
+		PeriodEnd:   model.Time(end),
+	})
+	if err != nil {
+		t.Fatalf("ListWorksheets: %v", err)
+	}
+	if !wsDB.lastList.PeriodStart.Time().Equal(time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)) {
+		t.Fatalf("period_start = %v", wsDB.lastList.PeriodStart.Time())
+	}
+	if !wsDB.lastList.PeriodEnd.Time().Equal(time.Date(2026, 9, 30, 0, 0, 0, 0, time.UTC)) {
+		t.Fatalf("period_end = %v", wsDB.lastList.PeriodEnd.Time())
+	}
+}
+
+func TestListWorksheets_RejectsInvertedDates(t *testing.T) {
+	uc := newWorksheetUC(nil, nil)
+	_, err := uc.ListWorksheets(testCtx(), model.ListWorksheetsRequest{
+		PeriodStart: model.Time(time.Date(2026, 9, 30, 0, 0, 0, 0, time.UTC)),
+		PeriodEnd:   model.Time(time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)),
+	})
+	if errorName(t, err) != errInvalidPeriodDates {
+		t.Fatalf("error = %v", err)
+	}
+}
+
 func TestListWorksheets_OmitsPeriodFilterWhenEmpty(t *testing.T) {
 	wsDB := &patchFakeWorksheetDB{byUUID: map[string]*model.TrxWorksheet{}}
 	uc := newWorksheetUC(wsDB, nil)
