@@ -138,6 +138,7 @@ func (u *WorksheetUC) ListWorksheets(ctx context.Context, req model.ListWorkshee
 	}
 	req.Limit = limit + 1 // fetch one extra to detect next page
 	req.InstitutionID = userDetail.InstitutionID
+	req.CompensationPeriodUUID = strings.TrimSpace(req.CompensationPeriodUUID)
 
 	rows, err := u.WorksheetDB.List(ctx, req)
 	if err != nil {

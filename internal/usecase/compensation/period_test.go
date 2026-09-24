@@ -174,6 +174,7 @@ type fakeWorksheetDB struct {
 	periodTotals map[int64]compensationrepo.WorksheetPeriodTotals
 	// staffTotals maps compensationPeriodID → per-staff totals
 	staffTotals map[int64][]compensationrepo.StaffCommissionTotals
+	lastList    model.ListWorksheetsRequest
 	sumErr      error
 	staffErr    error
 }
@@ -185,7 +186,8 @@ func (f *fakeWorksheetDB) GetByUUID(_ context.Context, _ int64, _ string) (*mode
 func (f *fakeWorksheetDB) GetByID(_ context.Context, _ int64) (*model.TrxWorksheet, bool, error) {
 	return nil, false, nil
 }
-func (f *fakeWorksheetDB) List(_ context.Context, _ model.ListWorksheetsRequest) ([]model.TrxWorksheet, error) {
+func (f *fakeWorksheetDB) List(_ context.Context, params model.ListWorksheetsRequest) ([]model.TrxWorksheet, error) {
+	f.lastList = params
 	return nil, nil
 }
 func (f *fakeWorksheetDB) Update(_ context.Context, _ *model.TrxWorksheet) error { return nil }
