@@ -34,7 +34,7 @@ const (
 )
 
 type staffListRow struct {
-	UUID            string          `xorm:"uuid"`
+	UUID            string          `xorm:"'uuid'"`
 	Name            string          `xorm:"name"`
 	Email           string          `xorm:"email"`
 	InstitutionID   int64           `xorm:"id_mst_institution"`

@@ -48,6 +48,7 @@ const (
 		SELECT
 			c.id,
 			c.worksheet_id,
+			w.uuid AS worksheet_uuid,
 			c.visit_id,
 			c.staff_id,
 			c.revenue_base,
@@ -60,6 +61,9 @@ const (
 			COALESCE(p.name, '') AS patient_name,
 			v.create_time AS visit_date
 		FROM mdl_trx_visit_commission c
+		INNER JOIN mdl_trx_worksheet w
+			ON w.id = c.worksheet_id
+			AND w.delete_time IS NULL
 		LEFT JOIN mdl_trx_patient_visit v
 			ON v.id = c.visit_id
 			AND v.id_mst_institution = ?
@@ -191,6 +195,7 @@ func (c *CommissionConn) ListByStaffDateRange(ctx context.Context, params compen
 		SELECT
 			c.id,
 			c.worksheet_id,
+			w.uuid AS worksheet_uuid,
 			c.visit_id,
 			c.staff_id,
 			c.revenue_base,
@@ -203,6 +208,9 @@ func (c *CommissionConn) ListByStaffDateRange(ctx context.Context, params compen
 			COALESCE(p.name, '') AS patient_name,
 			v.create_time AS visit_date
 		FROM mdl_trx_visit_commission c
+		INNER JOIN mdl_trx_worksheet w
+			ON w.id = c.worksheet_id
+			AND w.delete_time IS NULL
 		JOIN mdl_trx_patient_visit v
 			ON v.id = c.visit_id
 			AND v.id_mst_institution = ?

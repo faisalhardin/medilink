@@ -142,29 +142,29 @@ func (t ContributionSourceType) IsValid() bool {
 
 // TrxWorksheet is a single-staff wrap for visit commissions.
 type TrxWorksheet struct {
-	ID                     int64                   `xorm:"'id' pk autoincr" json:"-"`
-	UUID                   string                  `xorm:"'uuid'" json:"-"`
-	InstitutionID          int64                   `xorm:"'institution_id'" json:"-"`
-	StaffID                string                  `xorm:"'staff_id'" json:"-"`
-	Label                  string                  `xorm:"'label'" json:"-"`
-	PeriodStart            time.Time               `xorm:"'period_start'" json:"-"`
-	PeriodEnd              time.Time               `xorm:"'period_end'" json:"-"`
-	Status                 WorksheetStatus         `xorm:"'status'" json:"-"`
-	GenerateStatus         WorksheetGenerateStatus `xorm:"'generate_status'" json:"-"`
-	CompensationPeriodID   sql.NullInt64           `xorm:"'compensation_period_id' null" json:"-"`
-	TotalCommission        int64                   `xorm:"'total_commission'" json:"-"`
-	VisitCount             int64                   `xorm:"'visit_count'" json:"-"`
-	GenerateStartedAt      sql.NullTime            `xorm:"'generate_started_at' null" json:"-"`
-	GenerateFinishedAt     sql.NullTime            `xorm:"'generate_finished_at' null" json:"-"`
-	GenerateError          sql.NullString          `xorm:"'generate_error' null" json:"-"`
-	FinalizedAt            sql.NullTime            `xorm:"'finalized_at' null" json:"-"`
-	FinalizedBy            sql.NullString          `xorm:"'finalized_by' null" json:"-"`
-	CreatedBy              sql.NullString          `xorm:"'created_by' null" json:"-"`
-	CreateTime             time.Time               `xorm:"'create_time' created" json:"-"`
-	UpdateTime             time.Time               `xorm:"'update_time' updated" json:"-"`
-	DeleteTime             *time.Time              `xorm:"'delete_time' deleted" json:"-"`
+	ID                   int64                   `xorm:"'id' pk autoincr" json:"-"`
+	UUID                 string                  `xorm:"'uuid'" json:"-"`
+	InstitutionID        int64                   `xorm:"'institution_id'" json:"-"`
+	StaffID              string                  `xorm:"'staff_id'" json:"-"`
+	Label                string                  `xorm:"'label'" json:"-"`
+	PeriodStart          time.Time               `xorm:"'period_start'" json:"-"`
+	PeriodEnd            time.Time               `xorm:"'period_end'" json:"-"`
+	Status               WorksheetStatus         `xorm:"'status'" json:"-"`
+	GenerateStatus       WorksheetGenerateStatus `xorm:"'generate_status'" json:"-"`
+	CompensationPeriodID sql.NullInt64           `xorm:"'compensation_period_id' null" json:"-"`
+	TotalCommission      int64                   `xorm:"'total_commission'" json:"-"`
+	VisitCount           int64                   `xorm:"'visit_count'" json:"-"`
+	GenerateStartedAt    sql.NullTime            `xorm:"'generate_started_at' null" json:"-"`
+	GenerateFinishedAt   sql.NullTime            `xorm:"'generate_finished_at' null" json:"-"`
+	GenerateError        sql.NullString          `xorm:"'generate_error' null" json:"-"`
+	FinalizedAt          sql.NullTime            `xorm:"'finalized_at' null" json:"-"`
+	FinalizedBy          sql.NullString          `xorm:"'finalized_by' null" json:"-"`
+	CreatedBy            sql.NullString          `xorm:"'created_by' null" json:"-"`
+	CreateTime           time.Time               `xorm:"'create_time' created" json:"-"`
+	UpdateTime           time.Time               `xorm:"'update_time' updated" json:"-"`
+	DeleteTime           *time.Time              `xorm:"'delete_time' deleted" json:"-"`
 	// CompensationPeriodUUID is filled by GetByUUID/List via LEFT JOIN; not a DB column.
-	CompensationPeriodUUID sql.NullString          `xorm:"<- 'compensation_period_uuid'" json:"-"`
+	CompensationPeriodUUID sql.NullString `xorm:"<- 'compensation_period_uuid'" json:"-"`
 }
 
 func (TrxWorksheet) TableName() string {
@@ -355,8 +355,10 @@ type VisitContributorResponse struct {
 }
 
 // ListVisitContributorsResponse is the body for GET /v1/visit/{id}/contributors.
+// CompensationLockedAt is set when a finalized worksheet locked the visit.
 type ListVisitContributorsResponse struct {
-	Contributors []VisitContributorResponse `json:"contributors"`
+	Contributors         []VisitContributorResponse `json:"contributors"`
+	CompensationLockedAt null.Time                  `json:"compensation_locked_at"`
 }
 
 // AddVisitContributorRequest is the body for POST /v1/visit/{id}/contributors.
@@ -577,10 +579,12 @@ type ListVisitCommissionsRequest struct {
 	CommonRequestPayload
 }
 
-// VisitCommissionResponse is one commission row on GET /v1/visit-commissions.
+// VisitCommissionResponse is one commission row on GET /v1/visit-commissions
+// and GET /v1/worksheet/{id}/commissions.
+// WorksheetUUID is the public worksheet id. The internal BIGINT is not exposed.
 type VisitCommissionResponse struct {
 	ID                   int64                `json:"id"`
-	WorksheetID          int64                `json:"worksheet_id"`
+	WorksheetUUID        string               `json:"worksheet_uuid"`
 	VisitID              int64                `json:"visit_id"`
 	PatientName          string               `json:"patient_name"`
 	VisitDate            string               `json:"visit_date"`

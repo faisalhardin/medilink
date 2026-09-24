@@ -573,7 +573,7 @@ func commissionRowToResponse(commission compensationrepo.VisitCommissionListRow)
 	sources := sourcesFromJSON(commission.Sources)
 	row := model.VisitCommissionResponse{
 		ID:              commission.ID,
-		WorksheetID:     commission.WorksheetID,
+		WorksheetUUID:   commission.WorksheetUUID,
 		VisitID:         commission.VisitID,
 		PatientName:     commission.PatientName,
 		VisitDate:       visitDate,

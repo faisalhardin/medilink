@@ -23,11 +23,11 @@ Domain under `internal/{entity,http,usecase,repo}/compensation`. Specs: workspac
 | Method | Path | Perm | Notes |
 | --- | --- | --- | --- |
 | POST | `/` | assign | create open/idle |
-| GET | `/` `?staff_id=&status=&limit=&cursor=` | read | `{ worksheets, next_cursor }` no total |
+| GET | `/` `?staff_id=&status=&compensation_period_uuid=&limit=&cursor=` | read | `{ worksheets, next_cursor }` no total |
 | GET | `/{id}` | read | |
 | GET | `/{id}/commissions` | read | |
 | POST | `/{id}/generate` | assign | async |
-| PATCH | `/{id}` | assign | open only; dates re-validated + overlap; `compensation_period_id` *null.Int64: nil=omit, invalid=detach, valid=attach (period must exist, same institution, not finalized) |
+| PATCH | `/{id}` | assign | open only; `compensation_period_uuid` *null.String: nil=omit, invalid/empty=detach, valid=attach |
 | DELETE | `/{id}` | assign | not finalized, not payday-linked; TX cascade SoftDeleteByWorksheet then worksheet |
 | POST | `/{id}/finalize` | finalize | |
 
@@ -35,7 +35,7 @@ Domain under `internal/{entity,http,usecase,repo}/compensation`. Specs: workspac
 | Method | Path | Notes |
 | --- | --- | --- |
 | POST | `/generate` | `{ worksheet_id, include_generate }` |
-| GET | `/` | `?staff_id=&start=&end=`; response includes `worksheet_id` |
+| GET | `/` | `?staff_id=&start=&end=`; response uses public `worksheet_uuid` (not internal id) |
 | PATCH | `/{id}` | open worksheet only; **blocked if payday-linked**; refresh Option A revenue_base then resolve amount; persists revenue_base |
 | DELETE | `/{id}` | soft archive; blocked if payday-linked or finalized |
 
