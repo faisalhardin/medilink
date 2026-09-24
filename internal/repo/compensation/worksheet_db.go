@@ -114,19 +114,35 @@ func (c *WorksheetConn) GetByID(ctx context.Context, id int64) (*model.TrxWorksh
 }
 
 func (c *WorksheetConn) List(ctx context.Context, params model.ListWorksheetsRequest) ([]model.TrxWorksheet, error) {
-	args := []interface{}{params.InstitutionID}
+	args := []interface{}{}
 	var b strings.Builder
 	b.WriteString(`
 		SELECT w.*,
 		       p.uuid AS compensation_period_uuid
 		FROM mdl_trx_worksheet w
+	`)
+	if params.CompensationPeriodUUID != "" {
+		b.WriteString(`
+		INNER JOIN mdl_trx_compensation_period p
+		  ON p.id = w.compensation_period_id
+		 AND p.institution_id = w.institution_id
+		 AND p.delete_time IS NULL
+		 AND p.uuid = ?
+		`)
+		args = append(args, params.CompensationPeriodUUID)
+	} else {
+		b.WriteString(`
 		LEFT JOIN mdl_trx_compensation_period p
 		  ON p.id = w.compensation_period_id
 		 AND p.institution_id = w.institution_id
 		 AND p.delete_time IS NULL
+		`)
+	}
+	b.WriteString(`
 		WHERE w.institution_id = ?
 		  AND w.delete_time IS NULL
 	`)
+	args = append(args, params.InstitutionID)
 	if params.StaffID != "" {
 		b.WriteString(` AND w.staff_id = ?`)
 		args = append(args, params.StaffID)

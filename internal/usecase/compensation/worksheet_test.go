@@ -200,6 +200,38 @@ func TestGetWorksheet_ResolvesPeriodUUID(t *testing.T) {
 	}
 }
 
+func TestListWorksheets_PassesPeriodUUID(t *testing.T) {
+	wsDB := &patchFakeWorksheetDB{byUUID: map[string]*model.TrxWorksheet{}}
+	uc := newWorksheetUC(wsDB, nil)
+
+	_, err := uc.ListWorksheets(testCtx(), model.ListWorksheetsRequest{
+		CompensationPeriodUUID: "  period-uuid-7  ",
+		Limit:                  10,
+	})
+	if err != nil {
+		t.Fatalf("ListWorksheets: %v", err)
+	}
+	if wsDB.lastList.CompensationPeriodUUID != "period-uuid-7" {
+		t.Fatalf("CompensationPeriodUUID = %q, want period-uuid-7", wsDB.lastList.CompensationPeriodUUID)
+	}
+	if wsDB.lastList.InstitutionID != testInstitutionID {
+		t.Fatalf("InstitutionID = %d, want %d", wsDB.lastList.InstitutionID, testInstitutionID)
+	}
+}
+
+func TestListWorksheets_OmitsPeriodFilterWhenEmpty(t *testing.T) {
+	wsDB := &patchFakeWorksheetDB{byUUID: map[string]*model.TrxWorksheet{}}
+	uc := newWorksheetUC(wsDB, nil)
+
+	_, err := uc.ListWorksheets(testCtx(), model.ListWorksheetsRequest{})
+	if err != nil {
+		t.Fatalf("ListWorksheets: %v", err)
+	}
+	if wsDB.lastList.CompensationPeriodUUID != "" {
+		t.Fatalf("CompensationPeriodUUID = %q, want empty", wsDB.lastList.CompensationPeriodUUID)
+	}
+}
+
 func TestTrxWorksheet_ToResponse_PeriodUUID(t *testing.T) {
 	w := openWorksheet("ws-json")
 	w.CompensationPeriodUUID = sql.NullString{String: "p-uuid", Valid: true}

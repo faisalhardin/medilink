@@ -30,10 +30,13 @@ type WorksheetDB interface {
 	GetByID(ctx context.Context, id int64) (*model.TrxWorksheet, bool, error)
 
 	// List returns non-deleted worksheets for the institution, optionally
-	// filtered by staff_id and status, ordered by id DESC. Cursor is the last
-	// seen id (exclusive); empty means first page. Returns at most Limit rows
-	// (Limit+1 fetched internally by the usecase to detect a next page).
-	// No total count. LEFT JOINs payday period for CompensationPeriodUUID.
+	// filtered by staff_id, status, and compensation_period_uuid, ordered by
+	// id DESC. Cursor is the last seen id (exclusive); empty means first page.
+	// Returns at most Limit rows (Limit+1 fetched internally by the usecase
+	// to detect a next page). No total count.
+	// When CompensationPeriodUUID is set, INNER JOINs the payday period so
+	// only linked worksheets are returned; otherwise LEFT JOINs to populate
+	// CompensationPeriodUUID.
 	List(ctx context.Context, params model.ListWorksheetsRequest) ([]model.TrxWorksheet, error)
 
 	// Update writes label, period_start, period_end, compensation_period_id

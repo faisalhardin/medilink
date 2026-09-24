@@ -495,13 +495,14 @@ type CreateWorksheetRequest struct {
 
 // ListWorksheetsRequest is the query for GET /v1/worksheet.
 // Cursor is the last worksheet id from the previous page (exclusive); empty = first page.
+// CompensationPeriodUUID, when set, returns only worksheets linked to that payday.
 type ListWorksheetsRequest struct {
-	StaffID              string          `schema:"staff_id"`
-	Status               WorksheetStatus `schema:"status"`
-	CompensationPeriodID null.Int64      `schema:"-"`
-	Cursor               string          `schema:"cursor"`
-	Limit                int             `schema:"limit"`
-	InstitutionID        int64           `schema:"-"`
+	StaffID                string          `schema:"staff_id"`
+	Status                 WorksheetStatus `schema:"status"`
+	CompensationPeriodUUID string          `schema:"compensation_period_uuid"`
+	Cursor                 string          `schema:"cursor"`
+	Limit                  int             `schema:"limit"`
+	InstitutionID          int64           `schema:"-"`
 }
 
 // WorksheetResponse is the public worksheet shape.
