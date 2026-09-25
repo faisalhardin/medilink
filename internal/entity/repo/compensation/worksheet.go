@@ -26,7 +26,9 @@ type WorksheetDB interface {
 	// LEFT JOINs mdl_trx_compensation_period to populate CompensationPeriodUUID.
 	GetByUUID(ctx context.Context, institutionID int64, uuid string) (*model.TrxWorksheet, bool, error)
 
-	// GetByID loads a worksheet by its primary key (used in background workers).
+	// GetByID loads a non-deleted worksheet by primary key (PATCH commission,
+	// generate worker). LEFT JOINs payday period for CompensationPeriodUUID;
+	// do not Table().Get — that column is not on mdl_trx_worksheet.
 	GetByID(ctx context.Context, id int64) (*model.TrxWorksheet, bool, error)
 
 	// List returns non-deleted worksheets for the institution, optionally

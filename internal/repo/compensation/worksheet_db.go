@@ -100,11 +100,21 @@ func (c *WorksheetConn) GetByUUID(ctx context.Context, institutionID int64, uuid
 }
 
 func (c *WorksheetConn) GetByID(ctx context.Context, id int64) (*model.TrxWorksheet, bool, error) {
+	// Same JOIN as GetByUUID: CompensationPeriodUUID is not a worksheet column.
+	// Table().Get would SELECT it and fail with pq: column does not exist.
+	const sqlText = `
+		SELECT w.*,
+		       p.uuid AS compensation_period_uuid
+		FROM mdl_trx_worksheet w
+		LEFT JOIN mdl_trx_compensation_period p
+		  ON p.id = w.compensation_period_id
+		 AND p.institution_id = w.institution_id
+		 AND p.delete_time IS NULL
+		WHERE w.id = ?
+		  AND w.delete_time IS NULL
+	`
 	row := &model.TrxWorksheet{}
-	ok, err := c.DB.SlaveDB.Context(ctx).
-		Table(model.TrxWorksheetTableName).
-		Where("id = ?", id).
-		Get(row)
+	ok, err := c.DB.SlaveDB.Context(ctx).SQL(sqlText, id).Get(row)
 	if err != nil {
 		return nil, false, errors.Wrap(err, wrapMsgWorksheetGetByID)
 	}
