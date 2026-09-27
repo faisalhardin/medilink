@@ -15,6 +15,7 @@ import (
 	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
 	xormlib "github.com/faisalhardin/medilink/internal/library/db/xorm"
 	"github.com/faisalhardin/medilink/internal/library/middlewares/auth"
+	visituc "github.com/faisalhardin/medilink/internal/usecase/visit"
 	"github.com/pkg/errors"
 	"github.com/volatiletech/null/v8"
 )
@@ -38,7 +39,7 @@ func NewDiagnosisUC(u *DiagnosisUC) *DiagnosisUC {
 }
 
 func (u *DiagnosisUC) GetByVisitID(ctx context.Context, visitID int64) ([]model.DiagnosisResponse, error) {
-	userDetail, err := u.authorizeVisit(ctx, visitID)
+	userDetail, _, err := u.authorizeVisit(ctx, visitID)
 	if err != nil {
 		return nil, err
 	}
@@ -56,9 +57,12 @@ func (u *DiagnosisUC) GetByVisitID(ctx context.Context, visitID int64) ([]model.
 }
 
 func (u *DiagnosisUC) Save(ctx context.Context, visitID int64, req model.SaveDiagnosesRequest) (resp model.SaveDiagnosesResponse, err error) {
-	userDetail, authErr := u.authorizeVisit(ctx, visitID)
+	userDetail, visit, authErr := u.authorizeVisit(ctx, visitID)
 	if authErr != nil {
 		return resp, authErr
+	}
+	if lockErr := visituc.RejectIfLocked(visit.CompensationLockedAt); lockErr != nil {
+		return resp, lockErr
 	}
 
 	prognosis := req.Prognosis
@@ -221,8 +225,11 @@ func (u *DiagnosisUC) Save(ctx context.Context, visitID int64, req model.SaveDia
 }
 
 func (u *DiagnosisUC) Delete(ctx context.Context, visitID, diagnosisID int64) error {
-	userDetail, err := u.authorizeVisit(ctx, visitID)
+	userDetail, visit, err := u.authorizeVisit(ctx, visitID)
 	if err != nil {
+		return err
+	}
+	if err = visituc.RejectIfLocked(visit.CompensationLockedAt); err != nil {
 		return err
 	}
 	found, dbErr := u.DiagnosisDB.SoftDeleteByID(ctx, userDetail.InstitutionID, visitID, diagnosisID)
@@ -235,20 +242,20 @@ func (u *DiagnosisUC) Delete(ctx context.Context, visitID, diagnosisID int64) er
 	return nil
 }
 
-func (u *DiagnosisUC) authorizeVisit(ctx context.Context, visitID int64) (model.UserJWTPayload, error) {
+func (u *DiagnosisUC) authorizeVisit(ctx context.Context, visitID int64) (model.UserJWTPayload, model.TrxPatientVisit, error) {
 	userDetail, found := auth.GetUserDetailFromCtx(ctx)
 	if !found {
-		return model.UserJWTPayload{}, commonerr.SetNewUnauthorizedAPICall()
+		return model.UserJWTPayload{}, model.TrxPatientVisit{}, commonerr.SetNewUnauthorizedAPICall()
 	}
 
 	visit, err := u.PatientDB.GetPatientVisitsByID(ctx, visitID)
 	if err != nil {
-		return model.UserJWTPayload{}, err
+		return model.UserJWTPayload{}, model.TrxPatientVisit{}, err
 	}
 	if visit.ID == 0 || visit.IDMstInstitution != userDetail.InstitutionID {
-		return model.UserJWTPayload{}, commonerr.SetNewError(http.StatusNotFound, "visit_not_found", "visit was not found in this institution")
+		return model.UserJWTPayload{}, model.TrxPatientVisit{}, commonerr.SetNewError(http.StatusNotFound, "visit_not_found", "visit was not found in this institution")
 	}
-	return userDetail, nil
+	return userDetail, visit, nil
 }
 
 func keys(m map[string]struct{}) []string {

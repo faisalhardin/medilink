@@ -22,8 +22,7 @@ const (
 	wrapMsgDeleteVisitContributor = wrapVisitContributorUCPrefix + "DeleteVisitContributor"
 	errVisitNotFound              = "visit_not_found"
 	msgVisitNotFound              = "visit was not found in this institution"
-	errVisitCompensationLocked    = "VISIT_COMPENSATION_LOCKED"
-	msgVisitCompensationLocked    = "visit compensation is locked"
+	errVisitCompensationLocked    = ErrVisitCompensationLocked
 	errContributorAlreadyAdded    = "contributor_already_added"
 	msgContributorAlreadyAdded    = "staff is already a contributor on this visit"
 	errContributorNotFound        = "contributor_not_found"
@@ -106,8 +105,8 @@ func (u *VisitContributorUC) AddVisitContributor(ctx context.Context, visitID in
 	if visit.ID == 0 || visit.IDMstInstitution != userDetail.InstitutionID {
 		return model.AddVisitContributorResponse{}, commonerr.SetNewError(http.StatusNotFound, errVisitNotFound, msgVisitNotFound)
 	}
-	if visit.CompensationLockedAt.Valid {
-		return model.AddVisitContributorResponse{}, commonerr.SetNewError(http.StatusForbidden, errVisitCompensationLocked, msgVisitCompensationLocked)
+	if err := RejectIfLocked(visit.CompensationLockedAt); err != nil {
+		return model.AddVisitContributorResponse{}, err
 	}
 
 	staff, err := u.StaffDB.GetStaffByUUID(ctx, userDetail.InstitutionID, staffID, false)
@@ -155,8 +154,8 @@ func (u *VisitContributorUC) DeleteVisitContributor(ctx context.Context, visitID
 	if visit.ID == 0 || visit.IDMstInstitution != userDetail.InstitutionID {
 		return model.DeleteVisitContributorResponse{}, commonerr.SetNewError(http.StatusNotFound, errVisitNotFound, msgVisitNotFound)
 	}
-	if visit.CompensationLockedAt.Valid {
-		return model.DeleteVisitContributorResponse{}, commonerr.SetNewError(http.StatusForbidden, errVisitCompensationLocked, msgVisitCompensationLocked)
+	if err := RejectIfLocked(visit.CompensationLockedAt); err != nil {
+		return model.DeleteVisitContributorResponse{}, err
 	}
 
 	deleted, err := u.ContributorDB.DeleteManualContributor(ctx, userDetail.InstitutionID, visitID, staffID)

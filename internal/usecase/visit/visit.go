@@ -2,8 +2,10 @@ package visit
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/faisalhardin/medilink/internal/entity/constant"
@@ -34,9 +36,10 @@ const (
 	WrapMsgGetVisitTouchpoint    = WrapErrMsgPrefix + "GetVisitTouchpoint"
 	WrapMsgInsertVisitProduct    = WrapErrMsgPrefix + "InsertVisitProduct"
 	WrapMsgReduceProductStock    = WrapErrMsgPrefix + "ReduceProductStock"
-)
 
-const (
+	ErrVisitCompensationLocked = "VISIT_COMPENSATION_LOCKED"
+	MsgVisitCompensationLocked = "visit compensation is locked"
+
 	defaultLimit = 5
 )
 
@@ -385,6 +388,10 @@ func (u *VisitUC) UpdatePatientVisit(ctx context.Context, req model.UpdatePatien
 
 	req.IDMstInstitution = userDetail.InstitutionID
 
+	if err = u.rejectIfCompensationLocked(ctx, userDetail.InstitutionID, req.ID); err != nil {
+		return
+	}
+
 	if req.ShortIDMstJourneyPoint.Valid {
 		journeyPoint, err := u.JourneyDB.GetJourneyPointByShortID(ctx, req.ShortIDMstJourneyPoint.String)
 		if err != nil {
@@ -427,6 +434,29 @@ func (u *VisitUC) ValidatePatientVisitExist(ctx context.Context, req ValidatePat
 	return
 }
 
+// RejectIfLocked returns 403 when compensation_locked_at is set.
+// A null timestamp leaves the visit writable. The caller's role is not consulted.
+func RejectIfLocked(lockedAt sql.NullTime) error {
+	if !lockedAt.Valid {
+		return nil
+	}
+	return commonerr.SetNewError(http.StatusForbidden, ErrVisitCompensationLocked, MsgVisitCompensationLocked)
+}
+
+func (u *VisitUC) rejectIfCompensationLocked(ctx context.Context, institutionID, visitID int64) error {
+	if visitID == 0 {
+		return nil
+	}
+	visit, err := u.PatientDB.GetPatientVisitsByID(ctx, visitID)
+	if err != nil {
+		return err
+	}
+	if visit.ID == 0 || visit.IDMstInstitution != institutionID {
+		return nil
+	}
+	return RejectIfLocked(visit.CompensationLockedAt)
+}
+
 func (u *VisitUC) UpsertVisitTouchpoint(ctx context.Context, req model.DtlPatientVisitRequest) (dtlPatientVisit model.DtlPatientVisitWithShortID, err error) {
 	if req.ID > 0 {
 		return u.UpdateVisitTouchpoint(ctx, req)
@@ -436,10 +466,14 @@ func (u *VisitUC) UpsertVisitTouchpoint(ctx context.Context, req model.DtlPatien
 }
 
 func (u *VisitUC) InsertVisitTouchpoint(ctx context.Context, req model.DtlPatientVisitRequest) (dtlPatientVisit model.DtlPatientVisitWithShortID, err error) {
-	if _, err = u.ValidatePatientVisitExist(ctx, ValidatePatientVisitExistRequest{
+	userDetail, err := u.ValidatePatientVisitExist(ctx, ValidatePatientVisitExistRequest{
 		IDTrxPatientVisit: req.IDTrxPatientVisit,
-	}); err != nil {
+	})
+	if err != nil {
 		err = errors.Wrap(err, WrapMsgInsertVisitTouchpoint)
+		return
+	}
+	if err = u.rejectIfCompensationLocked(ctx, userDetail.InstitutionID, req.IDTrxPatientVisit); err != nil {
 		return
 	}
 
@@ -485,10 +519,14 @@ func (u *VisitUC) UpdateVisitTouchpoint(ctx context.Context, req model.DtlPatien
 	defer u.Transaction.Finish(session, &err)
 	ctx = xorm.SetDBSession(ctx, session)
 
-	if _, err = u.ValidatePatientVisitExist(ctx, ValidatePatientVisitExistRequest{
+	userDetail, err := u.ValidatePatientVisitExist(ctx, ValidatePatientVisitExistRequest{
 		IDTrxPatientVisit: req.IDTrxPatientVisit,
-	}); err != nil {
+	})
+	if err != nil {
 		err = errors.Wrap(err, WrapMsgUpdateVisitTouchpoint)
+		return
+	}
+	if err = u.rejectIfCompensationLocked(ctx, userDetail.InstitutionID, req.IDTrxPatientVisit); err != nil {
 		return
 	}
 
@@ -598,6 +636,9 @@ func (u *VisitUC) InsertVisitProduct(ctx context.Context, req model.InsertTrxVis
 	}
 	if len(dtlPatientVisit) == 0 {
 		err = commonerr.SetNoVisitDetailError()
+		return
+	}
+	if err = u.rejectIfCompensationLocked(ctx, userDetail.InstitutionID, dtlPatientVisit[0].IDTrxPatientVisit); err != nil {
 		return
 	}
 
@@ -712,6 +753,9 @@ func (u *VisitUC) UpsertVisitProduct(ctx context.Context, req model.UpsertTrxVis
 	userDetail, found := auth.GetUserDetailFromCtx(ctx)
 	if !found {
 		err = commonerr.SetNewUnauthorizedAPICall()
+		return
+	}
+	if err = u.rejectIfCompensationLocked(ctx, userDetail.InstitutionID, req.IDTrxPatientVisit); err != nil {
 		return
 	}
 
@@ -914,9 +958,12 @@ func (u *VisitUC) getMappedOrderedProduct(ctx context.Context, trxVisit model.Tr
 }
 
 func (u *VisitUC) UpdateVisitProduct(ctx context.Context, req model.InsertTrxVisitProductRequest) (err error) {
-	_, found := auth.GetUserDetailFromCtx(ctx)
+	userDetail, found := auth.GetUserDetailFromCtx(ctx)
 	if !found {
 		err = commonerr.SetNewUnauthorizedAPICall()
+		return
+	}
+	if err = u.rejectIfCompensationLocked(ctx, userDetail.InstitutionID, req.IDTrxPatientVisit); err != nil {
 		return
 	}
 
@@ -968,11 +1015,14 @@ func (u *VisitUC) ListVisitProducts(ctx context.Context, params model.GetVisitPr
 
 func (u *VisitUC) ArchivePatientVisit(ctx context.Context, req model.ArchivePatientVisitRequest) (err error) {
 
-	_, err = u.ValidatePatientVisitExist(ctx, ValidatePatientVisitExistRequest{
+	userDetail, err := u.ValidatePatientVisitExist(ctx, ValidatePatientVisitExistRequest{
 		IDTrxPatientVisit: req.ID,
 	})
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgUpdateVisitTouchpoint)
+		return
+	}
+	if err = u.rejectIfCompensationLocked(ctx, userDetail.InstitutionID, req.ID); err != nil {
 		return
 	}
 

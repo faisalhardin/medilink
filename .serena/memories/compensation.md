@@ -54,7 +54,13 @@ Standard CRUD + draft/finalize/reopen. List staff via worksheets rollup. Path tr
 - Utils: `library/util/common/time.go` (`DateOnly`, `PeriodsOverlap`)
 - Models: `entity/model/compensation.go`
 
+## Visit lock enforcement
+- `compensation_locked_at` is written only by worksheet finalize (`patient.LockVisits`). Payday draft/finalize do not set it, so draft periods do not lock visits.
+- Helper: `usecase/visit.RejectIfLocked`. Null timestamp → allow. Set timestamp → HTTP 403 `VISIT_COMPENSATION_LOCKED` / `visit compensation is locked` for every role, including administrator. No audit log. Envelope stays `error_messages`.
+- Gated writes: anamnesa upsert; diagnosis save and delete; procedure save and delete; visit-product insert, upsert, and update; touchpoint upsert; `PATCH /v1/visit/{id}`; `PATCH /v1/visit/archive`; contributor add and delete.
+- Reads stay open. Do not enforce inside `authorizeVisit` or `ValidatePatientVisitExist`. `GetPatientVisits` SELECT omits `compensation_locked_at`; those writers re-read with `GetPatientVisitsByID`.
+
 ## Common errors
-`WORKSHEET_NOT_FOUND`, `WORKSHEET_DATE_RANGE_OVERLAP`, `WORKSHEET_NOT_EDITABLE`, `WORKSHEET_GENERATE_PENDING`, `WORKSHEET_LINKED_TO_PAYDAY`, `PAYDAY_PERIOD_NOT_FOUND`, `PAYDAY_PERIOD_FINALIZED`, `COMMISSION_WORKSHEET_LINKED_TO_PAYDAY`, `COMMISSION_WORKSHEET_FINALIZED`, `FORBIDDEN`, period errors.
+`WORKSHEET_NOT_FOUND`, `WORKSHEET_DATE_RANGE_OVERLAP`, `WORKSHEET_NOT_EDITABLE`, `WORKSHEET_GENERATE_PENDING`, `WORKSHEET_LINKED_TO_PAYDAY`, `PAYDAY_PERIOD_NOT_FOUND`, `PAYDAY_PERIOD_FINALIZED`, `COMMISSION_WORKSHEET_LINKED_TO_PAYDAY`, `COMMISSION_WORKSHEET_FINALIZED`, `FORBIDDEN`, `VISIT_COMPENSATION_LOCKED`, period errors.
 
 Map: `mem:core`. Style: `mem:conventions`. Maintenance: `mem:memory_maintenance`.

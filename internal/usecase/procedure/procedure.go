@@ -15,6 +15,7 @@ import (
 	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
 	xormlib "github.com/faisalhardin/medilink/internal/library/db/xorm"
 	"github.com/faisalhardin/medilink/internal/library/middlewares/auth"
+	visituc "github.com/faisalhardin/medilink/internal/usecase/visit"
 	"github.com/pkg/errors"
 )
 
@@ -51,7 +52,7 @@ func (u *ProcedureUC) SearchICD9CM(ctx context.Context, q string, limit int) ([]
 }
 
 func (u *ProcedureUC) GetByVisitID(ctx context.Context, visitID int64) ([]model.ProcedureEntry, error) {
-	userDetail, err := u.authorizeVisit(ctx, visitID)
+	userDetail, _, err := u.authorizeVisit(ctx, visitID)
 	if err != nil {
 		return nil, err
 	}
@@ -70,9 +71,12 @@ func (u *ProcedureUC) GetByVisitID(ctx context.Context, visitID int64) ([]model.
 
 // Save atomically replaces the full procedure set for a visit.
 func (u *ProcedureUC) Save(ctx context.Context, visitID int64, req model.SaveProceduresRequest) (resp model.SaveProceduresSummary, err error) {
-	userDetail, authErr := u.authorizeVisit(ctx, visitID)
+	userDetail, visit, authErr := u.authorizeVisit(ctx, visitID)
 	if authErr != nil {
 		return resp, authErr
+	}
+	if lockErr := visituc.RejectIfLocked(visit.CompensationLockedAt); lockErr != nil {
+		return resp, lockErr
 	}
 
 	errMsg := commonerr.NewErrorMessage()
@@ -139,8 +143,11 @@ func (u *ProcedureUC) Save(ctx context.Context, visitID int64, req model.SavePro
 }
 
 func (u *ProcedureUC) Delete(ctx context.Context, visitID, procedureID int64) error {
-	userDetail, err := u.authorizeVisit(ctx, visitID)
+	userDetail, visit, err := u.authorizeVisit(ctx, visitID)
 	if err != nil {
+		return err
+	}
+	if err = visituc.RejectIfLocked(visit.CompensationLockedAt); err != nil {
 		return err
 	}
 	found, dbErr := u.ProcedureDB.SoftDeleteByID(ctx, userDetail.InstitutionID, visitID, procedureID)
@@ -471,20 +478,20 @@ func (u *ProcedureUC) persistAtomically(
 
 // ─── Private helpers ──────────────────────────────────────────────────────────
 
-func (u *ProcedureUC) authorizeVisit(ctx context.Context, visitID int64) (model.UserJWTPayload, error) {
+func (u *ProcedureUC) authorizeVisit(ctx context.Context, visitID int64) (model.UserJWTPayload, model.TrxPatientVisit, error) {
 	userDetail, found := auth.GetUserDetailFromCtx(ctx)
 	if !found {
-		return model.UserJWTPayload{}, commonerr.SetNewUnauthorizedAPICall()
+		return model.UserJWTPayload{}, model.TrxPatientVisit{}, commonerr.SetNewUnauthorizedAPICall()
 	}
 
 	visit, err := u.PatientDB.GetPatientVisitsByID(ctx, visitID)
 	if err != nil {
-		return model.UserJWTPayload{}, err
+		return model.UserJWTPayload{}, model.TrxPatientVisit{}, err
 	}
 	if visit.ID == 0 || visit.IDMstInstitution != userDetail.InstitutionID {
-		return model.UserJWTPayload{}, commonerr.SetNewError(http.StatusNotFound, "visit_not_found", "visit was not found in this institution")
+		return model.UserJWTPayload{}, model.TrxPatientVisit{}, commonerr.SetNewError(http.StatusNotFound, "visit_not_found", "visit was not found in this institution")
 	}
-	return userDetail, nil
+	return userDetail, visit, nil
 }
 
 // buildTrxRow constructs a TrxVisitProcedure from a request row and resolved snapshot maps.
