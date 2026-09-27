@@ -502,6 +502,8 @@ type ListWorksheetsRequest struct {
 	StaffID                string          `schema:"staff_id"`
 	Status                 WorksheetStatus `schema:"status"`
 	CompensationPeriodUUID string          `schema:"compensation_period_uuid"`
+	PeriodStart            Time            `schema:"period_start"`
+	PeriodEnd              Time            `schema:"period_end"`
 	Cursor                 string          `schema:"cursor"`
 	Limit                  int             `schema:"limit"`
 	InstitutionID          int64           `schema:"-"`

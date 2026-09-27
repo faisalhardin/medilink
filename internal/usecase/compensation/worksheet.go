@@ -139,6 +139,9 @@ func (u *WorksheetUC) ListWorksheets(ctx context.Context, req model.ListWorkshee
 	req.Limit = limit + 1 // fetch one extra to detect next page
 	req.InstitutionID = userDetail.InstitutionID
 	req.CompensationPeriodUUID = strings.TrimSpace(req.CompensationPeriodUUID)
+	if err := normalizeWorksheetListDates(&req); err != nil {
+		return model.ListWorksheetsResponse{}, err
+	}
 
 	rows, err := u.WorksheetDB.List(ctx, req)
 	if err != nil {
@@ -160,6 +163,25 @@ func (u *WorksheetUC) ListWorksheets(ctx context.Context, req model.ListWorkshee
 		Worksheets: out,
 		NextCursor: nextCursor,
 	}, nil
+}
+
+func normalizeWorksheetListDates(req *model.ListWorksheetsRequest) error {
+	startZero := req.PeriodStart.Time().IsZero()
+	endZero := req.PeriodEnd.Time().IsZero()
+	if startZero && endZero {
+		return nil
+	}
+	if startZero || endZero {
+		return commonerr.SetNewBadRequest(errInvalidPeriodDates, msgInvalidPeriodDates)
+	}
+	start := utilcommon.DateOnly(req.PeriodStart.Time())
+	end := utilcommon.DateOnly(req.PeriodEnd.Time())
+	if end.Before(start) {
+		return commonerr.SetNewBadRequest(errInvalidPeriodDates, msgInvalidPeriodDates)
+	}
+	req.PeriodStart = model.Time(start)
+	req.PeriodEnd = model.Time(end)
+	return nil
 }
 
 func (u *WorksheetUC) GetWorksheet(ctx context.Context, worksheetUUID string) (model.WorksheetResponse, error) {

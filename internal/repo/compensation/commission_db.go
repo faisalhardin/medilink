@@ -256,7 +256,7 @@ func (c *CommissionConn) SumValidByWorksheet(ctx context.Context, worksheetID in
 		  AND delete_time IS NULL
 	`
 	var total int64
-	_, err := c.DB.SlaveDB.Context(ctx).SQL(sqlText, worksheetID).Get(&total)
+	_, err := c.commissionWriteSession(ctx).SQL(sqlText, worksheetID).Get(&total)
 	if err != nil {
 		return 0, errors.Wrap(err, wrapMsgCommissionSumValid)
 	}
@@ -271,7 +271,7 @@ func (c *CommissionConn) CountVisitsByWorksheet(ctx context.Context, worksheetID
 		  AND delete_time IS NULL
 	`
 	var total int64
-	_, err := c.DB.SlaveDB.Context(ctx).SQL(sqlText, worksheetID).Get(&total)
+	_, err := c.commissionWriteSession(ctx).SQL(sqlText, worksheetID).Get(&total)
 	if err != nil {
 		return 0, errors.Wrap(err, wrapMsgCommissionSumValid)
 	}
