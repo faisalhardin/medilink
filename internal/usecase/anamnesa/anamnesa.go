@@ -14,6 +14,7 @@ import (
 	xormlib "github.com/faisalhardin/medilink/internal/library/db/xorm"
 	"github.com/faisalhardin/medilink/internal/library/middlewares/auth"
 	"github.com/faisalhardin/medilink/internal/library/util/common"
+	visituc "github.com/faisalhardin/medilink/internal/usecase/visit"
 	"github.com/pkg/errors"
 	"github.com/volatiletech/null/v8"
 )
@@ -36,7 +37,7 @@ func NewAnamnesaUC(u *AnamnesaUC) *AnamnesaUC {
 }
 
 func (u *AnamnesaUC) GetByVisitID(ctx context.Context, visitID int64) (*model.AnamnesaResponse, error) {
-	userDetail, err := u.authorizeVisit(ctx, visitID)
+	userDetail, _, err := u.authorizeVisit(ctx, visitID)
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +53,7 @@ func (u *AnamnesaUC) GetByVisitID(ctx context.Context, visitID int64) (*model.An
 }
 
 func (u *AnamnesaUC) GetDetailedByVisitID(ctx context.Context, visitID int64) (*model.AnamnesaDetailedResponse, error) {
-	userDetail, err := u.authorizeVisit(ctx, visitID)
+	userDetail, _, err := u.authorizeVisit(ctx, visitID)
 	if err != nil {
 		return nil, err
 	}
@@ -68,9 +69,12 @@ func (u *AnamnesaUC) GetDetailedByVisitID(ctx context.Context, visitID int64) (*
 }
 
 func (u *AnamnesaUC) Upsert(ctx context.Context, visitID int64, req model.UpsertAnamnesaRequest) (resp model.UpsertAnamnesaResponse, err error) {
-	userDetail, authErr := u.authorizeVisit(ctx, visitID)
+	userDetail, visit, authErr := u.authorizeVisit(ctx, visitID)
 	if authErr != nil {
 		return resp, authErr
+	}
+	if lockErr := visituc.RejectIfLocked(visit.CompensationLockedAt); lockErr != nil {
+		return resp, lockErr
 	}
 
 	if req.DoctorID != "" {
@@ -157,20 +161,20 @@ func (u *AnamnesaUC) Upsert(ctx context.Context, visitID int64, req model.Upsert
 	return resp, nil
 }
 
-func (u *AnamnesaUC) authorizeVisit(ctx context.Context, visitID int64) (model.UserJWTPayload, error) {
+func (u *AnamnesaUC) authorizeVisit(ctx context.Context, visitID int64) (model.UserJWTPayload, model.TrxPatientVisit, error) {
 	userDetail, found := auth.GetUserDetailFromCtx(ctx)
 	if !found {
-		return model.UserJWTPayload{}, commonerr.SetNewUnauthorizedAPICall()
+		return model.UserJWTPayload{}, model.TrxPatientVisit{}, commonerr.SetNewUnauthorizedAPICall()
 	}
 
 	visit, err := u.PatientDB.GetPatientVisitsByID(ctx, visitID)
 	if err != nil {
-		return model.UserJWTPayload{}, err
+		return model.UserJWTPayload{}, model.TrxPatientVisit{}, err
 	}
 	if visit.ID == 0 || visit.IDMstInstitution != userDetail.InstitutionID {
-		return model.UserJWTPayload{}, commonerr.SetNewError(http.StatusNotFound, "visit_not_found", "visit was not found in this institution")
+		return model.UserJWTPayload{}, model.TrxPatientVisit{}, commonerr.SetNewError(http.StatusNotFound, "visit_not_found", "visit was not found in this institution")
 	}
-	return userDetail, nil
+	return userDetail, visit, nil
 }
 
 func computeMAP(systolic, diastolic *int16) *int16 {
