@@ -25,6 +25,12 @@ type WorksheetHandler interface {
 	FinalizeWorksheet(w http.ResponseWriter, r *http.Request)
 }
 
+type WageHandler interface {
+	ListWages(w http.ResponseWriter, r *http.Request)
+	UpsertWage(w http.ResponseWriter, r *http.Request)
+	DeleteWage(w http.ResponseWriter, r *http.Request)
+}
+
 type VisitCommissionHandler interface {
 	GenerateVisitCommissions(w http.ResponseWriter, r *http.Request)
 	ListVisitCommissions(w http.ResponseWriter, r *http.Request)

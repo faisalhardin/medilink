@@ -16,8 +16,10 @@ func TestWageCadence_IsValid(t *testing.T) {
 		{"weekly", WageCadenceWeekly, true},
 		{"literal monthly", WageCadence("monthly"), true},
 		{"literal weekly", WageCadence("weekly"), true},
+		{"daily", WageCadenceDaily, true},
+		{"literal daily", WageCadence("daily"), true},
 		{"empty", WageCadence(""), false},
-		{"daily", WageCadence("daily"), false},
+		{"hourly", WageCadence("hourly"), false},
 		{"MONTHLY", WageCadence("MONTHLY"), false},
 	}
 	for _, tt := range tests {
@@ -147,6 +149,31 @@ func TestTrxCompensationPeriod_ToResponse(t *testing.T) {
 	}
 	if !got.DraftedAt.Valid || got.FinalizedAt.Valid {
 		t.Fatalf("unexpected audit times: drafted=%v finalized=%v", got.DraftedAt, got.FinalizedAt)
+	}
+}
+
+func TestMstStaffWage_ToResponse(t *testing.T) {
+	from := time.Date(2026, 3, 1, 15, 0, 0, 0, time.FixedZone("WIB", 7*3600))
+	row := MstStaffWage{
+		ID:            9,
+		StaffID:       "staff-1",
+		WageAmount:    500000,
+		WageCadence:   WageCadenceDaily,
+		IsActive:      true,
+		EffectiveFrom: from,
+	}
+	got := row.ToResponse()
+	if got.ID != 9 || got.StaffID != "staff-1" || got.WageAmount != 500000 || got.WageCadence != WageCadenceDaily || !got.IsActive {
+		t.Fatalf("unexpected wage response: %+v", got)
+	}
+	if got.EffectiveFrom != "2026-03-01" || got.EffectiveTo.Valid {
+		t.Fatalf("unexpected dates: from=%s to=%+v", got.EffectiveFrom, got.EffectiveTo)
+	}
+
+	row.EffectiveTo = sql.NullTime{Time: time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC), Valid: true}
+	got = row.ToResponse()
+	if !got.EffectiveTo.Valid || got.EffectiveTo.String != "2026-03-31" {
+		t.Fatalf("effective_to = %+v", got.EffectiveTo)
 	}
 }
 

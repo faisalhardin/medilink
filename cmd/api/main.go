@@ -192,6 +192,7 @@ func main() {
 	commissionDB := compensationrepo.NewCommissionDB(db)
 	worksheetDB := compensationrepo.NewWorksheetDB(db)
 	contributorDB := compensationrepo.NewContributorDB(db)
+	wageDB := compensationrepo.NewWageDB(db)
 
 	_ = satusehatQueueDB
 	// repo block end
@@ -325,6 +326,11 @@ func main() {
 		Transaction:   transaction,
 	})
 
+	wageUC := compensationuc.NewWageUC(&compensationuc.WageUC{
+		WageDB:      wageDB,
+		Transaction: transaction,
+	})
+
 	// usecase block end
 
 	// httphandler block start
@@ -400,6 +406,10 @@ func main() {
 		VisitCommissionUC: visitCommissionUC,
 	})
 
+	wageHandler := compensationhandler.NewWageHandler(&compensationhandler.WageHandler{
+		WageUC: wageUC,
+	})
+
 	visitContributorHandler := visithandler.New(&visithandler.VisitContributorHandler{
 		VisitContributorUC: visitContributorUC,
 	})
@@ -431,6 +441,7 @@ func main() {
 			WorksheetHandler:          worksheetHandler,
 			VisitCommissionHandler:    visitCommissionHandler,
 			VisitContributorHandler:   visitContributorHandler,
+			WageHandler:               wageHandler,
 		},
 		middlewareModule,
 	)

@@ -18,4 +18,5 @@ type Handlers struct {
 	WorksheetHandler          WorksheetHandler
 	VisitCommissionHandler    VisitCommissionHandler
 	VisitContributorHandler   VisitContributorHandler
+	WageHandler               WageHandler
 }

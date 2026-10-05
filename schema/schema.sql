@@ -1048,7 +1048,7 @@ CREATE INDEX IF NOT EXISTS idx_mst_patient_institution_name
 -- Enums
 -- ---------------------------------------------------------------------------
 DO $$ BEGIN
-    CREATE TYPE wage_cadence_enum AS ENUM ('monthly', 'weekly');
+    CREATE TYPE wage_cadence_enum AS ENUM ('monthly', 'weekly', 'daily');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
