@@ -177,6 +177,15 @@ func RegisterRoutes(m *module) http.Handler {
 				})
 			})
 
+			authed.Route("/compensation/wages", func(wages chi.Router) {
+				wages.With(m.middlewareModule.RequirePermission(permconst.CompensationManage)).
+					Get("/", m.httpHandler.WageHandler.ListWages)
+				wages.With(m.middlewareModule.RequirePermission(permconst.CompensationManage)).
+					Put("/", m.httpHandler.WageHandler.UpsertWage)
+				wages.With(m.middlewareModule.RequirePermission(permconst.CompensationManage)).
+					Delete("/{wageId}", m.httpHandler.WageHandler.DeleteWage)
+			})
+
 			// Visit-commissions: authed only; usecase enforces admin/compensation.* OR self
 			authed.Route("/visit-commissions", func(vc chi.Router) {
 				vc.Post("/generate", m.httpHandler.VisitCommissionHandler.GenerateVisitCommissions)

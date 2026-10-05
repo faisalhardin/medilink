@@ -54,10 +54,11 @@ type WageCadence string
 const (
 	WageCadenceMonthly WageCadence = "monthly"
 	WageCadenceWeekly  WageCadence = "weekly"
+	WageCadenceDaily   WageCadence = "daily"
 )
 
 func (c WageCadence) IsValid() bool {
-	return c == WageCadenceMonthly || c == WageCadenceWeekly
+	return c == WageCadenceMonthly || c == WageCadenceWeekly || c == WageCadenceDaily
 }
 
 // CompensationPeriodStatus is the lifecycle status of a payday period.
@@ -220,6 +221,27 @@ type MstStaffWage struct {
 
 func (MstStaffWage) TableName() string {
 	return MstStaffWageTableName
+}
+
+// ToResponse maps a wage row to the public JSON shape. Dates are YYYY-MM-DD.
+func (w MstStaffWage) ToResponse() StaffWageResponse {
+	return StaffWageResponse{
+		ID:            w.ID,
+		StaffID:       w.StaffID,
+		WageAmount:    w.WageAmount,
+		WageCadence:   w.WageCadence,
+		IsActive:      w.IsActive,
+		EffectiveFrom: w.EffectiveFrom.UTC().Format(worksheetDateLayout),
+		EffectiveTo:   nullDateString(w.EffectiveTo),
+		CreatedAt:     w.CreateTime.UTC().Format(time.RFC3339),
+	}
+}
+
+func nullDateString(v sql.NullTime) null.String {
+	if !v.Valid || v.Time.IsZero() {
+		return null.String{}
+	}
+	return null.StringFrom(v.Time.UTC().Format(worksheetDateLayout))
 }
 
 // TrxCompensationPeriod is a payday period for an institution.
@@ -608,5 +630,47 @@ type ListVisitCommissionsResponse struct {
 
 // ArchiveVisitCommissionResponse is the body for DELETE /v1/visit-commissions/{id}.
 type ArchiveVisitCommissionResponse struct {
+	Success bool `json:"success"`
+}
+
+// UpsertStaffWageRequest is the body for PUT /v1/compensation/wages.
+// EffectiveTo nil means the new contract is open-ended.
+type UpsertStaffWageRequest struct {
+	StaffID       string      `json:"staff_id"`
+	WageAmount    int64       `json:"wage_amount"`
+	WageCadence   WageCadence `json:"wage_cadence"`
+	EffectiveFrom Time        `json:"effective_from"`
+	EffectiveTo   *Time       `json:"effective_to"`
+}
+
+// ListStaffWagesRequest is the query for GET /v1/compensation/wages.
+type ListStaffWagesRequest struct {
+	StaffID string `schema:"staff_id"`
+}
+
+// StaffWageResponse is one wage contract.
+type StaffWageResponse struct {
+	ID            int64       `json:"id"`
+	StaffID       string      `json:"staff_id"`
+	WageAmount    int64       `json:"wage_amount"`
+	WageCadence   WageCadence `json:"wage_cadence"`
+	IsActive      bool        `json:"is_active"`
+	EffectiveFrom string      `json:"effective_from"`
+	EffectiveTo   null.String `json:"effective_to"`
+	CreatedAt     string      `json:"created_at"`
+}
+
+// ListStaffWagesResponse is the body for GET /v1/compensation/wages.
+type ListStaffWagesResponse struct {
+	Wages []StaffWageResponse `json:"wages"`
+}
+
+// UpsertStaffWageResponse is the body for PUT /v1/compensation/wages.
+type UpsertStaffWageResponse struct {
+	Wage StaffWageResponse `json:"wage"`
+}
+
+// DeleteStaffWageResponse is the body for DELETE /v1/compensation/wages/{wageId}.
+type DeleteStaffWageResponse struct {
 	Success bool `json:"success"`
 }

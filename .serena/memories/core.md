@@ -23,7 +23,7 @@ Handlers → usecases → repos. Interfaces in `internal/entity/*`; impl in `int
 
 ## API surface
 Prefix `/v1`. Auth `/v1/auth/*` (Google OAuth/goth, JWT refresh, sessions). Authed: institution, patient, visit (+ diagnosis/anamnesa/procedure/contributors), visit-detail, journey, odontogram, staff, compensation-period, recall, lookups (`/icd10|doctor|nurse|icd9cm/search`), admin/product. Health: `GET /ping`.
-Payday/compensation routes + tables: `mem:compensation`.
+Payday, worksheet, and wage routes + tables: `mem:compensation`.
 
 ## Invariants
 - JSON snake_case; Go `json` + `xorm` tags. DB cols often `id_mst_*`; soft-delete `delete_time`.

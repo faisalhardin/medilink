@@ -4,7 +4,7 @@ Domain under `internal/{entity,http,usecase,repo}/compensation`. Specs: workspac
 
 ## Product split
 - **Worksheet** (`mdl_trx_worksheet`): single-staff wrap for visit commissions. Create default **`open` + `idle`**. Primary place to generate / edit / finalize commissions.
-- **Payday period** (`mdl_trx_compensation_period`): rolls up worksheets via `worksheet.compensation_period_id`. Does **not** generate commissions or lock visits. Wages still Phase-1 stub (0).
+- **Payday period** (`mdl_trx_compensation_period`): rolls up worksheets via `worksheet.compensation_period_id`. Does **not** generate commissions or lock visits. Draft/finalize do not apply wage amounts yet.
 
 ## Worksheet lifecycle
 - `status`: `pending` | `open` | `finalized`
@@ -48,11 +48,19 @@ Standard CRUD + draft/finalize/reopen. List staff via worksheets rollup. Path tr
 - Type `percent`|`flat`; amount server-side on PATCH.
 
 ## Packages
-- Handlers: `http/compensation/{period,worksheet,visit_commission}_handler.go`
-- UC: `usecase/compensation/{period,worksheet,visit_commission,finalize}.go`
+- Handlers: `http/compensation/{period,worksheet,visit_commission,wage}_handler.go`
+- UC: `usecase/compensation/{period,worksheet,visit_commission,finalize,wage}.go`
 - Repos: `repo/compensation/{period,worksheet,commission,contributor,wage}_db.go`; visit lock in `repo/patient`
 - Utils: `library/util/common/time.go` (`DateOnly`, `PeriodsOverlap`)
 - Models: `entity/model/compensation.go`
+
+## Wages (`mdl_mst_staff_wage`)
+- `GET|PUT /v1/compensation/wages`, `DELETE /v1/compensation/wages/{wageId}`. Perm `compensation.manage`.
+- Cadence `monthly` | `weekly` | `daily`.
+- One active wage per staff+institution. PUT inserts a new active row and closes the previous one the day before the new `effective_from`. Reusing that start date → `WAGE_EFFECTIVE_RANGE_OVERLAP`. `effective_to` null = open-ended.
+- GET is active rows only. `created_at` on `StaffWageResponse` is RFC3339 (`ToResponse`).
+- Errors: `INVALID_WAGE_CADENCE`, `WAGE_EFFECTIVE_RANGE_INVALID`, `WAGE_EFFECTIVE_RANGE_OVERLAP`, `WAGE_MULTIPLE_ACTIVE`, `WAGE_NOT_FOUND`.
+- No payday-period overlap check. Period totals still exclude wages.
 
 ## Visit lock enforcement
 - `compensation_locked_at` is written only by worksheet finalize (`patient.LockVisits`). Payday draft/finalize do not set it, so draft periods do not lock visits.
