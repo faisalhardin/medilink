@@ -19,4 +19,5 @@ type Handlers struct {
 	VisitCommissionHandler    VisitCommissionHandler
 	VisitContributorHandler   VisitContributorHandler
 	WageHandler               WageHandler
+	WageSnapshotHandler       WageSnapshotHandler
 }

@@ -60,6 +60,20 @@ func (f *fakeWageDB) ListLiveByStaff(_ context.Context, institutionID int64, sta
 	return out, nil
 }
 
+func (f *fakeWageDB) ListLive(_ context.Context, institutionID int64) ([]model.MstStaffWage, error) {
+	if f.liveErr != nil {
+		return nil, f.liveErr
+	}
+	out := make([]model.MstStaffWage, 0)
+	for _, row := range f.rows {
+		if row.DeleteTime != nil || row.InstitutionID != institutionID {
+			continue
+		}
+		out = append(out, row)
+	}
+	return out, nil
+}
+
 func (f *fakeWageDB) Close(_ context.Context, id, institutionID int64, effectiveTo time.Time, updatedBy string) error {
 	if f.closeErr != nil {
 		return f.closeErr
@@ -162,6 +176,9 @@ func TestUpsertWage_InsertsWhenNoneExist(t *testing.T) {
 	}
 	if got.Wage.EffectiveFrom != "2026-03-01" || got.Wage.EffectiveTo.Valid {
 		t.Fatalf("dates: %+v", got.Wage)
+	}
+	if db.inserted[0].CreateTime.IsZero() || got.Wage.CreatedAt != db.inserted[0].CreateTime.UTC().Format(time.RFC3339) {
+		t.Fatalf("created_at = %s", got.Wage.CreatedAt)
 	}
 	if len(db.closed) != 0 || len(db.inserted) != 1 {
 		t.Fatalf("closed=%d inserted=%d", len(db.closed), len(db.inserted))

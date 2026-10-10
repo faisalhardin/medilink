@@ -3,6 +3,7 @@ package model
 import (
 	"database/sql"
 	"encoding/json"
+	"math"
 	"time"
 
 	"github.com/volatiletech/null/v8"
@@ -10,6 +11,7 @@ import (
 
 const (
 	MstStaffWageTableName          = "mdl_mst_staff_wage"
+	TrxWagePeriodSnapshotTableName = "mdl_trx_wage_period_snapshot"
 	TrxCompensationPeriodTableName = "mdl_trx_compensation_period"
 	TrxVisitCommissionTableName    = "mdl_trx_visit_commission"
 	MapVisitContributorTableName   = "mdl_map_visit_contributor"
@@ -235,6 +237,110 @@ func (w MstStaffWage) ToResponse() StaffWageResponse {
 		EffectiveTo:   nullDateString(w.EffectiveTo),
 		CreatedAt:     w.CreateTime.UTC().Format(time.RFC3339),
 	}
+}
+
+// TrxWagePeriodSnapshot is a generated copy of the wage that covers a payday period.
+// institution_id is stored and omitted from JSON. Dates are copied from the period.
+// CompensationPeriodUUID is filled by List via LEFT JOIN; it is not a snapshot column.
+type TrxWagePeriodSnapshot struct {
+	ID                     int64          `xorm:"'id' pk autoincr" json:"-"`
+	StaffID                string         `xorm:"'staff_id'" json:"-"`
+	InstitutionID          int64          `xorm:"'institution_id'" json:"-"`
+	CompensationPeriodID   int64          `xorm:"'compensation_period_id'" json:"-"`
+	PeriodStart            time.Time      `xorm:"'period_start'" json:"-"`
+	PeriodEnd              time.Time      `xorm:"'period_end'" json:"-"`
+	WageAmount             int64          `xorm:"'wage_amount'" json:"-"`
+	WageCadence            WageCadence    `xorm:"'wage_cadence'" json:"-"`
+	MandatoryWorkingDays   sql.NullInt64  `xorm:"'mandatory_working_days' null" json:"-"`
+	StaffWorkingDays       sql.NullInt64  `xorm:"'staff_working_days' null" json:"-"`
+	FinalWage              sql.NullInt64  `xorm:"'final_wage' null" json:"-"`
+	TotalWage              sql.NullInt64  `xorm:"'total_wage' null" json:"-"`
+	CreateTime             time.Time      `xorm:"'create_time' created" json:"-"`
+	DeleteTime             *time.Time     `xorm:"'delete_time' deleted" json:"-"`
+	CompensationPeriodUUID sql.NullString `xorm:"<- 'compensation_period_uuid'" json:"-"`
+}
+
+func (TrxWagePeriodSnapshot) TableName() string {
+	return TrxWagePeriodSnapshotTableName
+}
+
+func (s TrxWagePeriodSnapshot) ToResponse() StaffWageSnapshotResponse {
+	return StaffWageSnapshotResponse{
+		ID:                     s.ID,
+		StaffID:                s.StaffID,
+		CompensationPeriodUUID: s.CompensationPeriodUUID.String,
+		PeriodStart:            s.PeriodStart.UTC().Format(worksheetDateLayout),
+		PeriodEnd:              s.PeriodEnd.UTC().Format(worksheetDateLayout),
+		WageAmount:             s.WageAmount,
+		WageCadence:            s.WageCadence,
+		MandatoryWorkingDays:   nullInt64FromSQL(s.MandatoryWorkingDays),
+		StaffWorkingDays:       nullInt64FromSQL(s.StaffWorkingDays),
+		FinalWage:              nullInt64FromSQL(s.FinalWage),
+		TotalWage:              nullInt64FromSQL(s.TotalWage),
+		CreatedAt:              s.CreateTime.UTC().Format(time.RFC3339),
+	}
+}
+
+const (
+	// SnapshotDaysInvalidCode is returned when a day count cannot be used.
+	SnapshotDaysInvalidCode = "WAGE_SNAPSHOT_DAYS_INVALID"
+	// SnapshotFinalInvalidCode is returned when the flat wage is negative.
+	SnapshotFinalInvalidCode = "WAGE_SNAPSHOT_FINAL_WAGE_INVALID"
+)
+
+// SnapshotWageInputError is a rejected day count or flat wage on a snapshot.
+type SnapshotWageInputError struct {
+	Code    string
+	Message string
+}
+
+func (e *SnapshotWageInputError) Error() string {
+	return e.Message
+}
+
+// ApplySnapshotWage sets total_wage from the contract rate and the user inputs.
+// Both day counts produce wage_amount * staff_working_days / mandatory_working_days,
+// truncating toward zero. final_wage is copied only when that prorate cannot be made.
+// A missing input stays NULL. Zero is a stored value.
+func ApplySnapshotWage(wageAmount int64, mandatory, staffDays, finalWage sql.NullInt64) (sql.NullInt64, error) {
+	if (mandatory.Valid && mandatory.Int64 < 0) || (staffDays.Valid && staffDays.Int64 < 0) {
+		return sql.NullInt64{}, &SnapshotWageInputError{
+			Code:    SnapshotDaysInvalidCode,
+			Message: "working days must be zero or greater, and mandatory working days must be greater than zero when both day counts are set",
+		}
+	}
+	if finalWage.Valid && finalWage.Int64 < 0 {
+		return sql.NullInt64{}, &SnapshotWageInputError{
+			Code:    SnapshotFinalInvalidCode,
+			Message: "final wage must be zero or greater",
+		}
+	}
+	if mandatory.Valid && staffDays.Valid {
+		if mandatory.Int64 <= 0 {
+			return sql.NullInt64{}, &SnapshotWageInputError{
+				Code:    SnapshotDaysInvalidCode,
+				Message: "working days must be zero or greater, and mandatory working days must be greater than zero when both day counts are set",
+			}
+		}
+		if staffDays.Int64 > 0 && wageAmount > math.MaxInt64/staffDays.Int64 {
+			return sql.NullInt64{}, &SnapshotWageInputError{
+				Code:    SnapshotDaysInvalidCode,
+				Message: "working days must be zero or greater, and mandatory working days must be greater than zero when both day counts are set",
+			}
+		}
+		return sql.NullInt64{Int64: wageAmount * staffDays.Int64 / mandatory.Int64, Valid: true}, nil
+	}
+	if finalWage.Valid {
+		return finalWage, nil
+	}
+	return sql.NullInt64{}, nil
+}
+
+func nullInt64FromSQL(v sql.NullInt64) null.Int64 {
+	if !v.Valid {
+		return null.Int64{}
+	}
+	return null.Int64From(v.Int64)
 }
 
 func nullDateString(v sql.NullTime) null.String {
@@ -672,5 +778,48 @@ type UpsertStaffWageResponse struct {
 
 // DeleteStaffWageResponse is the body for DELETE /v1/compensation/wages/{wageId}.
 type DeleteStaffWageResponse struct {
+	Success bool `json:"success"`
+}
+
+// GenerateStaffWageSnapshotsRequest is the body for POST /v1/compensation/staff-wages/generate.
+// CompensationPeriodUUID is the public payday period. Dates are read from that period.
+// StaffIDs empty means every staff member whose wage covers the period.
+type GenerateStaffWageSnapshotsRequest struct {
+	CompensationPeriodUUID string   `json:"compensation_period_uuid"`
+	StaffIDs               []string `json:"staff_ids"`
+}
+
+// StaffWageSnapshotResponse is one generated wage snapshot.
+// CompensationPeriodUUID is the public payday period the snapshot was generated for.
+type StaffWageSnapshotResponse struct {
+	ID                     int64       `json:"id"`
+	StaffID                string      `json:"staff_id"`
+	CompensationPeriodUUID string      `json:"compensation_period_uuid"`
+	PeriodStart            string      `json:"period_start"`
+	PeriodEnd              string      `json:"period_end"`
+	WageAmount             int64       `json:"wage_amount"`
+	WageCadence            WageCadence `json:"wage_cadence"`
+	MandatoryWorkingDays   null.Int64  `json:"mandatory_working_days"`
+	StaffWorkingDays       null.Int64  `json:"staff_working_days"`
+	FinalWage              null.Int64  `json:"final_wage"`
+	TotalWage              null.Int64  `json:"total_wage"`
+	CreatedAt              string      `json:"created_at"`
+}
+
+// UpdateStaffWageSnapshotRequest is the body for PATCH /v1/compensation/staff-wages/{id}.
+// An omitted or null field clears that input. total_wage is computed, not accepted.
+type UpdateStaffWageSnapshotRequest struct {
+	MandatoryWorkingDays null.Int64 `json:"mandatory_working_days"`
+	StaffWorkingDays     null.Int64 `json:"staff_working_days"`
+	FinalWage            null.Int64 `json:"final_wage"`
+}
+
+// StaffWageSnapshotsResponse is the body for generate and list.
+type StaffWageSnapshotsResponse struct {
+	Snapshots []StaffWageSnapshotResponse `json:"snapshots"`
+}
+
+// DeleteStaffWageSnapshotResponse is the body for DELETE /v1/compensation/staff-wages/{id}.
+type DeleteStaffWageSnapshotResponse struct {
 	Success bool `json:"success"`
 }

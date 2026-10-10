@@ -2,6 +2,7 @@ package model
 
 import (
 	"database/sql"
+	"errors"
 	"testing"
 	"time"
 )
@@ -181,6 +182,9 @@ func TestCompensationTableNames(t *testing.T) {
 	if got := (MstStaffWage{}).TableName(); got != MstStaffWageTableName {
 		t.Errorf("MstStaffWage.TableName() = %q, want %q", got, MstStaffWageTableName)
 	}
+	if got := (TrxWagePeriodSnapshot{}).TableName(); got != TrxWagePeriodSnapshotTableName {
+		t.Errorf("TrxWagePeriodSnapshot.TableName() = %q, want %q", got, TrxWagePeriodSnapshotTableName)
+	}
 	if got := (TrxCompensationPeriod{}).TableName(); got != TrxCompensationPeriodTableName {
 		t.Errorf("TrxCompensationPeriod.TableName() = %q, want %q", got, TrxCompensationPeriodTableName)
 	}
@@ -193,4 +197,83 @@ func TestCompensationTableNames(t *testing.T) {
 	if got := (TrxWorksheet{}).TableName(); got != TrxWorksheetTableName {
 		t.Errorf("TrxWorksheet.TableName() = %q, want %q", got, TrxWorksheetTableName)
 	}
+}
+
+func TestApplySnapshotWage(t *testing.T) {
+	days := func(n int64) sql.NullInt64 { return sql.NullInt64{Int64: n, Valid: true} }
+	empty := sql.NullInt64{}
+
+	t.Run("prorate", func(t *testing.T) {
+		got, err := ApplySnapshotWage(1000, days(22), days(20), days(500))
+		if err != nil {
+			t.Fatalf("apply: %v", err)
+		}
+		if !got.Valid || got.Int64 != 909 {
+			t.Fatalf("total = %+v, want 909", got)
+		}
+	})
+
+	t.Run("final when days missing", func(t *testing.T) {
+		got, err := ApplySnapshotWage(1000, empty, empty, days(750))
+		if err != nil {
+			t.Fatalf("apply: %v", err)
+		}
+		if !got.Valid || got.Int64 != 750 {
+			t.Fatalf("total = %+v, want 750", got)
+		}
+	})
+
+	t.Run("one day uses final", func(t *testing.T) {
+		got, err := ApplySnapshotWage(1000, days(22), empty, days(400))
+		if err != nil {
+			t.Fatalf("apply: %v", err)
+		}
+		if !got.Valid || got.Int64 != 400 {
+			t.Fatalf("total = %+v, want 400", got)
+		}
+	})
+
+	t.Run("neither stays empty", func(t *testing.T) {
+		got, err := ApplySnapshotWage(1000, empty, empty, empty)
+		if err != nil {
+			t.Fatalf("apply: %v", err)
+		}
+		if got.Valid {
+			t.Fatalf("total = %+v, want null", got)
+		}
+	})
+
+	t.Run("zero staff days", func(t *testing.T) {
+		got, err := ApplySnapshotWage(1000, days(22), days(0), empty)
+		if err != nil {
+			t.Fatalf("apply: %v", err)
+		}
+		if !got.Valid || got.Int64 != 0 {
+			t.Fatalf("total = %+v, want 0", got)
+		}
+	})
+
+	t.Run("mandatory zero", func(t *testing.T) {
+		_, err := ApplySnapshotWage(1000, days(0), days(20), empty)
+		var input *SnapshotWageInputError
+		if err == nil || !errors.As(err, &input) || input.Code != SnapshotDaysInvalidCode {
+			t.Fatalf("error = %v", err)
+		}
+	})
+
+	t.Run("negative day", func(t *testing.T) {
+		_, err := ApplySnapshotWage(1000, days(22), days(-1), empty)
+		var input *SnapshotWageInputError
+		if err == nil || !errors.As(err, &input) || input.Code != SnapshotDaysInvalidCode {
+			t.Fatalf("error = %v", err)
+		}
+	})
+
+	t.Run("negative final", func(t *testing.T) {
+		_, err := ApplySnapshotWage(1000, empty, empty, days(-1))
+		var input *SnapshotWageInputError
+		if err == nil || !errors.As(err, &input) || input.Code != SnapshotFinalInvalidCode {
+			t.Fatalf("error = %v", err)
+		}
+	})
 }

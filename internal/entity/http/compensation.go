@@ -31,6 +31,13 @@ type WageHandler interface {
 	DeleteWage(w http.ResponseWriter, r *http.Request)
 }
 
+type WageSnapshotHandler interface {
+	Generate(w http.ResponseWriter, r *http.Request)
+	List(w http.ResponseWriter, r *http.Request)
+	Update(w http.ResponseWriter, r *http.Request)
+	Delete(w http.ResponseWriter, r *http.Request)
+}
+
 type VisitCommissionHandler interface {
 	GenerateVisitCommissions(w http.ResponseWriter, r *http.Request)
 	ListVisitCommissions(w http.ResponseWriter, r *http.Request)

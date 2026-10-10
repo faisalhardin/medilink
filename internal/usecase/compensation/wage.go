@@ -165,6 +165,7 @@ func (u *WageUC) UpsertWage(ctx context.Context, req model.UpsertStaffWageReques
 		EffectiveTo:   to,
 		CreatedBy:     sql.NullString{String: userDetail.UUID, Valid: userDetail.UUID != ""},
 		UpdatedBy:     sql.NullString{String: userDetail.UUID, Valid: userDetail.UUID != ""},
+		CreateTime:    time.Now().UTC(),
 	}
 	if err = u.WageDB.Insert(ctx, row); err != nil {
 		return model.UpsertStaffWageResponse{}, errors.Wrap(err, wrapMsgUpsertWage)

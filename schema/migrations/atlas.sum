@@ -1,4 +1,4 @@
-h1:QdITSlIt83DIZ9vrackHvJH76tHSFxZWLzkPrDbm1Jg=
+h1:GkdIc6liy6uczoWBLXAvhEpxOBm/gu0C8pOYbZpfS7I=
 20260901120000_baseline.sql h1:1qlU+SwahBCz2VcNzKXnGCiJ0xNmgDTnRDvX/WbxreE=
 20260902120000_add_idx_visit_product_visit.sql h1:ucMSlqdUNUAFjFsTXTW717E3pTGbJbIT+1MRRmXF1IY=
 20260907120000_add_idx_mst_staff_uuid.sql h1:pAhYqjG3AGsvKkhrPq0b0u2rMJttPHfwoNpPd0O3bQU=
@@ -8,3 +8,4 @@ h1:QdITSlIt83DIZ9vrackHvJH76tHSFxZWLzkPrDbm1Jg=
 20260909130000_seed_compensation_permissions.sql h1:8X8Bg6HVheUHe9nUOlLLQGc2tGjPlfsc+eMIuSKhaBg=
 20260917120000_add_worksheet.sql h1:X7N6AeFfCKXPN2RspJDx4o79/O/59BwJUSXN49pTXGU=
 20261002005349_add_wage_cadence_daily.sql h1:zoYr9C9dVMY/zPjxrXgl6oP7/Pomh7YH2SbRTQUFIp4=
+20261008100000_add_wage_period_snapshot.sql h1:jn+jLRx/OYajgg0F7j5KA+2fvovtw0VTmX1dg1Qiff0=

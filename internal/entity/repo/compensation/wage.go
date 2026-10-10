@@ -18,6 +18,9 @@ type WageDB interface {
 	// Callers use it to enforce effective-date overlap.
 	ListLiveByStaff(ctx context.Context, institutionID int64, staffID string) ([]model.MstStaffWage, error)
 
+	// ListLive returns every non-deleted wage for the institution, active or not.
+	ListLive(ctx context.Context, institutionID int64) ([]model.MstStaffWage, error)
+
 	// Close marks a wage inactive and sets effective_to.
 	Close(ctx context.Context, id, institutionID int64, effectiveTo time.Time, updatedBy string) error
 
