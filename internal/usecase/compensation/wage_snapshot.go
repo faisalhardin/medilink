@@ -31,7 +31,7 @@ const (
 	errSnapshotNotFound       = "STAFF_WAGE_SNAPSHOT_NOT_FOUND"
 
 	msgSnapshotPeriodRequired = "compensation_period_uuid is required"
-	msgWageContractNotFound   = "staff has no active wage contract"
+	msgWageContractNotFound   = "staff has no wage contract for this period"
 	msgSnapshotNotFound       = "wage snapshot was not found"
 )
 
@@ -81,22 +81,18 @@ func (u *WageSnapshotUC) Generate(ctx context.Context, req model.GenerateStaffWa
 	start := utilcommon.DateOnly(period.PeriodStart)
 	end := utilcommon.DateOnly(period.PeriodEnd)
 
-	active, err := u.WageDB.ListActive(ctx, userDetail.InstitutionID, "")
+	live, err := u.WageDB.ListLive(ctx, userDetail.InstitutionID)
 	if err != nil {
 		return model.StaffWageSnapshotsResponse{}, errors.Wrap(err, wrapMsgGenerateSnap)
 	}
-	byStaff := make(map[string]model.MstStaffWage, len(active))
-	ordered := make([]model.MstStaffWage, 0, len(active))
-	for _, row := range active {
-		if _, seen := byStaff[row.StaffID]; seen {
-			continue
-		}
-		byStaff[row.StaffID] = row
-		ordered = append(ordered, row)
-	}
+	covering := wagesCoveringPeriod(live, start, end)
 
-	chosen := ordered
+	chosen := covering
 	if ids := uniqueStaffIDs(req.StaffIDs); len(ids) > 0 {
+		byStaff := make(map[string]model.MstStaffWage, len(covering))
+		for _, row := range covering {
+			byStaff[row.StaffID] = row
+		}
 		chosen = make([]model.MstStaffWage, 0, len(ids))
 		for _, staffID := range ids {
 			row, ok := byStaff[staffID]
@@ -214,6 +210,41 @@ func (u *WageSnapshotUC) Delete(ctx context.Context, id int64) (model.DeleteStaf
 		return model.DeleteStaffWageSnapshotResponse{}, commonerr.SetNewError(http.StatusNotFound, errSnapshotNotFound, msgSnapshotNotFound)
 	}
 	return model.DeleteStaffWageSnapshotResponse{Success: true}, nil
+}
+
+// wagesCoveringPeriod keeps one wage per staff whose dates overlap start..end.
+// When two contracts overlap the period, the later start is used for the whole period.
+func wagesCoveringPeriod(rows []model.MstStaffWage, start, end time.Time) []model.MstStaffWage {
+	best := make(map[string]model.MstStaffWage, len(rows))
+	order := make([]string, 0, len(rows))
+	for _, row := range rows {
+		if !utilcommon.PeriodsOverlap(utilcommon.DateOnly(row.EffectiveFrom), wageRangeEnd(row.EffectiveTo), start, end) {
+			continue
+		}
+		prev, seen := best[row.StaffID]
+		if !seen {
+			order = append(order, row.StaffID)
+			best[row.StaffID] = row
+			continue
+		}
+		if laterWage(row, prev) {
+			best[row.StaffID] = row
+		}
+	}
+	out := make([]model.MstStaffWage, 0, len(order))
+	for _, staffID := range order {
+		out = append(out, best[staffID])
+	}
+	return out
+}
+
+func laterWage(a, b model.MstStaffWage) bool {
+	af := utilcommon.DateOnly(a.EffectiveFrom)
+	bf := utilcommon.DateOnly(b.EffectiveFrom)
+	if af.Equal(bf) {
+		return a.ID > b.ID
+	}
+	return af.After(bf)
 }
 
 func uniqueStaffIDs(ids []string) []string {

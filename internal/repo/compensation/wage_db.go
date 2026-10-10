@@ -16,6 +16,7 @@ const (
 	wrapErrWagePrefix     = "WageDB."
 	wrapMsgWageList       = wrapErrWagePrefix + "ListActive"
 	wrapMsgWageListLive   = wrapErrWagePrefix + "ListLiveByStaff"
+	wrapMsgWageListAll    = wrapErrWagePrefix + "ListLive"
 	wrapMsgWageClose      = wrapErrWagePrefix + "Close"
 	wrapMsgWageInsert     = wrapErrWagePrefix + "Insert"
 	wrapMsgWageSoftDelete = wrapErrWagePrefix + "SoftDelete"
@@ -67,6 +68,20 @@ func (c *WageConn) ListLiveByStaff(ctx context.Context, institutionID int64, sta
 		Find(&rows)
 	if err != nil {
 		return nil, errors.Wrap(err, wrapMsgWageListLive)
+	}
+	return rows, nil
+}
+
+func (c *WageConn) ListLive(ctx context.Context, institutionID int64) ([]model.MstStaffWage, error) {
+	rows := []model.MstStaffWage{}
+	err := c.DB.SlaveDB.Context(ctx).
+		Table(model.MstStaffWageTableName).
+		Where("institution_id = ?", institutionID).
+		And("delete_time IS NULL").
+		OrderBy("id ASC").
+		Find(&rows)
+	if err != nil {
+		return nil, errors.Wrap(err, wrapMsgWageListAll)
 	}
 	return rows, nil
 }

@@ -239,7 +239,7 @@ func (w MstStaffWage) ToResponse() StaffWageResponse {
 	}
 }
 
-// TrxWagePeriodSnapshot is a generated copy of an active wage for a payday period.
+// TrxWagePeriodSnapshot is a generated copy of the wage that covers a payday period.
 // institution_id is stored and omitted from JSON. Dates are copied from the period.
 // CompensationPeriodUUID is filled by List via LEFT JOIN; it is not a snapshot column.
 type TrxWagePeriodSnapshot struct {
@@ -783,7 +783,7 @@ type DeleteStaffWageResponse struct {
 
 // GenerateStaffWageSnapshotsRequest is the body for POST /v1/compensation/staff-wages/generate.
 // CompensationPeriodUUID is the public payday period. Dates are read from that period.
-// StaffIDs empty means every staff member with an active wage.
+// StaffIDs empty means every staff member whose wage covers the period.
 type GenerateStaffWageSnapshotsRequest struct {
 	CompensationPeriodUUID string   `json:"compensation_period_uuid"`
 	StaffIDs               []string `json:"staff_ids"`

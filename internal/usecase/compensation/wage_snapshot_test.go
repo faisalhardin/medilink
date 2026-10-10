@@ -133,7 +133,7 @@ func generateReq(staffIDs []string) model.GenerateStaffWageSnapshotsRequest {
 func TestGenerate_AllActiveWages(t *testing.T) {
 	wages := &fakeWageDB{rows: []model.MstStaffWage{
 		wageOn(1, "staff-a", true, "2026-01-01", ""),
-		wageOn(2, "staff-b", false, "2026-01-01", ""),
+		wageOn(2, "staff-b", false, "2026-01-01", "2026-07-31"),
 		wageOn(3, "staff-c", true, "2026-02-01", ""),
 	}}
 	wages.rows[2].WageAmount = 9000
@@ -210,6 +210,54 @@ func TestGenerate_MissingContractInsertsNothing(t *testing.T) {
 	}
 	if tx.began {
 		t.Fatal("transaction began")
+	}
+}
+
+func TestGenerate_UsesWageCoveringPeriod(t *testing.T) {
+	closed := wageOn(1, "staff-a", false, "2026-01-01", "2026-08-31")
+	closed.WageAmount = 3000000
+	later := wageOn(2, "staff-a", true, "2026-09-01", "")
+	later.WageAmount = 3100000
+	later.WageCadence = model.WageCadenceDaily
+	older := wageOn(3, "staff-b", true, "2026-01-01", "2026-08-31")
+	newer := wageOn(4, "staff-b", false, "2026-06-01", "")
+	newer.WageAmount = 2000
+	newer.WageCadence = model.WageCadenceWeekly
+	outside := wageOn(5, "staff-c", true, "2026-09-01", "")
+
+	wages := &fakeWageDB{rows: []model.MstStaffWage{closed, later, older, newer, outside}}
+	snaps := &fakeSnapshotDB{}
+	uc := newSnapshotUC(wages, snaps, nil)
+
+	got, err := uc.Generate(testCtx(), generateReq(nil))
+	if err != nil {
+		t.Fatalf("generate: %v", err)
+	}
+	if len(got.Snapshots) != 2 {
+		t.Fatalf("snapshots=%d", len(got.Snapshots))
+	}
+	if got.Snapshots[0].StaffID != "staff-a" || got.Snapshots[0].WageAmount != 3000000 || got.Snapshots[0].WageCadence != model.WageCadenceMonthly {
+		t.Fatalf("closed contract: %+v", got.Snapshots[0])
+	}
+	if got.Snapshots[1].StaffID != "staff-b" || got.Snapshots[1].WageAmount != 2000 || got.Snapshots[1].WageCadence != model.WageCadenceWeekly {
+		t.Fatalf("later contract: %+v", got.Snapshots[1])
+	}
+}
+
+func TestGenerate_ContractOutsidePeriod(t *testing.T) {
+	wages := &fakeWageDB{rows: []model.MstStaffWage{
+		wageOn(1, "staff-a", true, "2026-09-01", ""),
+	}}
+	snaps := &fakeSnapshotDB{}
+	tx := &fakeTx{}
+	uc := newSnapshotUC(wages, snaps, tx)
+
+	_, err := uc.Generate(testCtx(), generateReq([]string{"staff-a"}))
+	if errorName(t, err) != errWageContractNotFound {
+		t.Fatalf("error = %v", err)
+	}
+	if len(snaps.rows) != 0 || tx.began {
+		t.Fatalf("rows=%d began=%v", len(snaps.rows), tx.began)
 	}
 }
 
