@@ -4,7 +4,7 @@ Domain under `internal/{entity,http,usecase,repo}/compensation`. Specs: workspac
 
 ## Product split
 - **Worksheet** (`mdl_trx_worksheet`): single-staff wrap for visit commissions. Create default **`open` + `idle`**. Primary place to generate / edit / finalize commissions.
-- **Payday period** (`mdl_trx_compensation_period`): rolls up worksheets via `worksheet.compensation_period_id`. Does **not** generate commissions or lock visits. Draft/finalize do not apply wage amounts yet.
+- **Payday period** (`mdl_trx_compensation_period`): rolls up worksheets via `worksheet.compensation_period_id`. Does **not** generate commissions, lock visits, or generate wage snapshots.
 
 ## Worksheet lifecycle
 - `status`: `pending` | `open` | `finalized`
@@ -48,9 +48,9 @@ Standard CRUD + draft/finalize/reopen. List staff via worksheets rollup. Path tr
 - Type `percent`|`flat`; amount server-side on PATCH.
 
 ## Packages
-- Handlers: `http/compensation/{period,worksheet,visit_commission,wage}_handler.go`
-- UC: `usecase/compensation/{period,worksheet,visit_commission,finalize,wage}.go`
-- Repos: `repo/compensation/{period,worksheet,commission,contributor,wage}_db.go`; visit lock in `repo/patient`
+- Handlers: `http/compensation/{period,worksheet,visit_commission,wage,wage_snapshot}_handler.go`
+- UC: `usecase/compensation/{period,worksheet,visit_commission,finalize,wage,wage_snapshot}.go`
+- Repos: `repo/compensation/{period,worksheet,commission,contributor,wage,wage_snapshot}_db.go`; visit lock in `repo/patient`
 - Utils: `library/util/common/time.go` (`DateOnly`, `PeriodsOverlap`)
 - Models: `entity/model/compensation.go`
 
@@ -58,9 +58,16 @@ Standard CRUD + draft/finalize/reopen. List staff via worksheets rollup. Path tr
 - `GET|PUT /v1/compensation/wages`, `DELETE /v1/compensation/wages/{wageId}`. Perm `compensation.manage`.
 - Cadence `monthly` | `weekly` | `daily`.
 - One active wage per staff+institution. PUT inserts a new active row and closes the previous one the day before the new `effective_from`. Reusing that start date → `WAGE_EFFECTIVE_RANGE_OVERLAP`. `effective_to` null = open-ended.
-- GET is active rows only. `created_at` on `StaffWageResponse` is RFC3339 (`ToResponse`).
+- GET is active rows only. `created_at` on `StaffWageResponse` is RFC3339 (`ToResponse`). Upsert sets `CreateTime` before insert; the xorm `created` tag does not fill the PUT body.
 - Errors: `INVALID_WAGE_CADENCE`, `WAGE_EFFECTIVE_RANGE_INVALID`, `WAGE_EFFECTIVE_RANGE_OVERLAP`, `WAGE_MULTIPLE_ACTIVE`, `WAGE_NOT_FOUND`.
-- No payday-period overlap check. Period totals still exclude wages.
+- `WageDB.ListLive` is every non-deleted wage. `ListActive` is the wage list API. `ListLiveByStaff` is the overlap check on PUT.
+
+## Wage snapshots (`mdl_trx_wage_period_snapshot`)
+- Perm `compensation.manage`. `POST /v1/compensation/staff-wages/generate`, `GET /`, `PATCH /{id}`, `DELETE /{id}`.
+- Generate loads `ListLive` and keeps wages whose effective range overlaps the payday dates (`PeriodsOverlap` / `wageRangeEnd`). `staff_ids` empty → those staff. A named staff with none → 400 `WAGE_CONTRACT_NOT_FOUND`.
+- Two contracts overlapping the period: later `effective_from`, then higher id, is copied for the whole period. Amount and cadence are copied; day counts and `total_wage` start null.
+- PATCH: both day counts set → `total_wage = wage_amount * staff_working_days / unit days` (trunc toward zero; mandatory must be > 0). A week is 7 days, a day is 1, a month is the mandatory days. Otherwise a set `final_wage` is copied. A missing input stays null. Negative days or final wage → `WAGE_SNAPSHOT_DAYS_INVALID` / `WAGE_SNAPSHOT_FINAL_WAGE_INVALID`.
+- Payday draft/finalize do not generate snapshots and do not roll snapshot totals into the period.
 
 ## Visit lock enforcement
 - `compensation_locked_at` is written only by worksheet finalize (`patient.LockVisits`). Payday draft/finalize do not set it, so draft periods do not lock visits.

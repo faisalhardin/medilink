@@ -72,6 +72,7 @@ func (f *fakeSnapshotDB) UpdateWageInputs(_ context.Context, row *model.TrxWageP
 		f.rows[i].StaffWorkingDays = row.StaffWorkingDays
 		f.rows[i].FinalWage = row.FinalWage
 		f.rows[i].TotalWage = row.TotalWage
+		f.rows[i].UpdateTime = row.UpdateTime
 		return true, nil
 	}
 	return false, nil
@@ -168,8 +169,8 @@ func TestGenerate_AllActiveWages(t *testing.T) {
 	if got.Snapshots[0].CompensationPeriodUUID != "period-aug" || snaps.rows[0].CompensationPeriodID != 7 {
 		t.Fatalf("period: response=%+v row=%+v", got.Snapshots[0], snaps.rows[0])
 	}
-	if got.Snapshots[0].CreatedAt != "2026-08-08T02:00:00Z" {
-		t.Fatalf("created_at = %s", got.Snapshots[0].CreatedAt)
+	if got.Snapshots[0].CreatedAt != "2026-08-08T02:00:00Z" || got.Snapshots[0].UpdatedAt != "2026-08-08T02:00:00Z" {
+		t.Fatalf("times created=%s updated=%s", got.Snapshots[0].CreatedAt, got.Snapshots[0].UpdatedAt)
 	}
 	if got.Snapshots[0].MandatoryWorkingDays.Valid || got.Snapshots[0].StaffWorkingDays.Valid || got.Snapshots[0].FinalWage.Valid || got.Snapshots[0].TotalWage.Valid {
 		t.Fatalf("generated amounts should be empty: %+v", got.Snapshots[0])
@@ -241,6 +242,63 @@ func TestGenerate_UsesWageCoveringPeriod(t *testing.T) {
 	}
 	if got.Snapshots[1].StaffID != "staff-b" || got.Snapshots[1].WageAmount != 2000 || got.Snapshots[1].WageCadence != model.WageCadenceWeekly {
 		t.Fatalf("later contract: %+v", got.Snapshots[1])
+	}
+}
+
+func TestGenerate_SameStaffAndPeriodRejected(t *testing.T) {
+	wages := &fakeWageDB{rows: []model.MstStaffWage{
+		wageOn(1, "staff-a", true, "2026-01-01", ""),
+		wageOn(2, "staff-b", true, "2026-01-01", ""),
+	}}
+	snaps := &fakeSnapshotDB{rows: []model.TrxWagePeriodSnapshot{{
+		ID: 9, StaffID: "staff-a", InstitutionID: testInstitutionID, CompensationPeriodID: 7,
+	}}}
+	tx := &fakeTx{}
+	uc := newSnapshotUC(wages, snaps, tx)
+
+	_, err := uc.Generate(testCtx(), generateReq([]string{"staff-b", "staff-a"}))
+	if errorName(t, err) != errSnapshotAlreadyExists {
+		t.Fatalf("error = %v", err)
+	}
+	if len(snaps.rows) != 1 || tx.began {
+		t.Fatalf("rows=%d began=%v", len(snaps.rows), tx.began)
+	}
+}
+
+func TestGenerate_DeletedSnapshotCanBeRegenerated(t *testing.T) {
+	wages := &fakeWageDB{rows: []model.MstStaffWage{
+		wageOn(1, "staff-a", true, "2026-01-01", ""),
+	}}
+	deletedAt := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+	snaps := &fakeSnapshotDB{rows: []model.TrxWagePeriodSnapshot{{
+		ID: 9, StaffID: "staff-a", InstitutionID: testInstitutionID, CompensationPeriodID: 7, DeleteTime: &deletedAt,
+	}}}
+	uc := newSnapshotUC(wages, snaps, nil)
+
+	got, err := uc.Generate(testCtx(), generateReq([]string{"staff-a"}))
+	if err != nil {
+		t.Fatalf("generate: %v", err)
+	}
+	if len(got.Snapshots) != 1 || got.Snapshots[0].StaffID != "staff-a" {
+		t.Fatalf("got %+v", got.Snapshots)
+	}
+}
+
+func TestGenerate_OtherPeriodDoesNotBlock(t *testing.T) {
+	wages := &fakeWageDB{rows: []model.MstStaffWage{
+		wageOn(1, "staff-a", true, "2026-01-01", ""),
+	}}
+	snaps := &fakeSnapshotDB{rows: []model.TrxWagePeriodSnapshot{{
+		ID: 9, StaffID: "staff-a", InstitutionID: testInstitutionID, CompensationPeriodID: 3,
+	}}}
+	uc := newSnapshotUC(wages, snaps, nil)
+
+	got, err := uc.Generate(testCtx(), generateReq([]string{"staff-a"}))
+	if err != nil {
+		t.Fatalf("generate: %v", err)
+	}
+	if len(got.Snapshots) != 1 || len(snaps.rows) != 2 {
+		t.Fatalf("snapshots=%d rows=%d", len(got.Snapshots), len(snaps.rows))
 	}
 }
 
@@ -364,6 +422,9 @@ func TestUpdate_ProrateWinsOverFinal(t *testing.T) {
 	}
 	if snaps.rows[0].TotalWage.Int64 != 909 || snaps.rows[0].FinalWage.Int64 != 500 {
 		t.Fatalf("stored %+v", snaps.rows[0])
+	}
+	if got.UpdatedAt != "2026-08-08T02:00:00Z" || !snaps.rows[0].UpdateTime.Equal(time.Date(2026, 8, 8, 2, 0, 0, 0, time.UTC)) {
+		t.Fatalf("updated_at = %s stored %s", got.UpdatedAt, snaps.rows[0].UpdateTime)
 	}
 }
 

@@ -204,7 +204,7 @@ func TestApplySnapshotWage(t *testing.T) {
 	empty := sql.NullInt64{}
 
 	t.Run("prorate", func(t *testing.T) {
-		got, err := ApplySnapshotWage(1000, days(22), days(20), days(500))
+		got, err := ApplySnapshotWage(1000, WageCadenceMonthly, days(22), days(20), days(500))
 		if err != nil {
 			t.Fatalf("apply: %v", err)
 		}
@@ -213,8 +213,28 @@ func TestApplySnapshotWage(t *testing.T) {
 		}
 	})
 
+	t.Run("weekly rate covers seven days", func(t *testing.T) {
+		got, err := ApplySnapshotWage(3_000_000, WageCadenceWeekly, days(22), days(21), empty)
+		if err != nil {
+			t.Fatalf("apply: %v", err)
+		}
+		if !got.Valid || got.Int64 != 9_000_000 {
+			t.Fatalf("total = %+v, want 9000000", got)
+		}
+	})
+
+	t.Run("daily rate is one day", func(t *testing.T) {
+		got, err := ApplySnapshotWage(100_000, WageCadenceDaily, days(22), days(21), empty)
+		if err != nil {
+			t.Fatalf("apply: %v", err)
+		}
+		if !got.Valid || got.Int64 != 2_100_000 {
+			t.Fatalf("total = %+v, want 2100000", got)
+		}
+	})
+
 	t.Run("final when days missing", func(t *testing.T) {
-		got, err := ApplySnapshotWage(1000, empty, empty, days(750))
+		got, err := ApplySnapshotWage(1000, WageCadenceMonthly, empty, empty, days(750))
 		if err != nil {
 			t.Fatalf("apply: %v", err)
 		}
@@ -224,7 +244,7 @@ func TestApplySnapshotWage(t *testing.T) {
 	})
 
 	t.Run("one day uses final", func(t *testing.T) {
-		got, err := ApplySnapshotWage(1000, days(22), empty, days(400))
+		got, err := ApplySnapshotWage(1000, WageCadenceMonthly, days(22), empty, days(400))
 		if err != nil {
 			t.Fatalf("apply: %v", err)
 		}
@@ -234,7 +254,7 @@ func TestApplySnapshotWage(t *testing.T) {
 	})
 
 	t.Run("neither stays empty", func(t *testing.T) {
-		got, err := ApplySnapshotWage(1000, empty, empty, empty)
+		got, err := ApplySnapshotWage(1000, WageCadenceMonthly, empty, empty, empty)
 		if err != nil {
 			t.Fatalf("apply: %v", err)
 		}
@@ -244,7 +264,7 @@ func TestApplySnapshotWage(t *testing.T) {
 	})
 
 	t.Run("zero staff days", func(t *testing.T) {
-		got, err := ApplySnapshotWage(1000, days(22), days(0), empty)
+		got, err := ApplySnapshotWage(1000, WageCadenceMonthly, days(22), days(0), empty)
 		if err != nil {
 			t.Fatalf("apply: %v", err)
 		}
@@ -254,7 +274,7 @@ func TestApplySnapshotWage(t *testing.T) {
 	})
 
 	t.Run("mandatory zero", func(t *testing.T) {
-		_, err := ApplySnapshotWage(1000, days(0), days(20), empty)
+		_, err := ApplySnapshotWage(1000, WageCadenceMonthly, days(0), days(20), empty)
 		var input *SnapshotWageInputError
 		if err == nil || !errors.As(err, &input) || input.Code != SnapshotDaysInvalidCode {
 			t.Fatalf("error = %v", err)
@@ -262,7 +282,7 @@ func TestApplySnapshotWage(t *testing.T) {
 	})
 
 	t.Run("negative day", func(t *testing.T) {
-		_, err := ApplySnapshotWage(1000, days(22), days(-1), empty)
+		_, err := ApplySnapshotWage(1000, WageCadenceMonthly, days(22), days(-1), empty)
 		var input *SnapshotWageInputError
 		if err == nil || !errors.As(err, &input) || input.Code != SnapshotDaysInvalidCode {
 			t.Fatalf("error = %v", err)
@@ -270,7 +290,7 @@ func TestApplySnapshotWage(t *testing.T) {
 	})
 
 	t.Run("negative final", func(t *testing.T) {
-		_, err := ApplySnapshotWage(1000, empty, empty, days(-1))
+		_, err := ApplySnapshotWage(1000, WageCadenceMonthly, empty, empty, days(-1))
 		var input *SnapshotWageInputError
 		if err == nil || !errors.As(err, &input) || input.Code != SnapshotFinalInvalidCode {
 			t.Fatalf("error = %v", err)

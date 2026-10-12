@@ -28,10 +28,12 @@ const (
 
 	errSnapshotPeriodRequired = "COMPENSATION_PERIOD_REQUIRED"
 	errWageContractNotFound   = "WAGE_CONTRACT_NOT_FOUND"
+	errSnapshotAlreadyExists  = "WAGE_SNAPSHOT_ALREADY_EXISTS"
 	errSnapshotNotFound       = "STAFF_WAGE_SNAPSHOT_NOT_FOUND"
 
 	msgSnapshotPeriodRequired = "compensation_period_uuid is required"
 	msgWageContractNotFound   = "staff has no wage contract for this period"
+	msgSnapshotAlreadyExists  = "staff already has a wage snapshot for this compensation period"
 	msgSnapshotNotFound       = "wage snapshot was not found"
 )
 
@@ -106,6 +108,22 @@ func (u *WageSnapshotUC) Generate(ctx context.Context, req model.GenerateStaffWa
 		return model.StaffWageSnapshotsResponse{Snapshots: []model.StaffWageSnapshotResponse{}}, nil
 	}
 
+	existing, err := u.SnapshotDB.List(ctx, userDetail.InstitutionID)
+	if err != nil {
+		return model.StaffWageSnapshotsResponse{}, errors.Wrap(err, wrapMsgGenerateSnap)
+	}
+	taken := make(map[string]struct{}, len(existing))
+	for _, row := range existing {
+		if row.CompensationPeriodID == period.ID {
+			taken[row.StaffID] = struct{}{}
+		}
+	}
+	for _, wage := range chosen {
+		if _, ok := taken[wage.StaffID]; ok {
+			return model.StaffWageSnapshotsResponse{}, commonerr.SetNewBadRequest(errSnapshotAlreadyExists, msgSnapshotAlreadyExists)
+		}
+	}
+
 	session, err := u.Transaction.Begin(ctx)
 	if err != nil {
 		return model.StaffWageSnapshotsResponse{}, errors.Wrap(err, wrapMsgGenerateSnap)
@@ -126,6 +144,7 @@ func (u *WageSnapshotUC) Generate(ctx context.Context, req model.GenerateStaffWa
 			WageAmount:             wage.WageAmount,
 			WageCadence:            wage.WageCadence,
 			CreateTime:             createdAt,
+			UpdateTime:             createdAt,
 		}
 		if err = u.SnapshotDB.Insert(ctx, row); err != nil {
 			return model.StaffWageSnapshotsResponse{}, errors.Wrap(err, wrapMsgGenerateSnap)
@@ -174,7 +193,7 @@ func (u *WageSnapshotUC) Update(ctx context.Context, id int64, req model.UpdateS
 	mandatory := sqlNullInt64(req.MandatoryWorkingDays)
 	staffDays := sqlNullInt64(req.StaffWorkingDays)
 	finalWage := sqlNullInt64(req.FinalWage)
-	total, err := model.ApplySnapshotWage(row.WageAmount, mandatory, staffDays, finalWage)
+	total, err := model.ApplySnapshotWage(row.WageAmount, row.WageCadence, mandatory, staffDays, finalWage)
 	if err != nil {
 		var inputErr *model.SnapshotWageInputError
 		if stderrors.As(err, &inputErr) {
@@ -187,6 +206,7 @@ func (u *WageSnapshotUC) Update(ctx context.Context, id int64, req model.UpdateS
 	row.StaffWorkingDays = staffDays
 	row.FinalWage = finalWage
 	row.TotalWage = total
+	row.UpdateTime = u.now().UTC()
 	found, err = u.SnapshotDB.UpdateWageInputs(ctx, row)
 	if err != nil {
 		return model.StaffWageSnapshotResponse{}, errors.Wrap(err, wrapMsgUpdateSnap)
