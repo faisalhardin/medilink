@@ -105,7 +105,8 @@ func (c *WageSnapshotConn) UpdateWageInputs(ctx context.Context, row *model.TrxW
 		SET mandatory_working_days = ?,
 		    staff_working_days = ?,
 		    final_wage = ?,
-		    total_wage = ?
+		    total_wage = ?,
+		    update_time = ?
 		WHERE id = ?
 		  AND institution_id = ?
 		  AND delete_time IS NULL
@@ -116,6 +117,7 @@ func (c *WageSnapshotConn) UpdateWageInputs(ctx context.Context, row *model.TrxW
 		nullInt64(row.StaffWorkingDays),
 		nullInt64(row.FinalWage),
 		nullInt64(row.TotalWage),
+		row.UpdateTime,
 		row.ID,
 		row.InstitutionID,
 	)

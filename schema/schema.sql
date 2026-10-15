@@ -1106,6 +1106,7 @@ CREATE TABLE IF NOT EXISTS mdl_trx_wage_period_snapshot (
     final_wage               BIGINT,
     total_wage               BIGINT,
     create_time              TIMESTAMPTZ         NOT NULL DEFAULT NOW(),
+    update_time              TIMESTAMPTZ         NOT NULL DEFAULT NOW(),
     delete_time              TIMESTAMPTZ
 );
 
@@ -1115,6 +1116,10 @@ CREATE INDEX IF NOT EXISTS idx_wage_period_snapshot_institution
 
 CREATE INDEX IF NOT EXISTS idx_wage_period_snapshot_period
     ON mdl_trx_wage_period_snapshot (institution_id, compensation_period_id)
+    WHERE delete_time IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uidx_wage_period_snapshot_staff_period
+    ON mdl_trx_wage_period_snapshot (staff_id, compensation_period_id)
     WHERE delete_time IS NULL;
 
 -- ---------------------------------------------------------------------------

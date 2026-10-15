@@ -256,6 +256,7 @@ type TrxWagePeriodSnapshot struct {
 	FinalWage              sql.NullInt64  `xorm:"'final_wage' null" json:"-"`
 	TotalWage              sql.NullInt64  `xorm:"'total_wage' null" json:"-"`
 	CreateTime             time.Time      `xorm:"'create_time' created" json:"-"`
+	UpdateTime             time.Time      `xorm:"'update_time' updated" json:"-"`
 	DeleteTime             *time.Time     `xorm:"'delete_time' deleted" json:"-"`
 	CompensationPeriodUUID sql.NullString `xorm:"<- 'compensation_period_uuid'" json:"-"`
 }
@@ -278,6 +279,7 @@ func (s TrxWagePeriodSnapshot) ToResponse() StaffWageSnapshotResponse {
 		FinalWage:              nullInt64FromSQL(s.FinalWage),
 		TotalWage:              nullInt64FromSQL(s.TotalWage),
 		CreatedAt:              s.CreateTime.UTC().Format(time.RFC3339),
+		UpdatedAt:              s.UpdateTime.UTC().Format(time.RFC3339),
 	}
 }
 
@@ -298,11 +300,29 @@ func (e *SnapshotWageInputError) Error() string {
 	return e.Message
 }
 
+// snapshotUnitDays is how many worked days one cadence rate covers.
+// A week is 7 days. A day is 1. A month covers the mandatory days for that payday.
+func snapshotUnitDays(cadence WageCadence, mandatory int64) (int64, error) {
+	switch cadence {
+	case WageCadenceDaily:
+		return 1, nil
+	case WageCadenceWeekly:
+		return 7, nil
+	case WageCadenceMonthly:
+		return mandatory, nil
+	default:
+		return 0, &SnapshotWageInputError{
+			Code:    SnapshotDaysInvalidCode,
+			Message: "working days must be zero or greater, and mandatory working days must be greater than zero when both day counts are set",
+		}
+	}
+}
+
 // ApplySnapshotWage sets total_wage from the contract rate and the user inputs.
-// Both day counts produce wage_amount * staff_working_days / mandatory_working_days,
-// truncating toward zero. final_wage is copied only when that prorate cannot be made.
+// Both day counts produce wage_amount * staff_working_days / unit days, truncating
+// toward zero. final_wage is copied only when that prorate cannot be made.
 // A missing input stays NULL. Zero is a stored value.
-func ApplySnapshotWage(wageAmount int64, mandatory, staffDays, finalWage sql.NullInt64) (sql.NullInt64, error) {
+func ApplySnapshotWage(wageAmount int64, cadence WageCadence, mandatory, staffDays, finalWage sql.NullInt64) (sql.NullInt64, error) {
 	if (mandatory.Valid && mandatory.Int64 < 0) || (staffDays.Valid && staffDays.Int64 < 0) {
 		return sql.NullInt64{}, &SnapshotWageInputError{
 			Code:    SnapshotDaysInvalidCode,
@@ -322,13 +342,17 @@ func ApplySnapshotWage(wageAmount int64, mandatory, staffDays, finalWage sql.Nul
 				Message: "working days must be zero or greater, and mandatory working days must be greater than zero when both day counts are set",
 			}
 		}
+		unitDays, err := snapshotUnitDays(cadence, mandatory.Int64)
+		if err != nil {
+			return sql.NullInt64{}, err
+		}
 		if staffDays.Int64 > 0 && wageAmount > math.MaxInt64/staffDays.Int64 {
 			return sql.NullInt64{}, &SnapshotWageInputError{
 				Code:    SnapshotDaysInvalidCode,
 				Message: "working days must be zero or greater, and mandatory working days must be greater than zero when both day counts are set",
 			}
 		}
-		return sql.NullInt64{Int64: wageAmount * staffDays.Int64 / mandatory.Int64, Valid: true}, nil
+		return sql.NullInt64{Int64: wageAmount * staffDays.Int64 / unitDays, Valid: true}, nil
 	}
 	if finalWage.Valid {
 		return finalWage, nil
@@ -804,6 +828,7 @@ type StaffWageSnapshotResponse struct {
 	FinalWage              null.Int64  `json:"final_wage"`
 	TotalWage              null.Int64  `json:"total_wage"`
 	CreatedAt              string      `json:"created_at"`
+	UpdatedAt              string      `json:"updated_at"`
 }
 
 // UpdateStaffWageSnapshotRequest is the body for PATCH /v1/compensation/staff-wages/{id}.
