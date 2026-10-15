@@ -19,6 +19,7 @@ const (
 	wrapMsgList         = wrapErrMsgPrefix + "List"
 	wrapMsgListCount    = wrapErrMsgPrefix + "ListCount"
 	wrapMsgUpdate       = wrapErrMsgPrefix + "UpdateStatusAndTotals"
+	wrapMsgAddWageDelta = wrapErrMsgPrefix + "AddWageDelta"
 	wrapMsgSoftDelete   = wrapErrMsgPrefix + "SoftDelete"
 	wrapMsgGenerateUUID = wrapErrMsgPrefix + "GenerateUUID"
 )
@@ -154,6 +155,23 @@ func (c *Conn) UpdateStatusAndTotals(ctx context.Context, period *model.TrxCompe
 		Update(period)
 	if err != nil {
 		return errors.Wrap(err, wrapMsgUpdate)
+	}
+	return nil
+}
+
+func (c *Conn) AddWageDelta(ctx context.Context, institutionID, periodID, delta int64) error {
+	const sqlText = `
+		UPDATE mdl_trx_compensation_period
+		SET total_wage = COALESCE(total_wage, 0) + ?,
+		    total_payout = COALESCE(total_wage, 0) + ? + COALESCE(total_commission, 0),
+		    update_time = NOW()
+		WHERE id = ?
+		  AND institution_id = ?
+		  AND delete_time IS NULL
+	`
+	_, err := c.writeSession(ctx).Exec(sqlText, delta, delta, periodID, institutionID)
+	if err != nil {
+		return errors.Wrap(err, wrapMsgAddWageDelta)
 	}
 	return nil
 }

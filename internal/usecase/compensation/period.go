@@ -382,9 +382,8 @@ func (u *CompensationPeriodUC) rejectIfOverlapping(ctx context.Context, institut
 func applyPhase1DraftTotals(period *model.TrxCompensationPeriod, totals compensationrepo.WorksheetPeriodTotals, now time.Time, staffUUID string) {
 	period.Status = model.CompensationPeriodStatusDraft
 	period.WageSnapshot = nil
-	period.TotalWage = sql.NullInt64{Int64: 0, Valid: true}
 	period.TotalCommission = sql.NullInt64{Int64: totals.TotalCommission, Valid: true}
-	period.TotalPayout = sql.NullInt64{Int64: totals.TotalCommission, Valid: true}
+	period.TotalPayout = sql.NullInt64{Int64: wageOrZero(period.TotalWage) + totals.TotalCommission, Valid: true}
 	period.StaffCount = sql.NullInt64{Int64: totals.StaffCount, Valid: true}
 	period.VisitCount = sql.NullInt64{Int64: totals.VisitCount, Valid: true}
 	period.DraftedAt = sql.NullTime{Time: now, Valid: true}
@@ -416,4 +415,3 @@ func assignmentStatus(visitCount, commissionedVisitCount int64) model.Compensati
 	}
 	return model.CompensationAssignmentStatusComplete
 }
-

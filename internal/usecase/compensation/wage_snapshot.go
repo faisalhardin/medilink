@@ -177,7 +177,7 @@ func sqlNullInt64(v null.Int64) sql.NullInt64 {
 	return sql.NullInt64{Int64: v.Int64, Valid: true}
 }
 
-func (u *WageSnapshotUC) Update(ctx context.Context, id int64, req model.UpdateStaffWageSnapshotRequest) (model.StaffWageSnapshotResponse, error) {
+func (u *WageSnapshotUC) Update(ctx context.Context, id int64, req model.UpdateStaffWageSnapshotRequest) (resp model.StaffWageSnapshotResponse, err error) {
 	userDetail, err := u.requireUser(ctx)
 	if err != nil {
 		return model.StaffWageSnapshotResponse{}, err
@@ -193,6 +193,7 @@ func (u *WageSnapshotUC) Update(ctx context.Context, id int64, req model.UpdateS
 	mandatory := sqlNullInt64(req.MandatoryWorkingDays)
 	staffDays := sqlNullInt64(req.StaffWorkingDays)
 	finalWage := sqlNullInt64(req.FinalWage)
+	oldTotal := row.TotalWage
 	total, err := model.ApplySnapshotWage(row.WageAmount, row.WageCadence, mandatory, staffDays, finalWage)
 	if err != nil {
 		var inputErr *model.SnapshotWageInputError
@@ -207,6 +208,14 @@ func (u *WageSnapshotUC) Update(ctx context.Context, id int64, req model.UpdateS
 	row.FinalWage = finalWage
 	row.TotalWage = total
 	row.UpdateTime = u.now().UTC()
+
+	session, err := u.Transaction.Begin(ctx)
+	if err != nil {
+		return model.StaffWageSnapshotResponse{}, errors.Wrap(err, wrapMsgUpdateSnap)
+	}
+	defer u.Transaction.Finish(session, &err)
+	ctx = xormlib.SetDBSession(ctx, session)
+
 	found, err = u.SnapshotDB.UpdateWageInputs(ctx, row)
 	if err != nil {
 		return model.StaffWageSnapshotResponse{}, errors.Wrap(err, wrapMsgUpdateSnap)
@@ -214,22 +223,56 @@ func (u *WageSnapshotUC) Update(ctx context.Context, id int64, req model.UpdateS
 	if !found {
 		return model.StaffWageSnapshotResponse{}, commonerr.SetNewError(http.StatusNotFound, errSnapshotNotFound, msgSnapshotNotFound)
 	}
+	delta := wageOrZero(row.TotalWage) - wageOrZero(oldTotal)
+	if delta != 0 {
+		if err = u.PeriodDB.AddWageDelta(ctx, userDetail.InstitutionID, row.CompensationPeriodID, delta); err != nil {
+			return model.StaffWageSnapshotResponse{}, errors.Wrap(err, wrapMsgUpdateSnap)
+		}
+	}
 	return row.ToResponse(), nil
 }
 
-func (u *WageSnapshotUC) Delete(ctx context.Context, id int64) (model.DeleteStaffWageSnapshotResponse, error) {
+func (u *WageSnapshotUC) Delete(ctx context.Context, id int64) (resp model.DeleteStaffWageSnapshotResponse, err error) {
 	userDetail, err := u.requireUser(ctx)
 	if err != nil {
 		return model.DeleteStaffWageSnapshotResponse{}, err
 	}
-	found, err := u.SnapshotDB.SoftDelete(ctx, userDetail.InstitutionID, id)
+
+	session, err := u.Transaction.Begin(ctx)
+	if err != nil {
+		return model.DeleteStaffWageSnapshotResponse{}, errors.Wrap(err, wrapMsgDeleteSnap)
+	}
+	defer u.Transaction.Finish(session, &err)
+	ctx = xormlib.SetDBSession(ctx, session)
+
+	row, found, err := u.SnapshotDB.Get(ctx, userDetail.InstitutionID, id)
+	if err != nil {
+		return model.DeleteStaffWageSnapshotResponse{}, errors.Wrap(err, wrapMsgDeleteSnap)
+	}
+	if !found || row == nil {
+		return model.DeleteStaffWageSnapshotResponse{}, commonerr.SetNewError(http.StatusNotFound, errSnapshotNotFound, msgSnapshotNotFound)
+	}
+	found, err = u.SnapshotDB.SoftDelete(ctx, userDetail.InstitutionID, id)
 	if err != nil {
 		return model.DeleteStaffWageSnapshotResponse{}, errors.Wrap(err, wrapMsgDeleteSnap)
 	}
 	if !found {
 		return model.DeleteStaffWageSnapshotResponse{}, commonerr.SetNewError(http.StatusNotFound, errSnapshotNotFound, msgSnapshotNotFound)
 	}
+	delta := -wageOrZero(row.TotalWage)
+	if delta != 0 {
+		if err = u.PeriodDB.AddWageDelta(ctx, userDetail.InstitutionID, row.CompensationPeriodID, delta); err != nil {
+			return model.DeleteStaffWageSnapshotResponse{}, errors.Wrap(err, wrapMsgDeleteSnap)
+		}
+	}
 	return model.DeleteStaffWageSnapshotResponse{Success: true}, nil
+}
+
+func wageOrZero(v sql.NullInt64) int64 {
+	if !v.Valid {
+		return 0
+	}
+	return v.Int64
 }
 
 // wagesCoveringPeriod keeps one wage per staff whose dates overlap start..end.

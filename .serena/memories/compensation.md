@@ -67,7 +67,7 @@ Standard CRUD + draft/finalize/reopen. List staff via worksheets rollup. Path tr
 - Generate loads `ListLive` and keeps wages whose effective range overlaps the payday dates (`PeriodsOverlap` / `wageRangeEnd`). `staff_ids` empty → those staff. A named staff with none → 400 `WAGE_CONTRACT_NOT_FOUND`.
 - Two contracts overlapping the period: later `effective_from`, then higher id, is copied for the whole period. Amount and cadence are copied; day counts and `total_wage` start null.
 - PATCH: both day counts set → `total_wage = wage_amount * staff_working_days / unit days` (trunc toward zero; mandatory must be > 0). A week is 7 days, a day is 1, a month is the mandatory days. Otherwise a set `final_wage` is copied. A missing input stays null. Negative days or final wage → `WAGE_SNAPSHOT_DAYS_INVALID` / `WAGE_SNAPSHOT_FINAL_WAGE_INVALID`.
-- Payday draft/finalize do not generate snapshots and do not roll snapshot totals into the period.
+- PATCH and DELETE move the payday `total_wage` by the snapshot difference (null is 0) and set `total_payout` to that wage plus `total_commission`. Draft and finalize keep `total_wage`. They do not generate snapshots.
 
 ## Visit lock enforcement
 - `compensation_locked_at` is written only by worksheet finalize (`patient.LockVisits`). Payday draft/finalize do not set it, so draft periods do not lock visits.
