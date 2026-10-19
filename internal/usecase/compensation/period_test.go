@@ -56,17 +56,19 @@ func errorName(t *testing.T, err error) string {
 }
 
 type fakeCompensationPeriodDB struct {
-	periods         []*model.TrxCompensationPeriod
-	lastList        model.ListCompensationPeriodParams
-	createErr       error
-	getErr          error
-	listErr         error
-	updateErr       error
-	deleteErr       error
-	wageDeltaErr    error
-	updateCalls     int
-	softDeleteCalls int
-	wageDeltaCalls  int
+	periods              []*model.TrxCompensationPeriod
+	lastList             model.ListCompensationPeriodParams
+	createErr            error
+	getErr               error
+	listErr              error
+	updateErr            error
+	deleteErr            error
+	wageDeltaErr         error
+	commissionDeltaErr   error
+	updateCalls          int
+	softDeleteCalls      int
+	wageDeltaCalls       int
+	commissionDeltaCalls int
 }
 
 func (f *fakeCompensationPeriodDB) Create(_ context.Context, period *model.TrxCompensationPeriod) error {
@@ -156,6 +158,23 @@ func (f *fakeCompensationPeriodDB) UpdateStatusAndTotals(_ context.Context, peri
 	return errors.New("period not in fake store")
 }
 
+func (f *fakeCompensationPeriodDB) AddCommissionDelta(_ context.Context, institutionID, periodID, delta int64) error {
+	f.commissionDeltaCalls++
+	if f.commissionDeltaErr != nil {
+		return f.commissionDeltaErr
+	}
+	for _, p := range f.periods {
+		if p.ID != periodID || p.InstitutionID != institutionID || p.DeleteTime != nil {
+			continue
+		}
+		commission := wageOrZero(p.TotalCommission) + delta
+		p.TotalCommission = sql.NullInt64{Int64: commission, Valid: true}
+		p.TotalPayout = sql.NullInt64{Int64: wageOrZero(p.TotalWage) + commission, Valid: true}
+		return nil
+	}
+	return nil
+}
+
 func (f *fakeCompensationPeriodDB) AddWageDelta(_ context.Context, institutionID, periodID, delta int64) error {
 	f.wageDeltaCalls++
 	if f.wageDeltaErr != nil {
@@ -192,10 +211,11 @@ type fakeWorksheetDB struct {
 	// periodTotals maps compensationPeriodID → WorksheetPeriodTotals
 	periodTotals map[int64]compensationrepo.WorksheetPeriodTotals
 	// staffTotals maps compensationPeriodID → per-staff totals
-	staffTotals map[int64][]compensationrepo.StaffCommissionTotals
-	lastList    model.ListWorksheetsRequest
-	sumErr      error
-	staffErr    error
+	staffTotals   map[int64][]compensationrepo.StaffCommissionTotals
+	staffOnPeriod bool
+	lastList      model.ListWorksheetsRequest
+	sumErr        error
+	staffErr      error
 }
 
 func (f *fakeWorksheetDB) Create(_ context.Context, _ *model.TrxWorksheet) error { return nil }
@@ -222,6 +242,9 @@ func (f *fakeWorksheetDB) UpdateTotals(_ context.Context, _ int64, _ int64, _ in
 }
 func (f *fakeWorksheetDB) ExistsOverlapping(_ context.Context, _ int64, _ string, _, _ time.Time, _ int64) (bool, error) {
 	return false, nil
+}
+func (f *fakeWorksheetDB) ExistsForStaffPeriod(context.Context, int64, string, int64) (bool, error) {
+	return f.staffOnPeriod, nil
 }
 
 func (f *fakeWorksheetDB) SumByCompensationPeriod(_ context.Context, compensationPeriodID int64) (compensationrepo.WorksheetPeriodTotals, error) {
@@ -634,6 +657,7 @@ func (f *fakeContributorDB) DeleteManualContributor(context.Context, int64, int6
 
 type fakeStaffDB struct {
 	staff model.StaffWithRolesResponse
+	list  []model.StaffWithRolesResponse
 	err   error
 }
 
@@ -645,7 +669,10 @@ func (f *fakeStaffDB) GetStaffByUUID(context.Context, int64, string, bool) (mode
 }
 
 func (f *fakeStaffDB) ListStaffByInstitution(context.Context, int64, bool) ([]model.StaffWithRolesResponse, error) {
-	return nil, nil
+	if f.err != nil {
+		return nil, f.err
+	}
+	return f.list, nil
 }
 func (f *fakeStaffDB) GetStaffIDByUUID(context.Context, int64, string) (int64, error) {
 	return 0, nil
@@ -712,21 +739,23 @@ func TestListPeriodStaff(t *testing.T) {
 		}
 	})
 
-	t.Run("assignment status wage zero pagination", func(t *testing.T) {
+	t.Run("worksheet wage plus commission", func(t *testing.T) {
 		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{copyPeriod(open)}}
-		contributors := &fakeContributorDB{detections: []compensationrepo.PeriodStaffDetection{
-			{StaffID: "s-a", Name: "Ada", Roles: []string{"Doctor"}, VisitCount: 3},
-			{StaffID: "s-b", Name: "Budi", Roles: []string{"Nurse"}, VisitCount: 2},
-			{StaffID: "s-c", Name: "Citra", Roles: nil, VisitCount: 1},
-		}}
 		worksheets := &fakeWorksheetDB{staffTotals: map[int64][]compensationrepo.StaffCommissionTotals{
 			7: {
 				{StaffID: "s-a", TotalCommission: 1500, VisitCount: 3},
 				{StaffID: "s-b", TotalCommission: 400, VisitCount: 1},
+				{StaffID: "s-c", TotalCommission: 0, VisitCount: 0},
 			},
 		}}
 		uc := newUC(db, worksheets, nil)
-		uc.ContributorDB = contributors
+		uc.SnapshotDB = &fakeSnapshotDB{rows: []model.TrxWagePeriodSnapshot{{
+			StaffID: "s-a", InstitutionID: testInstitutionID, CompensationPeriodID: 7,
+			TotalWage: sql.NullInt64{Int64: 500, Valid: true},
+		}}}
+		uc.StaffDB = &fakeStaffDB{list: []model.StaffWithRolesResponse{{
+			UUID: "s-a", Name: "Ada", Roles: []model.StaffRoleResponse{{Name: "Doctor"}},
+		}}}
 
 		got, err := uc.ListPeriodStaff(testCtx(), "p-staff", model.ListCompensationPeriodStaffRequest{
 			CommonRequestPayload: model.CommonRequestPayload{Limit: 2, Offset: 0},
@@ -734,16 +763,13 @@ func TestListPeriodStaff(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ListPeriodStaff: %v", err)
 		}
-		if got.Total != 3 {
-			t.Fatalf("total = %d, want 3", got.Total)
+		if got.Total != 3 || len(got.Staff) != 2 {
+			t.Fatalf("total=%d len=%d", got.Total, len(got.Staff))
 		}
-		if len(got.Staff) != 2 {
-			t.Fatalf("len(staff) = %d, want 2", len(got.Staff))
-		}
-		if got.Staff[0].StaffID != "s-a" || got.Staff[0].AssignmentStatus != model.CompensationAssignmentStatusComplete || got.Staff[0].Wage != 0 || got.Staff[0].PayTotal != 1500 {
+		if got.Staff[0].StaffID != "s-a" || got.Staff[0].Name != "Ada" || got.Staff[0].Wage != 500 || got.Staff[0].CommissionSubtotal != 1500 || got.Staff[0].PayTotal != 2000 {
 			t.Fatalf("staff[0] = %+v", got.Staff[0])
 		}
-		if got.Staff[1].StaffID != "s-b" || got.Staff[1].AssignmentStatus != model.CompensationAssignmentStatusPartial || got.Staff[1].CommissionSubtotal != 400 {
+		if got.Staff[1].StaffID != "s-b" || got.Staff[1].Wage != 0 || got.Staff[1].PayTotal != 400 {
 			t.Fatalf("staff[1] = %+v", got.Staff[1])
 		}
 
@@ -753,33 +779,23 @@ func TestListPeriodStaff(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ListPeriodStaff page2: %v", err)
 		}
-		if page2.Total != 3 || len(page2.Staff) != 1 {
-			t.Fatalf("page2 total=%d len=%d", page2.Total, len(page2.Staff))
+		if page2.Total != 3 || len(page2.Staff) != 1 || page2.Staff[0].StaffID != "s-c" || page2.Staff[0].PayTotal != 0 {
+			t.Fatalf("page2 = %+v", page2.Staff)
 		}
-		if page2.Staff[0].StaffID != "s-c" || page2.Staff[0].AssignmentStatus != model.CompensationAssignmentStatusUnassigned || page2.Staff[0].PayTotal != 0 {
-			t.Fatalf("staff page2 = %+v", page2.Staff[0])
-		}
-		if page2.Staff[0].Roles == nil || len(page2.Staff[0].Roles) != 0 {
-			t.Fatalf("nil roles should serialize as empty slice: %#v", page2.Staff[0].Roles)
-		}
-		wantEnd := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
-		if contributors.lastInst != testInstitutionID || !contributors.lastStart.Equal(open.PeriodStart) || !contributors.lastEnd.Equal(wantEnd) {
-			t.Fatalf("detect window inst=%d start=%s end=%s", contributors.lastInst, contributors.lastStart, contributors.lastEnd)
+		if page2.Staff[0].Roles == nil {
+			t.Fatal("roles should be an empty slice")
 		}
 	})
 
 	t.Run("default limit", func(t *testing.T) {
-		detections := make([]compensationrepo.PeriodStaffDetection, 0, 51)
+		rows := make([]compensationrepo.StaffCommissionTotals, 0, 51)
 		for i := 0; i < 51; i++ {
-			detections = append(detections, compensationrepo.PeriodStaffDetection{
-				StaffID:    "s-" + string(rune('a'+i%26)) + string(rune('0'+i/26)),
-				Name:       "N",
-				VisitCount: 1,
+			rows = append(rows, compensationrepo.StaffCommissionTotals{
+				StaffID: "s-" + string(rune('a'+i%26)) + string(rune('0'+i/26)), VisitCount: 1, TotalCommission: 1,
 			})
 		}
 		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{copyPeriod(open)}}
-		uc := newUC(db, &fakeWorksheetDB{}, nil)
-		uc.ContributorDB = &fakeContributorDB{detections: detections}
+		uc := newUC(db, &fakeWorksheetDB{staffTotals: map[int64][]compensationrepo.StaffCommissionTotals{7: rows}}, nil)
 		got, err := uc.ListPeriodStaff(testCtx(), "p-staff", model.ListCompensationPeriodStaffRequest{})
 		if err != nil {
 			t.Fatalf("ListPeriodStaff: %v", err)
@@ -789,21 +805,22 @@ func TestListPeriodStaff(t *testing.T) {
 		}
 	})
 
-	t.Run("contributors only", func(t *testing.T) {
+	t.Run("wage-only worksheet", func(t *testing.T) {
 		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{copyPeriod(open)}}
 		worksheets := &fakeWorksheetDB{staffTotals: map[int64][]compensationrepo.StaffCommissionTotals{
 			7: {{StaffID: "wage-only", TotalCommission: 0, VisitCount: 0}},
 		}}
 		uc := newUC(db, worksheets, nil)
-		uc.ContributorDB = &fakeContributorDB{detections: []compensationrepo.PeriodStaffDetection{
-			{StaffID: "s-a", Name: "Ada", VisitCount: 1},
-		}}
+		uc.SnapshotDB = &fakeSnapshotDB{rows: []model.TrxWagePeriodSnapshot{{
+			StaffID: "wage-only", InstitutionID: testInstitutionID, CompensationPeriodID: 7,
+			TotalWage: sql.NullInt64{Int64: 800, Valid: true},
+		}}}
 		got, err := uc.ListPeriodStaff(testCtx(), "p-staff", model.ListCompensationPeriodStaffRequest{})
 		if err != nil {
 			t.Fatalf("ListPeriodStaff: %v", err)
 		}
-		if got.Total != 1 || got.Staff[0].StaffID != "s-a" {
-			t.Fatalf("got %+v, want contributors only", got)
+		if got.Total != 1 || got.Staff[0].StaffID != "wage-only" || got.Staff[0].Wage != 800 || got.Staff[0].PayTotal != 800 {
+			t.Fatalf("got %+v", got.Staff)
 		}
 	})
 }

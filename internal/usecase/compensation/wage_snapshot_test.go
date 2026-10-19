@@ -44,6 +44,19 @@ func (f *fakeSnapshotDB) Insert(_ context.Context, row *model.TrxWagePeriodSnaps
 	return nil
 }
 
+func (f *fakeSnapshotDB) GetByStaffPeriod(_ context.Context, institutionID int64, staffID string, periodID int64) (*model.TrxWagePeriodSnapshot, bool, error) {
+	if f.getErr != nil {
+		return nil, false, f.getErr
+	}
+	for i := range f.rows {
+		row := f.rows[i]
+		if row.InstitutionID == institutionID && row.StaffID == staffID && row.CompensationPeriodID == periodID && row.DeleteTime == nil {
+			return &row, true, nil
+		}
+	}
+	return nil, false, nil
+}
+
 func (f *fakeSnapshotDB) Get(_ context.Context, institutionID, id int64) (*model.TrxWagePeriodSnapshot, bool, error) {
 	if f.getErr != nil {
 		return nil, false, f.getErr

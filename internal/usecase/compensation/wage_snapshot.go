@@ -80,6 +80,9 @@ func (u *WageSnapshotUC) Generate(ctx context.Context, req model.GenerateStaffWa
 	if !found || period == nil {
 		return model.StaffWageSnapshotsResponse{}, commonerr.SetNewBadRequest(errPaydayPeriodNotFound, msgPaydayPeriodNotFound)
 	}
+	if err = rejectIfPaydayFinalized(period); err != nil {
+		return model.StaffWageSnapshotsResponse{}, err
+	}
 	start := utilcommon.DateOnly(period.PeriodStart)
 	end := utilcommon.DateOnly(period.PeriodEnd)
 
@@ -189,6 +192,9 @@ func (u *WageSnapshotUC) Update(ctx context.Context, id int64, req model.UpdateS
 	if !found || row == nil {
 		return model.StaffWageSnapshotResponse{}, commonerr.SetNewError(http.StatusNotFound, errSnapshotNotFound, msgSnapshotNotFound)
 	}
+	if err = u.rejectIfSnapshotPaydayFinalized(ctx, userDetail.InstitutionID, row.CompensationPeriodID); err != nil {
+		return model.StaffWageSnapshotResponse{}, err
+	}
 
 	mandatory := sqlNullInt64(req.MandatoryWorkingDays)
 	staffDays := sqlNullInt64(req.StaffWorkingDays)
@@ -252,6 +258,9 @@ func (u *WageSnapshotUC) Delete(ctx context.Context, id int64) (resp model.Delet
 	if !found || row == nil {
 		return model.DeleteStaffWageSnapshotResponse{}, commonerr.SetNewError(http.StatusNotFound, errSnapshotNotFound, msgSnapshotNotFound)
 	}
+	if err = u.rejectIfSnapshotPaydayFinalized(ctx, userDetail.InstitutionID, row.CompensationPeriodID); err != nil {
+		return model.DeleteStaffWageSnapshotResponse{}, err
+	}
 	found, err = u.SnapshotDB.SoftDelete(ctx, userDetail.InstitutionID, id)
 	if err != nil {
 		return model.DeleteStaffWageSnapshotResponse{}, errors.Wrap(err, wrapMsgDeleteSnap)
@@ -266,6 +275,17 @@ func (u *WageSnapshotUC) Delete(ctx context.Context, id int64) (resp model.Delet
 		}
 	}
 	return model.DeleteStaffWageSnapshotResponse{Success: true}, nil
+}
+
+func (u *WageSnapshotUC) rejectIfSnapshotPaydayFinalized(ctx context.Context, institutionID, periodID int64) error {
+	period, found, err := u.PeriodDB.GetByID(ctx, institutionID, periodID)
+	if err != nil {
+		return errors.Wrap(err, wrapSnapshotUCPrefix+"rejectIfSnapshotPaydayFinalized")
+	}
+	if !found {
+		return nil
+	}
+	return rejectIfPaydayFinalized(period)
 }
 
 func wageOrZero(v sql.NullInt64) int64 {

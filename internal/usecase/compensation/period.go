@@ -64,6 +64,7 @@ var _ compensationuc.CompensationPeriodUC = (*CompensationPeriodUC)(nil)
 type CompensationPeriodUC struct {
 	CompensationPeriodDB compensationrepo.CompensationPeriodDB
 	WorksheetDB          compensationrepo.WorksheetDB
+	SnapshotDB           compensationrepo.WageSnapshotDB
 	ContributorDB        compensationrepo.ContributorDB
 	StaffDB              staffrepo.StaffDB
 	Transaction          xormlib.DBTransactionInterface
@@ -195,41 +196,60 @@ func (u *CompensationPeriodUC) ListPeriodStaff(ctx context.Context, periodUUID s
 		offset = 0
 	}
 
-	detections, err := u.ContributorDB.DetectStaffForPeriod(ctx, userDetail.InstitutionID, period.PeriodStart, period.PeriodEnd.AddDate(0, 0, 1))
-	if err != nil {
-		return model.ListCompensationPeriodStaffResponse{}, errors.Wrap(err, wrapMsgListPeriodStaff)
-	}
-
-	// Get per-staff commission rollup from worksheets attached to this period.
 	worksheetTotals, err := u.WorksheetDB.SumByStaffForCompensationPeriod(ctx, period.ID)
 	if err != nil {
 		return model.ListCompensationPeriodStaffResponse{}, errors.Wrap(err, wrapMsgListPeriodStaff)
 	}
-	commissionsByStaff := make(map[string]compensationrepo.StaffCommissionTotals, len(worksheetTotals))
-	for _, row := range worksheetTotals {
-		commissionsByStaff[row.StaffID] = row
+	names := map[string]model.StaffWithRolesResponse{}
+	if u.StaffDB != nil {
+		listed, listErr := u.StaffDB.ListStaffByInstitution(ctx, userDetail.InstitutionID, true)
+		if listErr != nil {
+			return model.ListCompensationPeriodStaffResponse{}, errors.Wrap(listErr, wrapMsgListPeriodStaff)
+		}
+		for _, row := range listed {
+			names[row.UUID] = row
+		}
+	}
+	wages := map[string]int64{}
+	if u.SnapshotDB != nil {
+		snaps, snapErr := u.SnapshotDB.List(ctx, userDetail.InstitutionID)
+		if snapErr != nil {
+			return model.ListCompensationPeriodStaffResponse{}, errors.Wrap(snapErr, wrapMsgListPeriodStaff)
+		}
+		for _, snap := range snaps {
+			if snap.CompensationPeriodID == period.ID {
+				wages[snap.StaffID] = wageOrZero(snap.TotalWage)
+			}
+		}
 	}
 
-	staff := make([]model.CompensationPeriodStaffRow, 0, len(detections))
-	for _, detected := range detections {
-		roles := detected.Roles
-		if roles == nil {
-			roles = []string{}
+	staff := make([]model.CompensationPeriodStaffRow, 0, len(worksheetTotals))
+	for _, row := range worksheetTotals {
+		info := names[row.StaffID]
+		roleNames := make([]string, 0, len(info.Roles))
+		for _, role := range info.Roles {
+			if role.Name != "" {
+				roleNames = append(roleNames, role.Name)
+			}
 		}
-		var commissionSubtotal, commissionedVisits int64
-		if totals, ok := commissionsByStaff[detected.StaffID]; ok {
-			commissionSubtotal = totals.TotalCommission
-			commissionedVisits = totals.VisitCount
+		wage := wages[row.StaffID]
+		commissioned := int64(0)
+		if row.TotalCommission > 0 {
+			commissioned = row.VisitCount
+		}
+		name := info.Name
+		if name == "" {
+			name = row.StaffID
 		}
 		staff = append(staff, model.CompensationPeriodStaffRow{
-			StaffID:            detected.StaffID,
-			Name:               detected.Name,
-			Roles:              roles,
-			VisitCount:         detected.VisitCount,
-			Wage:               0,
-			CommissionSubtotal: commissionSubtotal,
-			PayTotal:           commissionSubtotal,
-			AssignmentStatus:   assignmentStatus(detected.VisitCount, commissionedVisits),
+			StaffID:            row.StaffID,
+			Name:               name,
+			Roles:              roleNames,
+			VisitCount:         row.VisitCount,
+			Wage:               wage,
+			CommissionSubtotal: row.TotalCommission,
+			PayTotal:           wage + row.TotalCommission,
+			AssignmentStatus:   assignmentStatus(row.VisitCount, commissioned),
 		})
 	}
 

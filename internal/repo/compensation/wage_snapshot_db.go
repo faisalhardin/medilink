@@ -96,6 +96,31 @@ func (c *WageSnapshotConn) Get(ctx context.Context, institutionID, id int64) (*m
 	return &row, true, nil
 }
 
+func (c *WageSnapshotConn) GetByStaffPeriod(ctx context.Context, institutionID int64, staffID string, periodID int64) (*model.TrxWagePeriodSnapshot, bool, error) {
+	const sqlText = `
+		SELECT s.*,
+		       p.uuid AS compensation_period_uuid
+		FROM mdl_trx_wage_period_snapshot s
+		LEFT JOIN mdl_trx_compensation_period p
+		  ON p.id = s.compensation_period_id
+		 AND p.institution_id = s.institution_id
+		 AND p.delete_time IS NULL
+		WHERE s.institution_id = ?
+		  AND s.staff_id = ?
+		  AND s.compensation_period_id = ?
+		  AND s.delete_time IS NULL
+	`
+	row := model.TrxWagePeriodSnapshot{}
+	has, err := c.writeSession(ctx).SQL(sqlText, institutionID, staffID, periodID).Get(&row)
+	if err != nil {
+		return nil, false, errors.Wrap(err, wrapErrSnapshotPrefix+"GetByStaffPeriod")
+	}
+	if !has {
+		return nil, false, nil
+	}
+	return &row, true, nil
+}
+
 func (c *WageSnapshotConn) UpdateWageInputs(ctx context.Context, row *model.TrxWagePeriodSnapshot) (bool, error) {
 	if row == nil {
 		return false, errors.Wrap(errors.New("wage snapshot is required"), wrapMsgSnapshotUpdate)

@@ -19,6 +19,9 @@ type WageSnapshotDB interface {
 	// CompensationPeriodUUID is filled from the payday period when that row still exists.
 	Get(ctx context.Context, institutionID, id int64) (*model.TrxWagePeriodSnapshot, bool, error)
 
+	// GetByStaffPeriod returns the live snapshot for one staff member on one payday.
+	GetByStaffPeriod(ctx context.Context, institutionID int64, staffID string, periodID int64) (*model.TrxWagePeriodSnapshot, bool, error)
+
 	// UpdateWageInputs writes the day counts, flat wage, and computed total.
 	// NULL is stored when a value was not entered. found is false when the row is missing.
 	UpdateWageInputs(ctx context.Context, row *model.TrxWagePeriodSnapshot) (found bool, err error)

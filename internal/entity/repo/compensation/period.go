@@ -37,6 +37,10 @@ type CompensationPeriodDB interface {
 	// A missing period updates nothing and returns nil.
 	AddWageDelta(ctx context.Context, institutionID, periodID, delta int64) error
 
+	// AddCommissionDelta adds delta to total_commission and total_payout on the master.
+	// A missing period updates nothing and returns nil.
+	AddCommissionDelta(ctx context.Context, institutionID, periodID, delta int64) error
+
 	// SoftDelete marks the period deleted. found is false when the row is
 	// missing or already deleted. Open-only deletion is enforced in usecase.
 	SoftDelete(ctx context.Context, institutionID int64, uuid string) (found bool, err error)

@@ -38,8 +38,6 @@ const (
 	msgWorksheetNotOpenForPatch     = "worksheet must be open to patch commission items"
 	errWorksheetGeneratePending     = "WORKSHEET_GENERATE_PENDING"
 	msgWorksheetGeneratePending     = "worksheet generate is in progress"
-	errCommissionLinkedToPayday     = "COMMISSION_WORKSHEET_LINKED_TO_PAYDAY"
-	msgCommissionLinkedToPayday     = "cannot modify commission while worksheet is linked to a payday period"
 	errCommissionWorksheetFinalized = "COMMISSION_WORKSHEET_FINALIZED"
 	msgCommissionWorksheetFinalized = "cannot archive commission on a finalized worksheet"
 	errCommissionRevenueStale       = "COMMISSION_REVENUE_STALE"
@@ -55,6 +53,7 @@ type VisitCommissionUC struct {
 	WorksheetDB   compensationrepo.WorksheetDB
 	CommissionDB  compensationrepo.CommissionDB
 	ContributorDB compensationrepo.ContributorDB
+	PeriodDB      compensationrepo.CompensationPeriodDB
 	Transaction   xormlib.DBTransactionInterface
 	now           func() time.Time
 }
@@ -116,14 +115,14 @@ func (u *VisitCommissionUC) GenerateVisitCommissions(ctx context.Context, req mo
 		return model.GenerateVisitCommissionsResponse{}, commonerr.SetNewError(http.StatusForbidden, errForbiddenCommission, msgForbiddenCommission)
 	}
 
-	if worksheet.Status == model.WorksheetStatusPending {
+	if worksheetGenerating(worksheet) {
 		return model.GenerateVisitCommissionsResponse{}, commonerr.SetNewError(http.StatusConflict, errWorksheetGeneratePending, msgWorksheetGeneratePending)
 	}
 	if worksheet.Status != model.WorksheetStatusOpen {
 		return model.GenerateVisitCommissionsResponse{}, commonerr.SetNewBadRequest(errWorksheetNotOpenForPatch, msgWorksheetNotOpenForPatch)
 	}
-	if worksheet.CompensationPeriodID.Valid {
-		return model.GenerateVisitCommissionsResponse{}, commonerr.SetNewBadRequest(errCommissionLinkedToPayday, msgCommissionLinkedToPayday)
+	if err = u.rejectIfPaydayFinalized(ctx, worksheet); err != nil {
+		return model.GenerateVisitCommissionsResponse{}, err
 	}
 
 	if !req.IncludeGenerate {
@@ -340,14 +339,14 @@ func (u *VisitCommissionUC) PatchCommissionItem(ctx context.Context, req model.P
 	if !canManageStaffCommissions(userDetail, w.StaffID, true) {
 		return model.PatchCommissionItemResponse{}, commonerr.SetNewError(http.StatusForbidden, errForbiddenCommission, msgForbiddenCommission)
 	}
-	if w.Status == model.WorksheetStatusPending {
+	if worksheetGenerating(w) {
 		return model.PatchCommissionItemResponse{}, commonerr.SetNewError(http.StatusConflict, errWorksheetGeneratePending, msgWorksheetGeneratePending)
 	}
 	if w.Status != model.WorksheetStatusOpen {
 		return model.PatchCommissionItemResponse{}, commonerr.SetNewBadRequest(errWorksheetNotOpenForPatch, msgWorksheetNotOpenForPatch)
 	}
-	if w.CompensationPeriodID.Valid {
-		return model.PatchCommissionItemResponse{}, commonerr.SetNewBadRequest(errCommissionLinkedToPayday, msgCommissionLinkedToPayday)
+	if err = u.rejectIfPaydayFinalized(ctx, w); err != nil {
+		return model.PatchCommissionItemResponse{}, err
 	}
 
 	// Option A: compare stored revenue_base to live full visit product cart.
@@ -451,14 +450,14 @@ func (u *VisitCommissionUC) ArchiveVisitCommission(ctx context.Context, id int64
 	if !canManageStaffCommissions(userDetail, w.StaffID, true) {
 		return model.ArchiveVisitCommissionResponse{}, commonerr.SetNewError(http.StatusForbidden, errForbiddenCommission, msgForbiddenCommission)
 	}
-	if w.Status == model.WorksheetStatusPending {
+	if worksheetGenerating(w) {
 		return model.ArchiveVisitCommissionResponse{}, commonerr.SetNewError(http.StatusConflict, errWorksheetGeneratePending, msgWorksheetGeneratePending)
 	}
 	if w.Status == model.WorksheetStatusFinalized {
 		return model.ArchiveVisitCommissionResponse{}, commonerr.SetNewBadRequest(errCommissionWorksheetFinalized, msgCommissionWorksheetFinalized)
 	}
-	if w.CompensationPeriodID.Valid {
-		return model.ArchiveVisitCommissionResponse{}, commonerr.SetNewBadRequest(errCommissionLinkedToPayday, msgCommissionLinkedToPayday)
+	if err = u.rejectIfPaydayFinalized(ctx, w); err != nil {
+		return model.ArchiveVisitCommissionResponse{}, err
 	}
 
 	session, err := u.Transaction.Begin(ctx)
@@ -482,7 +481,29 @@ func (u *VisitCommissionUC) ArchiveVisitCommission(ctx context.Context, id int64
 
 // updateWorksheetTotals re-sums approved commissions and writes worksheet totals.
 // visit_count is all live distinct visits; total_commission is approved-only.
+func (u *VisitCommissionUC) rejectIfPaydayFinalized(ctx context.Context, w *model.TrxWorksheet) error {
+	if w == nil || !w.CompensationPeriodID.Valid || u.PeriodDB == nil {
+		return nil
+	}
+	period, found, err := u.PeriodDB.GetByID(ctx, w.InstitutionID, w.CompensationPeriodID.Int64)
+	if err != nil {
+		return errors.Wrap(err, wrapVisitCommissionUCPrefix+"rejectIfPaydayFinalized")
+	}
+	if !found {
+		return nil
+	}
+	return rejectIfPaydayFinalized(period)
+}
+
 func (u *VisitCommissionUC) updateWorksheetTotals(ctx context.Context, worksheetID int64) (int64, error) {
+	w, found, err := u.WorksheetDB.GetByID(ctx, worksheetID)
+	if err != nil {
+		return 0, errors.Wrap(err, wrapMsgUpdateWorksheetTotals)
+	}
+	if !found || w == nil {
+		return 0, commonerr.SetNewBadRequest(errWorksheetNotFound, msgWorksheetNotFound)
+	}
+	old := w.TotalCommission
 	totalCommission, err := u.CommissionDB.SumValidByWorksheet(ctx, worksheetID)
 	if err != nil {
 		return 0, errors.Wrap(err, wrapMsgUpdateWorksheetTotals)
@@ -493,6 +514,12 @@ func (u *VisitCommissionUC) updateWorksheetTotals(ctx context.Context, worksheet
 	}
 	if err := u.WorksheetDB.UpdateTotals(ctx, worksheetID, totalCommission, visitCount); err != nil {
 		return 0, errors.Wrap(err, wrapMsgUpdateWorksheetTotals)
+	}
+	delta := totalCommission - old
+	if delta != 0 && w.CompensationPeriodID.Valid && u.PeriodDB != nil {
+		if err = u.PeriodDB.AddCommissionDelta(ctx, w.InstitutionID, w.CompensationPeriodID.Int64, delta); err != nil {
+			return 0, errors.Wrap(err, wrapMsgUpdateWorksheetTotals)
+		}
 	}
 	return totalCommission, nil
 }

@@ -18,7 +18,7 @@ type WorksheetPeriodTotals struct {
 // Mutating methods honour an active xorm session from the request context.
 type WorksheetDB interface {
 	// Create inserts a new worksheet. UUID is generated when empty; status
-	// defaults to pending; generate_status defaults to idle.
+	// defaults to open; generate_status defaults to idle.
 	Create(ctx context.Context, w *model.TrxWorksheet) error
 
 	// GetByUUID loads a non-deleted worksheet scoped to the institution.
@@ -49,13 +49,12 @@ type WorksheetDB interface {
 	// found is false when missing or already deleted.
 	SoftDelete(ctx context.Context, institutionID int64, uuid string) (found bool, err error)
 
-	// MarkGeneratePending sets status=pending, generate_status=running,
-	// generate_started_at=NOW(). Scoped by id.
+	// MarkGeneratePending sets generate_status=running and generate_started_at=NOW()
+	// when status is open and generate is not already running. Scoped by id.
 	MarkGeneratePending(ctx context.Context, worksheetID int64) error
 
 	// MarkGenerateFinished sets generate_status=succeeded/failed,
-	// generate_finished_at=NOW(), generate_error (on failure),
-	// and status=open on success. Scoped by id.
+	// generate_finished_at=NOW(), and generate_error on failure. Scoped by id.
 	MarkGenerateFinished(ctx context.Context, worksheetID int64, status model.WorksheetGenerateStatus, errMsg string) error
 
 	// UpdateTotals writes total_commission and visit_count. Scoped by id.
@@ -64,6 +63,10 @@ type WorksheetDB interface {
 	// ExistsOverlapping reports whether another non-deleted worksheet for the
 	// same institution+staff overlaps [start, end]. excludeID is excluded (0 = no exclusion).
 	ExistsOverlapping(ctx context.Context, institutionID int64, staffID string, start, end time.Time, excludeID int64) (bool, error)
+
+	// ExistsForStaffPeriod reports whether a non-deleted worksheet already
+	// belongs to this staff and payday.
+	ExistsForStaffPeriod(ctx context.Context, institutionID int64, staffID string, periodID int64) (bool, error)
 
 	// SumByCompensationPeriod returns aggregate totals from all non-deleted
 	// worksheets where compensation_period_id = compensationPeriodID.
