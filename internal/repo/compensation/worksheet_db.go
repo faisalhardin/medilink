@@ -219,14 +219,14 @@ func (c *WorksheetConn) SoftDelete(ctx context.Context, institutionID int64, uui
 func (c *WorksheetConn) MarkGeneratePending(ctx context.Context, worksheetID int64) error {
 	const sqlText = `
 		UPDATE mdl_trx_worksheet
-		SET status = 'pending',
-		    generate_status = 'running',
+		SET generate_status = 'running',
 		    generate_started_at = NOW(),
 		    generate_error = NULL,
 		    update_time = NOW()
 		WHERE id = ?
 		  AND delete_time IS NULL
-		  AND status IN ('open')
+		  AND status = 'open'
+		  AND generate_status <> 'running'
 	`
 	res, err := c.worksheetWriteSession(ctx).Exec(sqlText, worksheetID)
 	if err != nil {
@@ -248,7 +248,6 @@ func (c *WorksheetConn) MarkGenerateFinished(ctx context.Context, worksheetID in
 	const sqlText = `
 		UPDATE mdl_trx_worksheet
 		SET generate_status = ?,
-		    status = 'open',
 		    generate_finished_at = NOW(),
 		    generate_error = ?,
 		    update_time = NOW()
@@ -293,6 +292,23 @@ func (c *WorksheetConn) ExistsOverlapping(ctx context.Context, institutionID int
 	_, err := c.DB.SlaveDB.Context(ctx).SQL(sqlText, institutionID, staffID, excludeID, end, start).Get(&exists)
 	if err != nil {
 		return false, errors.Wrap(err, wrapMsgWorksheetOverlap)
+	}
+	return exists, nil
+}
+
+func (c *WorksheetConn) ExistsForStaffPeriod(ctx context.Context, institutionID int64, staffID string, periodID int64) (bool, error) {
+	const sqlText = `
+		SELECT COUNT(*) > 0
+		FROM mdl_trx_worksheet
+		WHERE institution_id = ?
+		  AND staff_id = ?
+		  AND compensation_period_id = ?
+		  AND delete_time IS NULL
+	`
+	var exists bool
+	_, err := c.DB.SlaveDB.Context(ctx).SQL(sqlText, institutionID, staffID, periodID).Get(&exists)
+	if err != nil {
+		return false, errors.Wrap(err, wrapErrWorksheetPrefix+"ExistsForStaffPeriod")
 	}
 	return exists, nil
 }

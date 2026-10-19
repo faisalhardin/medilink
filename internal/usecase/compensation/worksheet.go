@@ -29,25 +29,27 @@ const (
 	wrapMsgDeleteWorksheet   = wrapWorksheetUCPrefix + "DeleteWorksheet"
 	wrapMsgFinalizeWorksheet = wrapWorksheetUCPrefix + "FinalizeWorksheet"
 
-	errWorksheetNotFound       = "WORKSHEET_NOT_FOUND"
-	errWorksheetOverlap        = "WORKSHEET_DATE_RANGE_OVERLAP"
-	errWorksheetFinalizeOnly   = "WORKSHEET_MUST_BE_OPEN_TO_FINALIZE"
-	errWorksheetDeleteOnly     = "WORKSHEET_MUST_BE_PENDING_OR_OPEN_TO_DELETE"
-	errWorksheetNotEditable    = "WORKSHEET_NOT_EDITABLE"
-	errWorksheetLinkedToPayday = "WORKSHEET_LINKED_TO_PAYDAY"
-	errWorksheetGenerateBusy   = "WORKSHEET_GENERATE_PENDING"
-	errPaydayPeriodNotFound    = "PAYDAY_PERIOD_NOT_FOUND"
-	errPaydayPeriodFinalized   = "PAYDAY_PERIOD_FINALIZED"
+	errWorksheetNotFound        = "WORKSHEET_NOT_FOUND"
+	errWorksheetOverlap         = "WORKSHEET_DATE_RANGE_OVERLAP"
+	errWorksheetAlreadyOnPayday = "WORKSHEET_ALREADY_ON_PAYDAY"
+	errWorksheetFinalizeOnly    = "WORKSHEET_MUST_BE_OPEN_TO_FINALIZE"
+	errWorksheetDeleteOnly      = "WORKSHEET_MUST_BE_OPEN_TO_DELETE"
+	errWorksheetNotEditable     = "WORKSHEET_NOT_EDITABLE"
+	errWorksheetGenerateBusy    = "WORKSHEET_GENERATE_PENDING"
+	errWorksheetPeriodRequired  = "COMPENSATION_PERIOD_REQUIRED"
+	errPaydayPeriodNotFound     = "PAYDAY_PERIOD_NOT_FOUND"
+	errPaydayPeriodFinalized    = "PAYDAY_PERIOD_FINALIZED"
 
-	msgWorksheetNotFound       = "worksheet was not found"
-	msgWorksheetOverlap        = "worksheet date range overlaps an existing worksheet for this staff"
-	msgWorksheetFinalizeOnly   = "worksheet must be open to finalize"
-	msgWorksheetDeleteOnly     = "worksheet must be pending or open to delete"
-	msgWorksheetNotEditable    = "worksheet must be open to edit"
-	msgWorksheetLinkedToPayday = "cannot delete worksheet while linked to a payday period"
-	msgWorksheetGenerateBusy   = "worksheet generate is in progress"
-	msgPaydayPeriodNotFound    = "compensation period was not found"
-	msgPaydayPeriodFinalized   = "cannot attach worksheet to a finalized payday period"
+	msgWorksheetNotFound        = "worksheet was not found"
+	msgWorksheetOverlap         = "worksheet date range overlaps an existing worksheet for this staff"
+	msgWorksheetAlreadyOnPayday = "this staff already has a worksheet on this payday"
+	msgWorksheetFinalizeOnly    = "worksheet must be open to finalize"
+	msgWorksheetDeleteOnly      = "worksheet must be open to delete"
+	msgWorksheetNotEditable     = "worksheet must be open to edit"
+	msgWorksheetGenerateBusy    = "worksheet generate is in progress"
+	msgWorksheetPeriodRequired  = "compensation_period_uuid is required"
+	msgPaydayPeriodNotFound     = "compensation period was not found"
+	msgPaydayPeriodFinalized    = "payday period is finalized"
 )
 
 var _ compensationuc.WorksheetUC = (*WorksheetUC)(nil)
@@ -58,6 +60,7 @@ type WorksheetUC struct {
 	CommissionDB         compensationrepo.CommissionDB
 	ContributorDB        compensationrepo.ContributorDB
 	CompensationPeriodDB compensationrepo.CompensationPeriodDB
+	SnapshotDB           compensationrepo.WageSnapshotDB
 	StaffDB              staffrepo.StaffDB
 	VisitLockDB          compensationrepo.VisitLockDB
 	Transaction          xormlib.DBTransactionInterface
@@ -98,10 +101,33 @@ func (u *WorksheetUC) CreateWorksheet(ctx context.Context, req model.CreateWorks
 		return model.WorksheetResponse{}, commonerr.SetNewBadRequest("STAFF_REQUIRED", "staff_id is required")
 	}
 
-	start := utilcommon.DateOnly(req.PeriodStart.Time())
-	end := utilcommon.DateOnly(req.PeriodEnd.Time())
+	periodUUID := strings.TrimSpace(req.CompensationPeriodUUID)
+	if periodUUID == "" {
+		return model.WorksheetResponse{}, commonerr.SetNewBadRequest(errWorksheetPeriodRequired, msgWorksheetPeriodRequired)
+	}
+	period, found, err := u.CompensationPeriodDB.GetByUUID(ctx, userDetail.InstitutionID, periodUUID)
+	if err != nil {
+		return model.WorksheetResponse{}, errors.Wrap(err, wrapMsgCreateWorksheet)
+	}
+	if !found || period == nil {
+		return model.WorksheetResponse{}, commonerr.SetNewBadRequest(errPaydayPeriodNotFound, msgPaydayPeriodNotFound)
+	}
+	if err = rejectIfPaydayFinalized(period); err != nil {
+		return model.WorksheetResponse{}, err
+	}
+
+	start := utilcommon.DateOnly(period.PeriodStart)
+	end := utilcommon.DateOnly(period.PeriodEnd)
 	if start.IsZero() || end.IsZero() || end.Before(start) {
 		return model.WorksheetResponse{}, commonerr.SetNewBadRequest(errInvalidPeriodDates, msgInvalidPeriodDates)
+	}
+
+	taken, err := u.WorksheetDB.ExistsForStaffPeriod(ctx, userDetail.InstitutionID, req.StaffID, period.ID)
+	if err != nil {
+		return model.WorksheetResponse{}, errors.Wrap(err, wrapMsgCreateWorksheet)
+	}
+	if taken {
+		return model.WorksheetResponse{}, commonerr.SetNewBadRequest(errWorksheetAlreadyOnPayday, msgWorksheetAlreadyOnPayday)
 	}
 
 	overlaps, err := u.WorksheetDB.ExistsOverlapping(ctx, userDetail.InstitutionID, req.StaffID, start, end, 0)
@@ -113,12 +139,15 @@ func (u *WorksheetUC) CreateWorksheet(ctx context.Context, req model.CreateWorks
 	}
 
 	w := &model.TrxWorksheet{
-		InstitutionID: userDetail.InstitutionID,
-		StaffID:       req.StaffID,
-		Label:         label,
-		PeriodStart:   start,
-		PeriodEnd:     end,
-		CreatedBy:     sql.NullString{String: userDetail.UUID, Valid: true},
+		InstitutionID:          userDetail.InstitutionID,
+		StaffID:                req.StaffID,
+		Label:                  label,
+		PeriodStart:            start,
+		PeriodEnd:              end,
+		Status:                 model.WorksheetStatusOpen,
+		CompensationPeriodID:   sql.NullInt64{Int64: period.ID, Valid: true},
+		CompensationPeriodUUID: sql.NullString{String: period.UUID, Valid: true},
+		CreatedBy:              sql.NullString{String: userDetail.UUID, Valid: true},
 	}
 	if err := u.WorksheetDB.Create(ctx, w); err != nil {
 		return model.WorksheetResponse{}, errors.Wrap(err, wrapMsgCreateWorksheet)
@@ -208,7 +237,7 @@ func (u *WorksheetUC) PatchWorksheet(ctx context.Context, req model.PatchWorkshe
 		return model.WorksheetResponse{}, err
 	}
 
-	if w.Status == model.WorksheetStatusPending {
+	if worksheetGenerating(w) {
 		return model.WorksheetResponse{}, commonerr.SetNewError(http.StatusConflict, errWorksheetGenerateBusy, msgWorksheetGenerateBusy)
 	}
 	if w.Status != model.WorksheetStatusOpen {
@@ -221,46 +250,6 @@ func (u *WorksheetUC) PatchWorksheet(ctx context.Context, req model.PatchWorkshe
 			return model.WorksheetResponse{}, commonerr.SetNewBadRequest(errInvalidLabel, msgInvalidLabel)
 		}
 		w.Label = label
-	}
-	if req.PeriodStart != nil {
-		w.PeriodStart = utilcommon.DateOnly(req.PeriodStart.Time())
-	}
-	if req.PeriodEnd != nil {
-		w.PeriodEnd = utilcommon.DateOnly(req.PeriodEnd.Time())
-	}
-	if w.PeriodStart.IsZero() || w.PeriodEnd.IsZero() || w.PeriodEnd.Before(w.PeriodStart) {
-		return model.WorksheetResponse{}, commonerr.SetNewBadRequest(errInvalidPeriodDates, msgInvalidPeriodDates)
-	}
-	if req.PeriodStart != nil || req.PeriodEnd != nil {
-		overlaps, overlapErr := u.WorksheetDB.ExistsOverlapping(ctx, userDetail.InstitutionID, w.StaffID, w.PeriodStart, w.PeriodEnd, w.ID)
-		if overlapErr != nil {
-			return model.WorksheetResponse{}, errors.Wrap(overlapErr, wrapMsgPatchWorksheet)
-		}
-		if overlaps {
-			return model.WorksheetResponse{}, commonerr.SetNewBadRequest(errWorksheetOverlap, msgWorksheetOverlap)
-		}
-	}
-
-	if req.CompensationPeriodUUID != nil {
-		if !req.CompensationPeriodUUID.Valid || strings.TrimSpace(req.CompensationPeriodUUID.String) == "" {
-			// JSON null or empty → detach payday link.
-			w.CompensationPeriodID = sql.NullInt64{}
-			w.CompensationPeriodUUID = sql.NullString{}
-		} else {
-			periodUUID := strings.TrimSpace(req.CompensationPeriodUUID.String)
-			period, found, pErr := u.CompensationPeriodDB.GetByUUID(ctx, userDetail.InstitutionID, periodUUID)
-			if pErr != nil {
-				return model.WorksheetResponse{}, errors.Wrap(pErr, wrapMsgPatchWorksheet)
-			}
-			if !found || period == nil {
-				return model.WorksheetResponse{}, commonerr.SetNewBadRequest(errPaydayPeriodNotFound, msgPaydayPeriodNotFound)
-			}
-			if period.Status == model.CompensationPeriodStatusFinalized {
-				return model.WorksheetResponse{}, commonerr.SetNewBadRequest(errPaydayPeriodFinalized, msgPaydayPeriodFinalized)
-			}
-			w.CompensationPeriodID = sql.NullInt64{Int64: period.ID, Valid: true}
-			w.CompensationPeriodUUID = sql.NullString{String: period.UUID, Valid: true}
-		}
 	}
 
 	if err := u.WorksheetDB.Update(ctx, w); err != nil {
@@ -282,8 +271,11 @@ func (u *WorksheetUC) DeleteWorksheet(ctx context.Context, worksheetUUID string)
 	if w.Status == model.WorksheetStatusFinalized {
 		return model.DeleteWorksheetResponse{}, commonerr.SetNewBadRequest(errWorksheetDeleteOnly, msgWorksheetDeleteOnly)
 	}
-	if w.CompensationPeriodID.Valid {
-		return model.DeleteWorksheetResponse{}, commonerr.SetNewBadRequest(errWorksheetLinkedToPayday, msgWorksheetLinkedToPayday)
+	if worksheetGenerating(w) {
+		return model.DeleteWorksheetResponse{}, commonerr.SetNewError(http.StatusConflict, errWorksheetGenerateBusy, msgWorksheetGenerateBusy)
+	}
+	if err = u.rejectIfPaydayFinalized(ctx, w, wrapMsgDeleteWorksheet); err != nil {
+		return model.DeleteWorksheetResponse{}, err
 	}
 
 	session, err := u.Transaction.Begin(ctx)
@@ -295,6 +287,9 @@ func (u *WorksheetUC) DeleteWorksheet(ctx context.Context, worksheetUUID string)
 
 	if _, err = u.CommissionDB.SoftDeleteByWorksheet(ctx, w.ID); err != nil {
 		return model.DeleteWorksheetResponse{}, errors.Wrap(err, wrapMsgDeleteWorksheet)
+	}
+	if err = u.removeWorksheetFromPayday(ctx, userDetail.InstitutionID, w); err != nil {
+		return model.DeleteWorksheetResponse{}, err
 	}
 
 	found, err := u.WorksheetDB.SoftDelete(ctx, userDetail.InstitutionID, worksheetUUID)
@@ -329,6 +324,9 @@ func (u *WorksheetUC) FinalizeWorksheet(ctx context.Context, worksheetUUID strin
 		}, nil
 	}
 
+	if worksheetGenerating(w) {
+		return model.FinalizeWorksheetResponse{}, commonerr.SetNewError(http.StatusConflict, errWorksheetGenerateBusy, msgWorksheetGenerateBusy)
+	}
 	if w.Status != model.WorksheetStatusOpen {
 		return model.FinalizeWorksheetResponse{}, commonerr.SetNewBadRequest(errWorksheetFinalizeOnly, msgWorksheetFinalizeOnly)
 	}
@@ -352,6 +350,21 @@ func (u *WorksheetUC) FinalizeWorksheet(ctx context.Context, worksheetUUID strin
 	}
 
 	now := u.currentTime()
+	oldCommission := w.TotalCommission
+	if w.CompensationPeriodID.Valid {
+		period, found, pErr := u.CompensationPeriodDB.GetByID(ctx, userDetail.InstitutionID, w.CompensationPeriodID.Int64)
+		if pErr != nil {
+			return model.FinalizeWorksheetResponse{}, errors.Wrap(pErr, wrapMsgFinalizeWorksheet)
+		}
+		if found && period != nil && period.Status == model.CompensationPeriodStatusFinalized && totalCommission != oldCommission {
+			return model.FinalizeWorksheetResponse{}, commonerr.SetNewBadRequest(errPaydayPeriodFinalized, msgPaydayPeriodFinalized)
+		}
+		if (period == nil || period.Status != model.CompensationPeriodStatusFinalized) && totalCommission != oldCommission {
+			if err = u.CompensationPeriodDB.AddCommissionDelta(ctx, userDetail.InstitutionID, w.CompensationPeriodID.Int64, totalCommission-oldCommission); err != nil {
+				return model.FinalizeWorksheetResponse{}, errors.Wrap(err, wrapMsgFinalizeWorksheet)
+			}
+		}
+	}
 
 	// Update worksheet status to finalized.
 	w.Status = model.WorksheetStatusFinalized
@@ -373,6 +386,62 @@ func (u *WorksheetUC) FinalizeWorksheet(ctx context.Context, worksheetUUID strin
 		Worksheet:        w.ToResponse(),
 		LockedVisitCount: lockedCount,
 	}, nil
+}
+
+func worksheetGenerating(w *model.TrxWorksheet) bool {
+	return w != nil && w.GenerateStatus == model.WorksheetGenerateStatusRunning
+}
+
+func rejectIfPaydayFinalized(period *model.TrxCompensationPeriod) error {
+	if period != nil && period.Status == model.CompensationPeriodStatusFinalized {
+		return commonerr.SetNewBadRequest(errPaydayPeriodFinalized, msgPaydayPeriodFinalized)
+	}
+	return nil
+}
+
+func (u *WorksheetUC) rejectIfPaydayFinalized(ctx context.Context, w *model.TrxWorksheet, wrap string) error {
+	if w == nil || !w.CompensationPeriodID.Valid {
+		return nil
+	}
+	period, found, err := u.CompensationPeriodDB.GetByID(ctx, w.InstitutionID, w.CompensationPeriodID.Int64)
+	if err != nil {
+		return errors.Wrap(err, wrap)
+	}
+	if !found {
+		return nil
+	}
+	return rejectIfPaydayFinalized(period)
+}
+
+func (u *WorksheetUC) removeWorksheetFromPayday(ctx context.Context, institutionID int64, w *model.TrxWorksheet) error {
+	if w == nil || !w.CompensationPeriodID.Valid {
+		return nil
+	}
+	if w.TotalCommission != 0 {
+		if err := u.CompensationPeriodDB.AddCommissionDelta(ctx, institutionID, w.CompensationPeriodID.Int64, -w.TotalCommission); err != nil {
+			return errors.Wrap(err, wrapMsgDeleteWorksheet)
+		}
+	}
+	if u.SnapshotDB == nil {
+		return nil
+	}
+	snap, found, err := u.SnapshotDB.GetByStaffPeriod(ctx, institutionID, w.StaffID, w.CompensationPeriodID.Int64)
+	if err != nil {
+		return errors.Wrap(err, wrapMsgDeleteWorksheet)
+	}
+	if !found || snap == nil {
+		return nil
+	}
+	deleted, err := u.SnapshotDB.SoftDelete(ctx, institutionID, snap.ID)
+	if err != nil {
+		return errors.Wrap(err, wrapMsgDeleteWorksheet)
+	}
+	if deleted && snap.TotalWage.Valid && snap.TotalWage.Int64 != 0 {
+		if err = u.CompensationPeriodDB.AddWageDelta(ctx, institutionID, w.CompensationPeriodID.Int64, -snap.TotalWage.Int64); err != nil {
+			return errors.Wrap(err, wrapMsgDeleteWorksheet)
+		}
+	}
+	return nil
 }
 
 func (u *WorksheetUC) loadWorksheet(ctx context.Context, institutionID int64, worksheetUUID, wrap string) (*model.TrxWorksheet, error) {

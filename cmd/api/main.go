@@ -305,6 +305,7 @@ func main() {
 	compensationPeriodUC := compensationuc.NewCompensationPeriodUC(&compensationuc.CompensationPeriodUC{
 		CompensationPeriodDB: compensationPeriodDB,
 		WorksheetDB:          worksheetDB,
+		SnapshotDB:           wageSnapshotDB,
 		ContributorDB:        contributorDB,
 		StaffDB:              staffManagementDB,
 		Transaction:          transaction,
@@ -315,6 +316,7 @@ func main() {
 		CommissionDB:         commissionDB,
 		ContributorDB:        contributorDB,
 		CompensationPeriodDB: compensationPeriodDB,
+		SnapshotDB:           wageSnapshotDB,
 		StaffDB:              staffManagementDB,
 		VisitLockDB:          patientDB,
 		Transaction:          transaction,
@@ -324,6 +326,7 @@ func main() {
 		WorksheetDB:   worksheetDB,
 		CommissionDB:  commissionDB,
 		ContributorDB: contributorDB,
+		PeriodDB:      compensationPeriodDB,
 		Transaction:   transaction,
 	})
 

@@ -640,11 +640,13 @@ type PatchCommissionItemResponse struct {
 // ─── Worksheet DTOs ───────────────────────────────────────────────────────────
 
 // CreateWorksheetRequest is the body for POST /v1/worksheet.
+// Dates are copied from the payday. period_start and period_end are ignored.
 type CreateWorksheetRequest struct {
-	StaffID     string `json:"staff_id"`
-	Label       string `json:"label"`
-	PeriodStart Time   `json:"period_start"`
-	PeriodEnd   Time   `json:"period_end"`
+	StaffID                string `json:"staff_id"`
+	Label                  string `json:"label"`
+	CompensationPeriodUUID string `json:"compensation_period_uuid"`
+	PeriodStart            Time   `json:"period_start"`
+	PeriodEnd              Time   `json:"period_end"`
 }
 
 // ListWorksheetsRequest is the query for GET /v1/worksheet.
@@ -688,14 +690,10 @@ type ListWorksheetsResponse struct {
 }
 
 // PatchWorksheetRequest is the body for PATCH /v1/worksheet/{id}.
-// CompensationPeriodUUID: nil = omit (no change); non-nil invalid/empty = detach;
-// non-nil valid string = attach by public period UUID.
+// Only label is applied. Dates and compensation_period_uuid are ignored.
 type PatchWorksheetRequest struct {
-	UUID                   string       `json:"-"`
-	Label                  null.String  `json:"label"`
-	PeriodStart            *Time        `json:"period_start"`
-	PeriodEnd              *Time        `json:"period_end"`
-	CompensationPeriodUUID *null.String `json:"compensation_period_uuid"`
+	UUID  string      `json:"-"`
+	Label null.String `json:"label"`
 }
 
 // DeleteWorksheetResponse is the body for DELETE /v1/worksheet/{id}.
