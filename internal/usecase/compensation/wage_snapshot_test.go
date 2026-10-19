@@ -394,7 +394,7 @@ func snapshotDays(n int64) null.Int64 {
 	return null.Int64From(n)
 }
 
-func TestUpdate_ProrateWinsOverFinal(t *testing.T) {
+func TestUpdate_FinalWinsOverProrate(t *testing.T) {
 	snaps := &fakeSnapshotDB{rows: []model.TrxWagePeriodSnapshot{{
 		ID:                     4,
 		StaffID:                "staff-a",
@@ -405,6 +405,8 @@ func TestUpdate_ProrateWinsOverFinal(t *testing.T) {
 		WageCadence:            model.WageCadenceMonthly,
 	}}}
 	uc := newSnapshotUC(nil, snaps, nil)
+	periods := uc.PeriodDB.(*fakeCompensationPeriodDB)
+	periods.periods[0].TotalCommission = sql.NullInt64{Int64: 100, Valid: true}
 
 	got, err := uc.Update(testCtx(), 4, model.UpdateStaffWageSnapshotRequest{
 		MandatoryWorkingDays: snapshotDays(22),
@@ -414,13 +416,16 @@ func TestUpdate_ProrateWinsOverFinal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("update: %v", err)
 	}
-	if !got.TotalWage.Valid || got.TotalWage.Int64 != 909 {
-		t.Fatalf("total = %+v, want 909", got.TotalWage)
+	if !got.TotalWage.Valid || got.TotalWage.Int64 != 500 {
+		t.Fatalf("total = %+v, want 500", got.TotalWage)
+	}
+	if periods.wageDeltaCalls != 1 || periods.periods[0].TotalWage.Int64 != 500 || periods.periods[0].TotalPayout.Int64 != 600 {
+		t.Fatalf("period wage = %+v payout = %+v calls = %d", periods.periods[0].TotalWage, periods.periods[0].TotalPayout, periods.wageDeltaCalls)
 	}
 	if !got.FinalWage.Valid || got.FinalWage.Int64 != 500 {
 		t.Fatalf("final = %+v", got.FinalWage)
 	}
-	if snaps.rows[0].TotalWage.Int64 != 909 || snaps.rows[0].FinalWage.Int64 != 500 {
+	if snaps.rows[0].TotalWage.Int64 != 500 || snaps.rows[0].FinalWage.Int64 != 500 {
 		t.Fatalf("stored %+v", snaps.rows[0])
 	}
 	if got.UpdatedAt != "2026-08-08T02:00:00Z" || !snaps.rows[0].UpdateTime.Equal(time.Date(2026, 8, 8, 2, 0, 0, 0, time.UTC)) {
@@ -488,6 +493,58 @@ func TestUpdate_InvalidDays(t *testing.T) {
 	}
 	if snaps.rows[0].TotalWage.Valid {
 		t.Fatal("stored a total after a rejected update")
+	}
+	if uc.PeriodDB.(*fakeCompensationPeriodDB).wageDeltaCalls != 0 {
+		t.Fatal("rejected update changed the period wage")
+	}
+}
+
+func TestUpdate_DeltaFromExisting(t *testing.T) {
+	snaps := &fakeSnapshotDB{rows: []model.TrxWagePeriodSnapshot{{
+		ID:                   4,
+		InstitutionID:        testInstitutionID,
+		CompensationPeriodID: 7,
+		WageAmount:           1000,
+		WageCadence:          model.WageCadenceMonthly,
+		TotalWage:            sql.NullInt64{Int64: 909, Valid: true},
+	}}}
+	uc := newSnapshotUC(nil, snaps, nil)
+	periods := uc.PeriodDB.(*fakeCompensationPeriodDB)
+	periods.periods[0].TotalWage = sql.NullInt64{Int64: 2000, Valid: true}
+	periods.periods[0].TotalCommission = sql.NullInt64{Int64: 100, Valid: true}
+
+	_, err := uc.Update(testCtx(), 4, model.UpdateStaffWageSnapshotRequest{
+		FinalWage: snapshotDays(1000),
+	})
+	if err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if periods.wageDeltaCalls != 1 || periods.periods[0].TotalWage.Int64 != 2091 || periods.periods[0].TotalPayout.Int64 != 2191 {
+		t.Fatalf("period wage = %+v payout = %+v calls = %d", periods.periods[0].TotalWage, periods.periods[0].TotalPayout, periods.wageDeltaCalls)
+	}
+}
+
+func TestDelete_SubtractsWage(t *testing.T) {
+	snaps := &fakeSnapshotDB{rows: []model.TrxWagePeriodSnapshot{{
+		ID:                   4,
+		InstitutionID:        testInstitutionID,
+		CompensationPeriodID: 7,
+		TotalWage:            sql.NullInt64{Int64: 909, Valid: true},
+	}}}
+	uc := newSnapshotUC(nil, snaps, nil)
+	periods := uc.PeriodDB.(*fakeCompensationPeriodDB)
+	periods.periods[0].TotalWage = sql.NullInt64{Int64: 2000, Valid: true}
+	periods.periods[0].TotalCommission = sql.NullInt64{Int64: 100, Valid: true}
+
+	got, err := uc.Delete(testCtx(), 4)
+	if err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	if !got.Success || snaps.rows[0].DeleteTime == nil {
+		t.Fatalf("deleted = %+v stored %+v", got, snaps.rows[0])
+	}
+	if periods.wageDeltaCalls != 1 || periods.periods[0].TotalWage.Int64 != 1091 || periods.periods[0].TotalPayout.Int64 != 1191 {
+		t.Fatalf("period wage = %+v payout = %+v calls = %d", periods.periods[0].TotalWage, periods.periods[0].TotalPayout, periods.wageDeltaCalls)
 	}
 }
 

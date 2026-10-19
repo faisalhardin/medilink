@@ -319,8 +319,8 @@ func snapshotUnitDays(cadence WageCadence, mandatory int64) (int64, error) {
 }
 
 // ApplySnapshotWage sets total_wage from the contract rate and the user inputs.
-// Both day counts produce wage_amount * staff_working_days / unit days, truncating
-// toward zero. final_wage is copied only when that prorate cannot be made.
+// A set final_wage is the total. Otherwise both day counts produce
+// wage_amount * staff_working_days / unit days, truncating toward zero.
 // A missing input stays NULL. Zero is a stored value.
 func ApplySnapshotWage(wageAmount int64, cadence WageCadence, mandatory, staffDays, finalWage sql.NullInt64) (sql.NullInt64, error) {
 	if (mandatory.Valid && mandatory.Int64 < 0) || (staffDays.Valid && staffDays.Int64 < 0) {
@@ -335,13 +335,16 @@ func ApplySnapshotWage(wageAmount int64, cadence WageCadence, mandatory, staffDa
 			Message: "final wage must be zero or greater",
 		}
 	}
-	if mandatory.Valid && staffDays.Valid {
-		if mandatory.Int64 <= 0 {
-			return sql.NullInt64{}, &SnapshotWageInputError{
-				Code:    SnapshotDaysInvalidCode,
-				Message: "working days must be zero or greater, and mandatory working days must be greater than zero when both day counts are set",
-			}
+	if mandatory.Valid && staffDays.Valid && mandatory.Int64 <= 0 {
+		return sql.NullInt64{}, &SnapshotWageInputError{
+			Code:    SnapshotDaysInvalidCode,
+			Message: "working days must be zero or greater, and mandatory working days must be greater than zero when both day counts are set",
 		}
+	}
+	if finalWage.Valid {
+		return finalWage, nil
+	}
+	if mandatory.Valid && staffDays.Valid {
 		unitDays, err := snapshotUnitDays(cadence, mandatory.Int64)
 		if err != nil {
 			return sql.NullInt64{}, err
@@ -353,9 +356,6 @@ func ApplySnapshotWage(wageAmount int64, cadence WageCadence, mandatory, staffDa
 			}
 		}
 		return sql.NullInt64{Int64: wageAmount * staffDays.Int64 / unitDays, Valid: true}, nil
-	}
-	if finalWage.Valid {
-		return finalWage, nil
 	}
 	return sql.NullInt64{}, nil
 }

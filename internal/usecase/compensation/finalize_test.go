@@ -1,6 +1,7 @@
 package compensation
 
 import (
+	"database/sql"
 	"errors"
 	"testing"
 	"time"
@@ -58,11 +59,31 @@ func TestFinalizePeriod(t *testing.T) {
 		if got.Period.TotalCommission != 2500 || got.Period.TotalWage != 0 {
 			t.Fatalf("unexpected totals: %+v", got.Period)
 		}
+		if got.Period.TotalPayout != 2500 {
+			t.Fatalf("payout = %d, want 2500", got.Period.TotalPayout)
+		}
 		if db.updateCalls != 1 {
 			t.Fatalf("updateCalls = %d", db.updateCalls)
 		}
 		if !tx.began || !tx.finished || tx.rolledBack {
 			t.Fatalf("tx began=%v finished=%v rolledBack=%v", tx.began, tx.finished, tx.rolledBack)
+		}
+	})
+
+	t.Run("keeps existing wage", func(t *testing.T) {
+		p := draftPeriod(1, "p1")
+		p.TotalWage = sql.NullInt64{Int64: 500, Valid: true}
+		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{p}}
+		worksheets := &fakeWorksheetDB{periodTotals: map[int64]compensationrepo.WorksheetPeriodTotals{
+			1: {TotalCommission: 2500, StaffCount: 2, VisitCount: 3},
+		}}
+		uc := newUC(db, worksheets, &fakeTx{})
+		got, err := uc.FinalizePeriod(testCtx(), "p1")
+		if err != nil {
+			t.Fatalf("FinalizePeriod: %v", err)
+		}
+		if got.Period.TotalWage != 500 || got.Period.TotalCommission != 2500 || got.Period.TotalPayout != 3000 {
+			t.Fatalf("unexpected totals: %+v", got.Period)
 		}
 	})
 

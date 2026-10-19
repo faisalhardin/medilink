@@ -204,12 +204,22 @@ func TestApplySnapshotWage(t *testing.T) {
 	empty := sql.NullInt64{}
 
 	t.Run("prorate", func(t *testing.T) {
-		got, err := ApplySnapshotWage(1000, WageCadenceMonthly, days(22), days(20), days(500))
+		got, err := ApplySnapshotWage(1000, WageCadenceMonthly, days(22), days(20), empty)
 		if err != nil {
 			t.Fatalf("apply: %v", err)
 		}
 		if !got.Valid || got.Int64 != 909 {
 			t.Fatalf("total = %+v, want 909", got)
+		}
+	})
+
+	t.Run("final wins over prorate", func(t *testing.T) {
+		got, err := ApplySnapshotWage(1000, WageCadenceMonthly, days(22), days(20), days(500))
+		if err != nil {
+			t.Fatalf("apply: %v", err)
+		}
+		if !got.Valid || got.Int64 != 500 {
+			t.Fatalf("total = %+v, want 500", got)
 		}
 	})
 

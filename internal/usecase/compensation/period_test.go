@@ -63,8 +63,10 @@ type fakeCompensationPeriodDB struct {
 	listErr         error
 	updateErr       error
 	deleteErr       error
+	wageDeltaErr    error
 	updateCalls     int
 	softDeleteCalls int
+	wageDeltaCalls  int
 }
 
 func (f *fakeCompensationPeriodDB) Create(_ context.Context, period *model.TrxCompensationPeriod) error {
@@ -152,6 +154,23 @@ func (f *fakeCompensationPeriodDB) UpdateStatusAndTotals(_ context.Context, peri
 		}
 	}
 	return errors.New("period not in fake store")
+}
+
+func (f *fakeCompensationPeriodDB) AddWageDelta(_ context.Context, institutionID, periodID, delta int64) error {
+	f.wageDeltaCalls++
+	if f.wageDeltaErr != nil {
+		return f.wageDeltaErr
+	}
+	for _, p := range f.periods {
+		if p.ID != periodID || p.InstitutionID != institutionID || p.DeleteTime != nil {
+			continue
+		}
+		wage := wageOrZero(p.TotalWage) + delta
+		p.TotalWage = sql.NullInt64{Int64: wage, Valid: true}
+		p.TotalPayout = sql.NullInt64{Int64: wage + wageOrZero(p.TotalCommission), Valid: true}
+		return nil
+	}
+	return nil
 }
 
 func (f *fakeCompensationPeriodDB) SoftDelete(_ context.Context, institutionID int64, uuid string) (bool, error) {
@@ -402,6 +421,23 @@ func TestDraftPeriod(t *testing.T) {
 		}
 	})
 
+	t.Run("keeps existing wage", func(t *testing.T) {
+		p := copyPeriod(open)
+		p.TotalWage = sql.NullInt64{Int64: 500, Valid: true}
+		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{p}}
+		worksheets := &fakeWorksheetDB{periodTotals: map[int64]compensationrepo.WorksheetPeriodTotals{
+			1: {TotalCommission: 1000, StaffCount: 2, VisitCount: 4},
+		}}
+		uc := newUC(db, worksheets, nil)
+		got, err := uc.DraftPeriod(testCtx(), "p1")
+		if err != nil {
+			t.Fatalf("DraftPeriod: %v", err)
+		}
+		if got.TotalWage != 500 || got.TotalCommission != 1000 || got.TotalPayout != 1500 {
+			t.Fatalf("unexpected draft: %+v", got)
+		}
+	})
+
 	t.Run("re-draft", func(t *testing.T) {
 		p := copyPeriod(open)
 		p.Status = model.CompensationPeriodStatusDraft
@@ -619,8 +655,8 @@ func (f *fakeStaffDB) DeactivateStaff(context.Context, int64, string) error {
 	return nil
 }
 func (f *fakeStaffDB) ActivateStaff(context.Context, int64, string) error { return nil }
-func (f *fakeStaffDB) AssignRole(context.Context, int64, int64) error      { return nil }
-func (f *fakeStaffDB) UnassignRole(context.Context, int64, int64) error    { return nil }
+func (f *fakeStaffDB) AssignRole(context.Context, int64, int64) error     { return nil }
+func (f *fakeStaffDB) UnassignRole(context.Context, int64, int64) error   { return nil }
 func (f *fakeStaffDB) HasRoleAssignment(context.Context, int64, int64) (bool, error) {
 	return false, nil
 }
