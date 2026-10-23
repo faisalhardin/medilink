@@ -211,11 +211,14 @@ type fakeWorksheetDB struct {
 	// periodTotals maps compensationPeriodID → WorksheetPeriodTotals
 	periodTotals map[int64]compensationrepo.WorksheetPeriodTotals
 	// staffTotals maps compensationPeriodID → per-staff totals
-	staffTotals   map[int64][]compensationrepo.StaffCommissionTotals
-	staffOnPeriod bool
-	lastList      model.ListWorksheetsRequest
-	sumErr        error
-	staffErr      error
+	staffTotals             map[int64][]compensationrepo.StaffCommissionTotals
+	staffOnPeriod           bool
+	lastList                model.ListWorksheetsRequest
+	sumErr                  error
+	staffErr                error
+	softDeleteByPeriodCalls int
+	lastSoftDeletePeriodID  int64
+	softDeleteByPeriodErr   error
 }
 
 func (f *fakeWorksheetDB) Create(_ context.Context, _ *model.TrxWorksheet) error { return nil }
@@ -232,6 +235,11 @@ func (f *fakeWorksheetDB) List(_ context.Context, params model.ListWorksheetsReq
 func (f *fakeWorksheetDB) Update(_ context.Context, _ *model.TrxWorksheet) error { return nil }
 func (f *fakeWorksheetDB) SoftDelete(_ context.Context, _ int64, _ string) (bool, error) {
 	return false, nil
+}
+func (f *fakeWorksheetDB) SoftDeleteByCompensationPeriod(_ context.Context, _ int64, periodID int64) error {
+	f.softDeleteByPeriodCalls++
+	f.lastSoftDeletePeriodID = periodID
+	return f.softDeleteByPeriodErr
 }
 func (f *fakeWorksheetDB) MarkGeneratePending(_ context.Context, _ int64) error { return nil }
 func (f *fakeWorksheetDB) MarkGenerateFinished(_ context.Context, _ int64, _ model.WorksheetGenerateStatus, _ string) error {
@@ -539,6 +547,7 @@ func TestReopenPeriod(t *testing.T) {
 
 func TestDeletePeriod(t *testing.T) {
 	open := &model.TrxCompensationPeriod{
+		ID:            14,
 		UUID:          "p1",
 		InstitutionID: testInstitutionID,
 		Status:        model.CompensationPeriodStatusOpen,
@@ -546,12 +555,29 @@ func TestDeletePeriod(t *testing.T) {
 
 	t.Run("open ok", func(t *testing.T) {
 		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{copyPeriod(open)}}
-		uc := newUC(db, nil, nil)
+		worksheets := &fakeWorksheetDB{}
+		uc := newUC(db, worksheets, nil)
 		got, err := uc.DeletePeriod(testCtx(), "p1")
 		if err != nil || !got.Success {
 			t.Fatalf("DeletePeriod: %+v %v", got, err)
 		}
+		if worksheets.softDeleteByPeriodCalls != 1 || worksheets.lastSoftDeletePeriodID != open.ID {
+			t.Fatalf("worksheet soft-delete calls = %d periodID = %d", worksheets.softDeleteByPeriodCalls, worksheets.lastSoftDeletePeriodID)
+		}
 		if db.softDeleteCalls != 1 {
+			t.Fatalf("softDeleteCalls = %d", db.softDeleteCalls)
+		}
+	})
+
+	t.Run("worksheet delete fails", func(t *testing.T) {
+		db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{copyPeriod(open)}}
+		worksheets := &fakeWorksheetDB{softDeleteByPeriodErr: errors.New("boom")}
+		uc := newUC(db, worksheets, nil)
+		_, err := uc.DeletePeriod(testCtx(), "p1")
+		if err == nil {
+			t.Fatal("expected worksheet delete error")
+		}
+		if db.softDeleteCalls != 0 {
 			t.Fatalf("softDeleteCalls = %d", db.softDeleteCalls)
 		}
 	})
@@ -565,13 +591,17 @@ func TestDeletePeriod(t *testing.T) {
 			p := copyPeriod(open)
 			p.Status = status
 			db := &fakeCompensationPeriodDB{periods: []*model.TrxCompensationPeriod{p}}
-			uc := newUC(db, nil, nil)
+			worksheets := &fakeWorksheetDB{}
+			uc := newUC(db, worksheets, nil)
 			_, err := uc.DeletePeriod(testCtx(), "p1")
 			if errorName(t, err) != errIllegalTransition {
 				t.Fatalf("error name = %s", errorName(t, err))
 			}
 			if db.softDeleteCalls != 0 {
 				t.Fatalf("softDeleteCalls = %d", db.softDeleteCalls)
+			}
+			if worksheets.softDeleteByPeriodCalls != 0 {
+				t.Fatalf("worksheet soft-delete calls = %d", worksheets.softDeleteByPeriodCalls)
 			}
 		})
 	}

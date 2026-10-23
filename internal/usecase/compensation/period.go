@@ -357,6 +357,17 @@ func (u *CompensationPeriodUC) DeletePeriod(ctx context.Context, periodUUID stri
 		return model.DeleteCompensationPeriodResponse{}, commonerr.SetNewBadRequest(errIllegalTransition, msgDeleteOpenOnly)
 	}
 
+	session, err := u.Transaction.Begin(ctx)
+	if err != nil {
+		return model.DeleteCompensationPeriodResponse{}, errors.Wrap(err, wrapMsgDeletePeriod)
+	}
+	defer u.Transaction.Finish(session, &err)
+	ctx = xormlib.SetDBSession(ctx, session)
+
+	if err = u.WorksheetDB.SoftDeleteByCompensationPeriod(ctx, userDetail.InstitutionID, period.ID); err != nil {
+		return model.DeleteCompensationPeriodResponse{}, errors.Wrap(err, wrapMsgDeletePeriod)
+	}
+
 	found, err := u.CompensationPeriodDB.SoftDelete(ctx, userDetail.InstitutionID, periodUUID)
 	if err != nil {
 		return model.DeleteCompensationPeriodResponse{}, errors.Wrap(err, wrapMsgDeletePeriod)

@@ -49,6 +49,9 @@ type WorksheetDB interface {
 	// found is false when missing or already deleted.
 	SoftDelete(ctx context.Context, institutionID int64, uuid string) (found bool, err error)
 
+	// SoftDeleteByCompensationPeriod marks every live worksheet on this payday deleted.
+	SoftDeleteByCompensationPeriod(ctx context.Context, institutionID, periodID int64) error
+
 	// MarkGeneratePending sets generate_status=running and generate_started_at=NOW()
 	// when status is open and generate is not already running. Scoped by id.
 	MarkGeneratePending(ctx context.Context, worksheetID int64) error

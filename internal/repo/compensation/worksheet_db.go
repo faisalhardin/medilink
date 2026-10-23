@@ -216,6 +216,18 @@ func (c *WorksheetConn) SoftDelete(ctx context.Context, institutionID int64, uui
 	return affected > 0, nil
 }
 
+func (c *WorksheetConn) SoftDeleteByCompensationPeriod(ctx context.Context, institutionID, periodID int64) error {
+	_, err := c.worksheetWriteSession(ctx).
+		Table(model.TrxWorksheetTableName).
+		Where("institution_id = ?", institutionID).
+		And("compensation_period_id = ?", periodID).
+		Delete(&model.TrxWorksheet{})
+	if err != nil {
+		return errors.Wrap(err, wrapErrWorksheetPrefix+"SoftDeleteByCompensationPeriod")
+	}
+	return nil
+}
+
 func (c *WorksheetConn) MarkGeneratePending(ctx context.Context, worksheetID int64) error {
 	const sqlText = `
 		UPDATE mdl_trx_worksheet
