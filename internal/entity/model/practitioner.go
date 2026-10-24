@@ -13,11 +13,14 @@ const (
 )
 
 // RefICD10 is the ICD-10 diagnosis code reference table.
+// DisplayID and SynonymsID provide Indonesian localization for search.
 type RefICD10 struct {
-	Code      string      `xorm:"'code' pk" json:"code"`
-	Display   string      `xorm:"'display'" json:"display"`
-	Category  null.String `xorm:"'category' null" json:"category"`
-	CreatedAt time.Time   `xorm:"'created_at' created" json:"-"`
+	Code       string         `xorm:"'code' pk" json:"code"`
+	Display    string         `xorm:"'display'" json:"display"`
+	DisplayID  null.String    `xorm:"'display_id' null" json:"display_id"`
+	SynonymsID []string       `xorm:"'synonyms_id' text[]" json:"synonyms_id,omitempty"`
+	Category   null.String    `xorm:"'category' null" json:"category"`
+	CreatedAt  time.Time      `xorm:"'created_at' created" json:"-"`
 }
 
 // MstDoctor is the clinical-identity record for a physician.

@@ -7,6 +7,7 @@ import (
 	"github.com/faisalhardin/medilink/internal/entity/model"
 	icd10repo "github.com/faisalhardin/medilink/internal/entity/repo/icd10"
 	xormlib "github.com/faisalhardin/medilink/internal/library/db/xorm"
+	"github.com/faisalhardin/medilink/internal/library/util/fts"
 	"github.com/pkg/errors"
 )
 
@@ -28,8 +29,15 @@ func NewICD10DB(db *xormlib.DBConnect) icd10repo.ICD10DB {
 	return &Conn{DB: db}
 }
 
-// Search runs an ILIKE-prefix match on `code` unioned with a tsvector
-// match on `display`; prefix hits are ordered first so autocomplete feels right.
+// Search returns up to limit rows matching q by:
+//   - exact code match (ranked 1st)
+//   - code prefix match (ranked 2nd)
+//   - display/synonyms full-text prefix match via ts_rank_cd (ranked 3rd+)
+//
+// The search uses prefix matching (":*") so partial words like "kari" or
+// "pulpi" match "karies" or "pulpitis". The WHERE clause matches the GIN
+// index expression on (code || ' ' || display || ' ' || COALESCE(display_id, '')
+// || ' ' || COALESCE(array_to_string(synonyms_id, ' '), '')) for efficiency.
 func (c *Conn) Search(ctx context.Context, q string, limit int) ([]model.RefICD10, error) {
 	q = strings.TrimSpace(q)
 	if q == "" {
@@ -42,17 +50,55 @@ func (c *Conn) Search(ctx context.Context, q string, limit int) ([]model.RefICD1
 		limit = maxSearchLimit
 	}
 
-	const sql = `
-		SELECT code, display, category, created_at
-		FROM ref_icd10
-		WHERE code ILIKE ? || '%'
-		   OR to_tsvector('simple', display) @@ plainto_tsquery('simple', ?)
-		ORDER BY CASE WHEN code ILIKE ? || '%' THEN 0 ELSE 1 END, code
-		LIMIT ?
+	tsq := fts.SanitizeTsQuery(q)
+
+	if tsq == "" {
+		const fallbackSQL = `
+			SELECT code, display, display_id, synonyms_id, category, created_at
+			FROM ref_icd10
+			WHERE code ILIKE $1 || '%'
+			ORDER BY code ASC
+			LIMIT $2
+		`
+		var rows []model.RefICD10
+		err := c.DB.SlaveDB.Context(ctx).SQL(fallbackSQL, q, limit).Find(&rows)
+		if err != nil {
+			return nil, errors.Wrap(err, WrapMsgSearch)
+		}
+		return rows, nil
+	}
+
+	// Main query uses lateral sub-expression to materialize tsquery once.
+	// Ranks results in tiers:
+	//   tier 0 – exact code equality (case-insensitive)
+	//   tier 1 – code ILIKE prefix
+	//   tier 2 – FTS match, weighted by ts_rank_cd (higher = better)
+	//
+	// The @@ predicate uses the same expression as idx_ref_icd10_search so
+	// PostgreSQL can use the GIN index instead of doing a sequential scan.
+	const searchSQL = `
+		SELECT code, display, display_id, synonyms_id, category, created_at
+		FROM ref_icd10,
+		     to_tsquery('simple', $1) AS q
+		WHERE code ILIKE $2 || '%'
+		   OR to_tsvector('simple', code || ' ' || display || ' ' || COALESCE(display_id, '') || ' ' || COALESCE(array_to_string(synonyms_id, ' '), '')) @@ q
+		ORDER BY
+		    CASE
+		        WHEN UPPER(code) = UPPER($3) THEN 0
+		        WHEN code ILIKE $4 || '%' THEN 1
+		        ELSE 2
+		    END ASC,
+		    CASE
+		        WHEN to_tsvector('simple', code || ' ' || display || ' ' || COALESCE(display_id, '') || ' ' || COALESCE(array_to_string(synonyms_id, ' '), '')) @@ q
+		        THEN ts_rank_cd(to_tsvector('simple', code || ' ' || display || ' ' || COALESCE(display_id, '') || ' ' || COALESCE(array_to_string(synonyms_id, ' '), '')), q)
+		        ELSE 0
+		    END DESC,
+		    code ASC
+		LIMIT $5
 	`
 
 	var rows []model.RefICD10
-	err := c.DB.SlaveDB.Context(ctx).SQL(sql, q, q, q, limit).Find(&rows)
+	err := c.DB.SlaveDB.Context(ctx).SQL(searchSQL, tsq, q, q, q, limit).Find(&rows)
 	if err != nil {
 		return nil, errors.Wrap(err, WrapMsgSearch)
 	}

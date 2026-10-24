@@ -1,4 +1,4 @@
-h1:2UM9D66TUp//j0kqygKp2P3pKDWnAeE9yz3q0xjaAEM=
+h1:yVobUVheDwHL/86JIwQWZb5+xrClgDaFw9UnbfHG6lo=
 20260901120000_baseline.sql h1:1qlU+SwahBCz2VcNzKXnGCiJ0xNmgDTnRDvX/WbxreE=
 20260902120000_add_idx_visit_product_visit.sql h1:ucMSlqdUNUAFjFsTXTW717E3pTGbJbIT+1MRRmXF1IY=
 20260907120000_add_idx_mst_staff_uuid.sql h1:pAhYqjG3AGsvKkhrPq0b0u2rMJttPHfwoNpPd0O3bQU=
@@ -13,3 +13,4 @@ h1:2UM9D66TUp//j0kqygKp2P3pKDWnAeE9yz3q0xjaAEM=
 20261012114100_wage_snapshot_update_time.sql h1:NcxAAEoXisjPs0GaGIFFQX6UvfL2IzW09z0tManVIdo=
 20261019160000_worksheet_pending_to_open.sql h1:MjZDwdTXgD9gtUopDilsWi8Xe/ytrzhELMYHpkz5LN4=
 20261023120000_soft_delete_orphan_worksheets.sql h1:EC0r7v0DyVtQIwlyRkg0zdfl8xdg3k5rk7KEnfmv1x4=
+20261024120000_icd10_dental_seed.sql h1:aBa8khT85t1ICOHkBsLkN5pX7HMenDWI6ODBj03cPpk=
