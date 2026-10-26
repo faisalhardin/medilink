@@ -13,9 +13,12 @@ const (
 )
 
 // RefICD10 is the ICD-10 diagnosis code reference table.
+// DisplayID provides Indonesian localization. SynonymsID (text[]) is searched
+// via SQL but not loaded into Go because xorm doesn't support Postgres arrays.
 type RefICD10 struct {
 	Code      string      `xorm:"'code' pk" json:"code"`
 	Display   string      `xorm:"'display'" json:"display"`
+	DisplayID null.String `xorm:"'display_id' null" json:"display_id"`
 	Category  null.String `xorm:"'category' null" json:"category"`
 	CreatedAt time.Time   `xorm:"'created_at' created" json:"-"`
 }

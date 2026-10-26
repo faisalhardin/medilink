@@ -2,6 +2,8 @@ package procedure
 
 import (
 	"testing"
+
+	"github.com/faisalhardin/medilink/internal/library/util/fts"
 )
 
 func TestSanitizeTsQuery(t *testing.T) {
@@ -99,9 +101,9 @@ func TestSanitizeTsQuery(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := sanitizeTsQuery(tc.input)
+			got := fts.SanitizeTsQuery(tc.input)
 			if got != tc.want {
-				t.Errorf("sanitizeTsQuery(%q) = %q, want %q", tc.input, got, tc.want)
+				t.Errorf("fts.SanitizeTsQuery(%q) = %q, want %q", tc.input, got, tc.want)
 			}
 		})
 	}

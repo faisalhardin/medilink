@@ -479,16 +479,32 @@ CREATE INDEX idx_trx_recall_patient ON public.mdl_trx_recall(id_mst_patient, sch
 
 -- ---- 20260422_add_ref_icd10.sql ----
 
--- ICD-10 reference table seeded from WHO release / Kemenkes-localised version
+-- ICD-10 reference table seeded from WHO release / Kemenkes-localised version.
+-- display_id and synonyms_id provide Indonesian localization for search.
 CREATE TABLE IF NOT EXISTS ref_icd10 (
     code        VARCHAR(10)  PRIMARY KEY,
     display     VARCHAR(500) NOT NULL,
+    display_id  VARCHAR(500),
+    synonyms_id TEXT[],
     category    VARCHAR(100),
     created_at  TIMESTAMP    DEFAULT NOW()
 );
 
+-- IMMUTABLE wrapper for array_to_string (which is STABLE due to locale).
+-- Safe because we always use fixed delimiter ' ' and no null string.
+CREATE OR REPLACE FUNCTION icd10_synonyms_to_text(arr TEXT[])
+RETURNS TEXT
+LANGUAGE SQL
+IMMUTABLE
+PARALLEL SAFE
+AS $$
+    SELECT array_to_string(arr, ' ')
+$$;
+
 CREATE INDEX IF NOT EXISTS idx_ref_icd10_search
-    ON ref_icd10 USING gin(to_tsvector('simple', code || ' ' || display));
+    ON ref_icd10 USING gin(to_tsvector('simple',
+        code || ' ' || display || ' ' || COALESCE(display_id, '') || ' ' || COALESCE(icd10_synonyms_to_text(synonyms_id), '')
+    ));
 
 
 -- ---- 20260423_add_mst_doctor.sql ----
