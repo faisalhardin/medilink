@@ -57,8 +57,7 @@ INSERT INTO ref_icd10 (code, display, display_id, synonyms_id, category) VALUES
 ('K02.2', 'Caries of cementum', 'Karies sementum', ARRAY['karies akar'], 'Diseases of oral cavity, salivary glands and jaws'),
 ('K02.3', 'Arrested dental caries', 'Karies gigi terhenti', ARRAY['karies terhenti'], 'Diseases of oral cavity, salivary glands and jaws'),
 ('K02.4', 'Odontoclasia', 'Odontoklasia', ARRAY['resorpsi gigi'], 'Diseases of oral cavity, salivary glands and jaws'),
-('K02.5', 'Caries with exposure of pulp', 'Karies dengan terbukanya pulpa', ARRAY['karies pulpa', 'gigi bolong sampai saraf'], 'Diseases of oral cavity, salivary glands and jaws'),
-('K02.8', 'Other dental caries', 'Karies gigi lainnya', NULL, 'Diseases of oral cavity, salivary glands and jaws'),
+('K02.5', 'Other dental caries', 'Karies gigi lainnya', NULL, 'Diseases of oral cavity, salivary glands and jaws'),
 ('K02.9', 'Dental caries, unspecified', 'Karies gigi tidak spesifik', ARRAY['gigi berlubang'], 'Diseases of oral cavity, salivary glands and jaws'),
 
 -- K03: Other diseases of hard tissues of teeth
@@ -80,7 +79,7 @@ INSERT INTO ref_icd10 (code, display, display_id, synonyms_id, category) VALUES
 ('K04.1', 'Necrosis of pulp', 'Nekrosis pulpa', ARRAY['pulpa mati', 'saraf gigi mati', 'gigi mati'], 'Diseases of oral cavity, salivary glands and jaws'),
 ('K04.2', 'Pulp degeneration', 'Degenerasi pulpa', NULL, 'Diseases of oral cavity, salivary glands and jaws'),
 ('K04.3', 'Abnormal hard tissue formation in pulp', 'Pembentukan jaringan keras abnormal dalam pulpa', ARRAY['kalsifikasi pulpa'], 'Diseases of oral cavity, salivary glands and jaws'),
-('K04.4', 'Acute apical periodontitis of pulpal origin', 'Periodontitis apikal akut asal pulpa', ARRAY['abses akut', 'infeksi akar gigi'], 'Diseases of oral cavity, salivary glands and jaws'),
+('K04.4', 'Acute apical periodontitis of pulpal origin', 'Periodontitis apikal akut asal pulpa', ARRAY['periodontitis akut', 'infeksi akar gigi'], 'Diseases of oral cavity, salivary glands and jaws'),
 ('K04.5', 'Chronic apical periodontitis', 'Periodontitis apikal kronis', ARRAY['granuloma', 'infeksi akar kronis'], 'Diseases of oral cavity, salivary glands and jaws'),
 ('K04.6', 'Periapical abscess with sinus', 'Abses periapikal dengan sinus', ARRAY['abses gigi dengan fistula', 'bisul gigi'], 'Diseases of oral cavity, salivary glands and jaws'),
 ('K04.7', 'Periapical abscess without sinus', 'Abses periapikal tanpa sinus', ARRAY['abses gigi', 'bengkak gigi', 'nanah gigi'], 'Diseases of oral cavity, salivary glands and jaws'),
@@ -123,7 +122,7 @@ INSERT INTO ref_icd10 (code, display, display_id, synonyms_id, category) VALUES
 ('K08.1', 'Loss of teeth due to accident, extraction or local periodontal disease', 'Kehilangan gigi karena kecelakaan, pencabutan atau penyakit periodontal lokal', ARRAY['gigi copot', 'gigi tanggal', 'ompong'], 'Diseases of oral cavity, salivary glands and jaws'),
 ('K08.2', 'Atrophy of edentulous alveolar ridge', 'Atrofi ridge alveolar edentulus', NULL, 'Diseases of oral cavity, salivary glands and jaws'),
 ('K08.3', 'Retained dental root', 'Sisa akar gigi', ARRAY['akar gigi tertinggal', 'sisa akar'], 'Diseases of oral cavity, salivary glands and jaws'),
-('K08.8', 'Other specified disorders of teeth and supporting structures', 'Gangguan gigi dan struktur penyangga spesifik lainnya', ARRAY['gigi retak', 'gigi patah'], 'Diseases of oral cavity, salivary glands and jaws'),
+('K08.8', 'Other specified disorders of teeth and supporting structures', 'Gangguan gigi dan struktur penyangga spesifik lainnya', NULL, 'Diseases of oral cavity, salivary glands and jaws'),
 ('K08.9', 'Disorder of teeth and supporting structures, unspecified', 'Gangguan gigi dan struktur penyangga tidak spesifik', NULL, 'Diseases of oral cavity, salivary glands and jaws'),
 
 -- K09: Cysts of oral region, not elsewhere classified
@@ -182,7 +181,7 @@ INSERT INTO ref_icd10 (code, display, display_id, synonyms_id, category) VALUES
 ('K14.3', 'Hypertrophy of tongue papillae', 'Hipertrofi papila lidah', ARRAY['lidah berbulu', 'lidah hitam'], 'Diseases of oral cavity, salivary glands and jaws'),
 ('K14.4', 'Atrophy of tongue papillae', 'Atrofi papila lidah', ARRAY['lidah licin'], 'Diseases of oral cavity, salivary glands and jaws'),
 ('K14.5', 'Plicated tongue', 'Lidah berkerut', ARRAY['fissured tongue', 'lidah retak'], 'Diseases of oral cavity, salivary glands and jaws'),
-('K14.6', 'Glossodynia', 'Glosodinnia', ARRAY['lidah perih', 'burning tongue', 'lidah panas'], 'Diseases of oral cavity, salivary glands and jaws'),
+('K14.6', 'Glossodynia', 'Glosodinia', ARRAY['lidah perih', 'burning tongue', 'lidah panas'], 'Diseases of oral cavity, salivary glands and jaws'),
 ('K14.8', 'Other diseases of tongue', 'Penyakit lidah lainnya', NULL, 'Diseases of oral cavity, salivary glands and jaws'),
 ('K14.9', 'Disease of tongue, unspecified', 'Penyakit lidah tidak spesifik', NULL, 'Diseases of oral cavity, salivary glands and jaws'),
 

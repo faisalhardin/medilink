@@ -53,7 +53,7 @@ func (c *Conn) Search(ctx context.Context, q string, limit int) ([]model.RefICD1
 
 	if tsq == "" {
 		const fallbackSQL = `
-			SELECT code, display, display_id, synonyms_id, category, created_at
+			SELECT code, display, display_id, category, created_at
 			FROM ref_icd10
 			WHERE code ILIKE $1 || '%'
 			ORDER BY code ASC
@@ -75,8 +75,9 @@ func (c *Conn) Search(ctx context.Context, q string, limit int) ([]model.RefICD1
 	//
 	// The @@ predicate uses the same expression as idx_ref_icd10_search
 	// (with icd10_synonyms_to_text wrapper) so PostgreSQL uses the GIN index.
+	// Note: synonyms_id is searched via SQL but not selected (xorm can't scan text[]).
 	const searchSQL = `
-		SELECT code, display, display_id, synonyms_id, category, created_at
+		SELECT code, display, display_id, category, created_at
 		FROM ref_icd10,
 		     to_tsquery('simple', $1) AS q
 		WHERE code ILIKE $2 || '%'
