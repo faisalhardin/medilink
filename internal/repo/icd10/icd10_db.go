@@ -36,8 +36,7 @@ func NewICD10DB(db *xormlib.DBConnect) icd10repo.ICD10DB {
 //
 // The search uses prefix matching (":*") so partial words like "kari" or
 // "pulpi" match "karies" or "pulpitis". The WHERE clause matches the GIN
-// index expression on (code || ' ' || display || ' ' || COALESCE(display_id, '')
-// || ' ' || COALESCE(array_to_string(synonyms_id, ' '), '')) for efficiency.
+// index expression using icd10_synonyms_to_text() for efficiency.
 func (c *Conn) Search(ctx context.Context, q string, limit int) ([]model.RefICD10, error) {
 	q = strings.TrimSpace(q)
 	if q == "" {
@@ -74,14 +73,14 @@ func (c *Conn) Search(ctx context.Context, q string, limit int) ([]model.RefICD1
 	//   tier 1 – code ILIKE prefix
 	//   tier 2 – FTS match, weighted by ts_rank_cd (higher = better)
 	//
-	// The @@ predicate uses the same expression as idx_ref_icd10_search so
-	// PostgreSQL can use the GIN index instead of doing a sequential scan.
+	// The @@ predicate uses the same expression as idx_ref_icd10_search
+	// (with icd10_synonyms_to_text wrapper) so PostgreSQL uses the GIN index.
 	const searchSQL = `
 		SELECT code, display, display_id, synonyms_id, category, created_at
 		FROM ref_icd10,
 		     to_tsquery('simple', $1) AS q
 		WHERE code ILIKE $2 || '%'
-		   OR to_tsvector('simple', code || ' ' || display || ' ' || COALESCE(display_id, '') || ' ' || COALESCE(array_to_string(synonyms_id, ' '), '')) @@ q
+		   OR to_tsvector('simple', code || ' ' || display || ' ' || COALESCE(display_id, '') || ' ' || COALESCE(icd10_synonyms_to_text(synonyms_id), '')) @@ q
 		ORDER BY
 		    CASE
 		        WHEN UPPER(code) = UPPER($3) THEN 0
@@ -89,8 +88,8 @@ func (c *Conn) Search(ctx context.Context, q string, limit int) ([]model.RefICD1
 		        ELSE 2
 		    END ASC,
 		    CASE
-		        WHEN to_tsvector('simple', code || ' ' || display || ' ' || COALESCE(display_id, '') || ' ' || COALESCE(array_to_string(synonyms_id, ' '), '')) @@ q
-		        THEN ts_rank_cd(to_tsvector('simple', code || ' ' || display || ' ' || COALESCE(display_id, '') || ' ' || COALESCE(array_to_string(synonyms_id, ' '), '')), q)
+		        WHEN to_tsvector('simple', code || ' ' || display || ' ' || COALESCE(display_id, '') || ' ' || COALESCE(icd10_synonyms_to_text(synonyms_id), '')) @@ q
+		        THEN ts_rank_cd(to_tsvector('simple', code || ' ' || display || ' ' || COALESCE(display_id, '') || ' ' || COALESCE(icd10_synonyms_to_text(synonyms_id), '')), q)
 		        ELSE 0
 		    END DESC,
 		    code ASC

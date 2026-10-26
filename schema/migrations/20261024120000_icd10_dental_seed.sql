@@ -10,10 +10,24 @@
 ALTER TABLE ref_icd10 ADD COLUMN IF NOT EXISTS display_id VARCHAR(500);
 ALTER TABLE ref_icd10 ADD COLUMN IF NOT EXISTS synonyms_id TEXT[];
 
--- Drop and recreate index to include new columns for search
+-- Create an IMMUTABLE wrapper for array_to_string (which is STABLE due to locale).
+-- This is safe because we always use a fixed delimiter ' ' and no null string.
+CREATE OR REPLACE FUNCTION icd10_synonyms_to_text(arr TEXT[])
+RETURNS TEXT
+LANGUAGE SQL
+IMMUTABLE
+PARALLEL SAFE
+AS $$
+    SELECT array_to_string(arr, ' ')
+$$;
+
+-- Drop and recreate index to include new columns for search.
+-- Uses icd10_synonyms_to_text wrapper to make the expression IMMUTABLE.
 DROP INDEX IF EXISTS idx_ref_icd10_search;
 CREATE INDEX idx_ref_icd10_search
-    ON ref_icd10 USING gin(to_tsvector('simple', code || ' ' || display || ' ' || COALESCE(display_id, '') || ' ' || COALESCE(array_to_string(synonyms_id, ' '), '')));
+    ON ref_icd10 USING gin(to_tsvector('simple',
+        code || ' ' || display || ' ' || COALESCE(display_id, '') || ' ' || COALESCE(icd10_synonyms_to_text(synonyms_id), '')
+    ));
 
 -- Seed dental ICD-10 codes (WHO ICD-10 2019 titles, Indonesian names for review)
 -- Using ON CONFLICT to be idempotent
