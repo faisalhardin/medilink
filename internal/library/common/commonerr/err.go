@@ -113,10 +113,8 @@ func NewErrorMessage() *ErrorMessage {
 // SetNewError is function return new error message.
 // It support to set code, error name, and error description
 func SetNewError(code int, errorName, errDesc string) *ErrorMessage {
-	for _, row := range roomErrors {
-		if row.name == errorName {
-			panic("room errors must use room constructors")
-		}
+	if msg := roomByName(errorName); msg != nil {
+		return msg
 	}
 	return allocError(code, &ErrorFormat{
 		ErrorName:        errorName,
@@ -136,6 +134,11 @@ func allocError(code int, format *ErrorFormat) *ErrorMessage {
 // SetNewBadRequest returns a new error message with the standard code for a bad request (400).
 // It allows for setting both the error name and error description using the specified error format.
 func SetNewBadRequestByFormat(ef *ErrorFormat) *ErrorMessage {
+	if ef != nil {
+		if msg := roomByName(ef.ErrorName); msg != nil {
+			return msg
+		}
+	}
 	return &ErrorMessage{
 		Code: http.StatusBadRequest,
 		ErrorList: []*ErrorFormat{
@@ -176,6 +179,10 @@ func (errorMessage *ErrorMessage) SetBadRequest() *ErrorMessage {
 // Append is function add error to existing error message.
 // It support to set error name and error description.
 func (errorMessage *ErrorMessage) Append(errorName, errDesc string) *ErrorMessage {
+	if msg := roomByName(errorName); msg != nil {
+		errorMessage.ErrorList = append(errorMessage.ErrorList, msg.ErrorList[0])
+		return errorMessage
+	}
 	errorMessage.ErrorList = append(errorMessage.ErrorList, &ErrorFormat{
 		ErrorName:        errorName,
 		ErrorDescription: errDesc,
@@ -183,8 +190,7 @@ func (errorMessage *ErrorMessage) Append(errorName, errDesc string) *ErrorMessag
 	return errorMessage
 }
 
-// Set404 is a function that returns a new error message with the standard code for "not found" (404).
-// It allows for specifying both the error name and error description.
+// Set404 returns a new 404. The name and description are fixed.
 func Set404() *ErrorMessage {
 	return SetNewError(404, "404", "404 not found")
 }

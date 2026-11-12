@@ -1,11 +1,11 @@
 package commonerr
 
 import (
+	"errors"
 	"fmt"
 
 	liblog "github.com/faisalhardin/medilink/internal/library/common/log"
 	"github.com/faisalhardin/medilink/internal/library/common/log/logger"
-	"github.com/pkg/errors"
 )
 
 type roomKind int
@@ -56,6 +56,20 @@ func init() {
 	if needsCount != 1 {
 		panic("room error table needs exactly one counted row")
 	}
+}
+
+// shortcut: room_has_open_visits reports 0 here, because this path has no visit count; callers use RoomHasOpenVisits.
+func roomByName(name string) *ErrorMessage {
+	for i := range roomErrors {
+		if roomErrors[i].name != name {
+			continue
+		}
+		if roomErrors[i].needsCount {
+			return RoomHasOpenVisits(0)
+		}
+		return roomMessage(roomErrors[i].kind, nil)
+	}
+	return nil
 }
 
 func roomMessage(kind roomKind, count *int) *ErrorMessage {
@@ -155,11 +169,10 @@ func roomLogFields(ids RoomIDs, err error) logger.KV {
 	if ids.Job != 0 {
 		fields["job_id"] = ids.Job
 	}
-	cause := errors.Cause(err)
-	msg, ok := cause.(*ErrorMessage)
-	if !ok {
+	var msg *ErrorMessage
+	if !errors.As(err, &msg) || msg == nil {
 		fields["status"] = 500
-		fields["error_type"] = fmt.Sprintf("%T", cause)
+		fields["error_type"] = fmt.Sprintf("%T", err)
 		return fields
 	}
 	fields["status"] = msg.Code

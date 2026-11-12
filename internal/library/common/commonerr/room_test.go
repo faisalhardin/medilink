@@ -3,6 +3,7 @@ package commonerr
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -124,14 +125,28 @@ func TestSet404IsFresh(t *testing.T) {
 	}
 }
 
-func TestSetNewErrorRefusesRoomNames(t *testing.T) {
-	defer func() {
-		if recover() != "room errors must use room constructors" {
-			t.Fatalf("panic %v", recover())
-		}
-	}()
-	SetNewError(409, "name_taken", "x")
-	t.Fatal("SetNewError did not panic")
+func TestSetNewErrorUsesRoomConstructor(t *testing.T) {
+	pii := "Budi Santoso 3201012345670001"
+	msg := SetNewError(500, "name_taken", pii)
+	if msg.Code != 409 || msg.ErrorList[0].ErrorName != "name_taken" || strings.Contains(msg.Error(), "Budi") {
+		t.Fatalf("%s", msg.Error())
+	}
+	counted := SetNewError(400, "room_has_open_visits", pii)
+	if counted.Code != 409 || counted.ErrorList[0].count == nil || *counted.ErrorList[0].count != 0 || strings.Contains(counted.Error(), "Budi") {
+		t.Fatalf("%s", counted.Error())
+	}
+	bad := SetNewBadRequestByFormat(&ErrorFormat{ErrorName: "clearing", ErrorDescription: pii})
+	if bad.Code != 409 || bad.ErrorList[0].ErrorName != "clearing" || strings.Contains(bad.Error(), "Budi") {
+		t.Fatalf("%s", bad.Error())
+	}
+	appended := SetNewBadRequest("a", "b").Append("room_required", pii)
+	if appended.Code != 400 || appended.ErrorList[1].ErrorDescription != "This column has more than one room. Choose a room." || strings.Contains(appended.Error(), "Budi") {
+		t.Fatalf("%s", appended.Error())
+	}
+	kept := SetNewBadRequest("a", "b").Append("field", "must be set")
+	if kept.ErrorList[1].ErrorName != "field" || kept.ErrorList[1].ErrorDescription != "must be set" {
+		t.Fatalf("%#v", kept.ErrorList)
+	}
 }
 
 func TestSetNewErrorAllowsOtherNames(t *testing.T) {
@@ -158,6 +173,26 @@ func TestRoomLogFieldsOpenVisits(t *testing.T) {
 	for _, key := range []string{"board_id", "column_id", "job_id"} {
 		if _, ok := fields[key]; ok {
 			t.Fatalf("zero id %s in %#v", key, fields)
+		}
+	}
+}
+
+func TestRoomLogFieldsPercentW(t *testing.T) {
+	pii := "Budi Santoso 3201012345670001"
+	taken := roomLogFields(RoomIDs{}, fmt.Errorf("%s: %w", pii, RoomNameTaken()))
+	if taken["status"] != 409 || taken["error_name"] != "name_taken" {
+		t.Fatalf("%#v", taken)
+	}
+	open := roomLogFields(RoomIDs{}, fmt.Errorf("%s: %w", pii, RoomHasOpenVisits(3)))
+	if open["status"] != 409 || open["error_name"] != "room_has_open_visits" || open["count"] != 3 {
+		t.Fatalf("%#v", open)
+	}
+	for _, fields := range []map[string]interface{}{taken, open} {
+		for _, value := range fields {
+			text := strings.ToLower(stringify(value))
+			if strings.Contains(text, "budi") || strings.Contains(text, "3201012345670001") {
+				t.Fatalf("sentinel in %#v", fields)
+			}
 		}
 	}
 }

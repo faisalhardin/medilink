@@ -4,6 +4,16 @@ import (
 	"github.com/faisalhardin/medilink/internal/library/common/log/logger"
 )
 
+// testLogHook records WithFields logs. Tests only; not safe with t.Parallel.
+var testLogHook func(level, msg string, fields logger.KV)
+
+// SetTestLogHook installs fn for InfoWithFields and ErrorWithFields. The returned func restores the previous hook.
+func SetTestLogHook(fn func(level, msg string, fields logger.KV)) func() {
+	prev := testLogHook
+	testLogHook = fn
+	return func() { testLogHook = prev }
+}
+
 func Error(args ...interface{}) {
 	errorLogger.Error(args...)
 }
@@ -17,6 +27,9 @@ func Errorf(format string, v ...interface{}) {
 }
 
 func ErrorWithFields(msg string, fields logger.KV) {
+	if testLogHook != nil {
+		testLogHook("error", msg, fields)
+	}
 	errorLogger.ErrorWithFields(msg, fields)
 }
 
@@ -53,5 +66,8 @@ func Infof(format string, v ...interface{}) {
 }
 
 func InfoWithFields(msg string, fields logger.KV) {
+	if testLogHook != nil {
+		testLogHook("info", msg, fields)
+	}
 	infoLogger.InfoWithFields(msg, fields)
 }

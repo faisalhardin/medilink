@@ -3,6 +3,8 @@ package httpwriter
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
@@ -10,7 +12,8 @@ import (
 	"github.com/faisalhardin/medilink/internal/library/common/log/logger"
 	"github.com/faisalhardin/medilink/internal/library/util/requestinfo"
 	"github.com/go-chi/chi/v5"
-	"github.com/pkg/errors"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type key struct{}
@@ -87,17 +90,16 @@ func Redirect(ctx context.Context, w http.ResponseWriter, r *http.Request, url s
 func SetError(ctx context.Context, w http.ResponseWriter, errValue error) (err error) {
 
 	requestInfo := getRequestInfo(ctx)
-	switch errCause := errors.Cause(errValue).(type) {
-	case *commonerr.ErrorMessage:
-		requestInfo.SetHTTPStatus(errCause.Code)
-		err = SetErrorFormat(ctx, w, errCause)
-	default:
-		requestInfo.SetHTTPStatus(http.StatusInternalServerError)
-		_, err = WriteJSON(w, http.StatusInternalServerError, &ErrorMessage{
-			ErrorMessage: commonerr.SetNewInternalError().ErrorList,
-		})
-		go postProcess(ctx, errValue)
+	var em *commonerr.ErrorMessage
+	if errors.As(errValue, &em) && em != nil {
+		requestInfo.SetHTTPStatus(em.Code)
+		return SetErrorFormat(ctx, w, em)
 	}
+	requestInfo.SetHTTPStatus(http.StatusInternalServerError)
+	_, err = WriteJSON(w, http.StatusInternalServerError, &ErrorMessage{
+		ErrorMessage: commonerr.SetNewInternalError().ErrorList,
+	})
+	postProcess(ctx, errValue)
 	return
 }
 
@@ -135,12 +137,20 @@ func WriteJSON(w http.ResponseWriter, status int, data interface{}) (int, error)
 }
 
 func postProcess(ctx context.Context, err error) {
-
-	logData := logger.KV{}
-	if err != nil {
-
-		// Report errors
-		liblog.ErrorWithFields(err.Error(), logData)
+	if err == nil {
+		return
 	}
-
+	info := getRequestInfo(ctx)
+	fields := logger.KV{
+		"error_type": fmt.Sprintf("%T", err),
+		"route":      info.RequestURL,
+		"method":     info.Method,
+		"request_id": middleware.GetReqID(ctx),
+	}
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr != nil {
+		fields["sqlstate"] = pgErr.Code
+		fields["constraint"] = pgErr.ConstraintName
+	}
+	liblog.ErrorWithFields("request failed", fields)
 }
