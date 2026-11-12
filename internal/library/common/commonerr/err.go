@@ -16,7 +16,6 @@ const (
 )
 
 var (
-	Err404 = SetNewError(http.StatusNotFound, "404", "404 not found")
 	Err401 = SetNewError(http.StatusUnauthorized, "401", "401 unauthorized")
 
 	ErrRevokedSession = SetNewUnauthorizedError("session revoked", "Your session has been revoked")
@@ -65,6 +64,20 @@ func (errorMessage *ErrorMessage) Errorln(listErr ...interface{}) *ErrorMessage 
 type ErrorFormat struct {
 	ErrorName        string `json:"error_name"`
 	ErrorDescription string `json:"error_description"`
+	count            *int
+}
+
+func (e *ErrorFormat) MarshalJSON() ([]byte, error) {
+	wire := struct {
+		ErrorName        string `json:"error_name"`
+		ErrorDescription string `json:"error_description"`
+		Count            *int   `json:"count,omitempty"`
+	}{
+		ErrorName:        e.ErrorName,
+		ErrorDescription: e.ErrorDescription,
+		Count:            e.count,
+	}
+	return json.Marshal(wire)
 }
 
 // SetErrorValidator containts setter error from github.com/go-playground/validator
@@ -100,13 +113,22 @@ func NewErrorMessage() *ErrorMessage {
 // SetNewError is function return new error message.
 // It support to set code, error name, and error description
 func SetNewError(code int, errorName, errDesc string) *ErrorMessage {
+	for _, row := range roomErrors {
+		if row.name == errorName {
+			panic("room errors must use room constructors")
+		}
+	}
+	return allocError(code, &ErrorFormat{
+		ErrorName:        errorName,
+		ErrorDescription: errDesc,
+	})
+}
+
+func allocError(code int, format *ErrorFormat) *ErrorMessage {
 	return &ErrorMessage{
 		Code: code,
 		ErrorList: []*ErrorFormat{
-			{
-				ErrorName:        errorName,
-				ErrorDescription: errDesc,
-			},
+			format,
 		},
 	}
 }
@@ -164,7 +186,7 @@ func (errorMessage *ErrorMessage) Append(errorName, errDesc string) *ErrorMessag
 // Set404 is a function that returns a new error message with the standard code for "not found" (404).
 // It allows for specifying both the error name and error description.
 func Set404() *ErrorMessage {
-	return Err404
+	return SetNewError(404, "404", "404 not found")
 }
 
 // SetDefaultErrBodyRequest generates an error response for a request with a default body.
