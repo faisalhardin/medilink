@@ -131,9 +131,12 @@ func TestSetNewErrorUsesRoomConstructor(t *testing.T) {
 	if msg.Code != 409 || msg.ErrorList[0].ErrorName != "name_taken" || strings.Contains(msg.Error(), "Budi") {
 		t.Fatalf("%s", msg.Error())
 	}
-	counted := SetNewError(400, "room_has_open_visits", pii)
-	if counted.Code != 409 || counted.ErrorList[0].count == nil || *counted.ErrorList[0].count != 0 || strings.Contains(counted.Error(), "Budi") {
+	counted := SetNewError(400, "room_has_open_visits", "open visits")
+	if counted.Code != 400 || counted.ErrorList[0].ErrorName != "room_has_open_visits" || counted.ErrorList[0].count != nil || counted.ErrorList[0].ErrorDescription != "open visits" {
 		t.Fatalf("%s", counted.Error())
+	}
+	if strings.Contains(string(counted.Marshal()), `"count"`) {
+		t.Fatalf("count present: %s", counted.Marshal())
 	}
 	bad := SetNewBadRequestByFormat(&ErrorFormat{ErrorName: "clearing", ErrorDescription: pii})
 	if bad.Code != 409 || bad.ErrorList[0].ErrorName != "clearing" || strings.Contains(bad.Error(), "Budi") {
@@ -142,6 +145,10 @@ func TestSetNewErrorUsesRoomConstructor(t *testing.T) {
 	appended := SetNewBadRequest("a", "b").Append("room_required", pii)
 	if appended.Code != 400 || appended.ErrorList[1].ErrorDescription != "This column has more than one room. Choose a room." || strings.Contains(appended.Error(), "Budi") {
 		t.Fatalf("%s", appended.Error())
+	}
+	open := SetNewBadRequest("a", "b").Append("room_has_open_visits", "still open")
+	if open.ErrorList[1].count != nil || open.ErrorList[1].ErrorDescription != "still open" {
+		t.Fatalf("%#v", open.ErrorList[1])
 	}
 	kept := SetNewBadRequest("a", "b").Append("field", "must be set")
 	if kept.ErrorList[1].ErrorName != "field" || kept.ErrorList[1].ErrorDescription != "must be set" {

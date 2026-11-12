@@ -150,6 +150,30 @@ func TestSetErrorRoomWire(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("raw path", func(t *testing.T) {
+		path := "/v1/patients/3201012345670001"
+		cases := []context.Context{
+			requestinfo.SetRequestContext(context.Background(), httptest.NewRequest(http.MethodGet, path, nil)),
+			func() context.Context {
+				ctx := requestinfo.SetRequestContext(context.Background(), httptest.NewRequest(http.MethodGet, path, nil))
+				return context.WithValue(ctx, chi.RouteCtxKey, chi.NewRouteContext())
+			}(),
+		}
+		for _, ctx := range cases {
+			logs = nil
+			rec := httptest.NewRecorder()
+			if err := SetError(ctx, rec, stderrors.New("db down")); err != nil {
+				t.Fatal(err)
+			}
+			logged := strings.Join(logs, "\n")
+			assertNoPII(t, "body", rec.Body.String())
+			assertNoPII(t, "log", logged)
+			if !strings.Contains(logged, "unknown") || strings.Contains(logged, "/v1/patients") {
+				t.Fatalf("log: %s", logged)
+			}
+		}
+	})
 }
 
 func roomCtx() context.Context {

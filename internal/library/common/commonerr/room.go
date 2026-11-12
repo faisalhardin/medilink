@@ -58,14 +58,11 @@ func init() {
 	}
 }
 
-// shortcut: room_has_open_visits reports 0 here, because this path has no visit count; callers use RoomHasOpenVisits.
+// needsCount names stay on RoomHasOpenVisits so this path cannot report count 0.
 func roomByName(name string) *ErrorMessage {
 	for i := range roomErrors {
-		if roomErrors[i].name != name {
+		if roomErrors[i].name != name || roomErrors[i].needsCount {
 			continue
-		}
-		if roomErrors[i].needsCount {
-			return RoomHasOpenVisits(0)
 		}
 		return roomMessage(roomErrors[i].kind, nil)
 	}

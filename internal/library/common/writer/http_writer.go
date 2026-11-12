@@ -141,9 +141,15 @@ func postProcess(ctx context.Context, err error) {
 		return
 	}
 	info := getRequestInfo(ctx)
+	route := "unknown"
+	if ctxData := chi.RouteContext(ctx); ctxData != nil {
+		if pattern := ctxData.RoutePattern(); pattern != "" {
+			route = pattern
+		}
+	}
 	fields := logger.KV{
 		"error_type": fmt.Sprintf("%T", err),
-		"route":      info.RequestURL,
+		"route":      route,
 		"method":     info.Method,
 		"request_id": middleware.GetReqID(ctx),
 	}
