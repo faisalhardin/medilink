@@ -275,15 +275,23 @@ func (u *JourneyUC) ArchiveJourneyPoint(ctx context.Context, journeyPoint *model
 	return
 }
 
+// roomLookupErr is the only translation from "no visible room row" to the wire.
+// UserJourneyDB scopes by the JWT clinic and xorm hides archived rows, so a
+// missing room, another clinic, an orphan, and an archived room all arrive as
+// ErrorNoAffectedRow. They leave as one Set404 so the caller cannot tell which.
+func roomLookupErr(err error) error {
+	if errors.Is(err, constant.ErrorNoAffectedRow) {
+		return commonerr.Set404()
+	}
+	return err
+}
+
 func (u *JourneyUC) GetServicePoint(ctx context.Context, servicePointID int64) (servicePoint *model.MstServicePoint, err error) {
 	servicePoint, err = u.JourneyDB.GetServicePoint(ctx, model.MstServicePoint{
 		ID: servicePointID,
 	})
-	if err != nil && errors.Is(err, constant.ErrorNoAffectedRow) {
-		return nil, nil
-	}
 	if err != nil {
-		err = errors.Wrap(err, WrapMsgGetServicePoint)
+		err = errors.Wrap(roomLookupErr(err), WrapMsgGetServicePoint)
 		return
 	}
 
@@ -326,7 +334,7 @@ func (u *JourneyUC) UpdateServicePoint(ctx context.Context, servicePoint *model.
 
 	err = u.JourneyDB.UpdateServicePoint(ctx, servicePoint)
 	if err != nil {
-		err = errors.Wrap(err, WrapMsgUpdateServicePoint)
+		err = errors.Wrap(roomLookupErr(err), WrapMsgUpdateServicePoint)
 		return
 	}
 
@@ -336,7 +344,7 @@ func (u *JourneyUC) UpdateServicePoint(ctx context.Context, servicePoint *model.
 func (u *JourneyUC) ArchiveServicePoint(ctx context.Context, servicePoint *model.MstServicePoint) (err error) {
 	err = u.JourneyDB.DeleteServicePoint(ctx, servicePoint)
 	if err != nil {
-		err = errors.Wrap(err, WrapMsgArchiveServicePoint)
+		err = errors.Wrap(roomLookupErr(err), WrapMsgArchiveServicePoint)
 		return
 	}
 
