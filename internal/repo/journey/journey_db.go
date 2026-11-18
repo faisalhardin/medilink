@@ -424,10 +424,15 @@ func (c *JourneyDB) ListServicePoints(ctx context.Context, params model.GetServi
 }
 
 func (c *JourneyDB) GetServicePoint(ctx context.Context, servicePoint model.MstServicePoint) (resp *model.MstServicePoint, err error) {
+	if servicePoint.IDMstInstitution <= 0 {
+		err = errors.Wrap(constant.ErrorNoAffectedRow, WrapMsgGetServicePoint)
+		return
+	}
+
 	session := c.DB.SlaveDB.Table(database.MstServicePointTable)
 	resp = &servicePoint
 	found, err := session.
-		Where("id = ?", resp.ID).
+		Where("id = ? AND id_mst_institution = ?", resp.ID, resp.IDMstInstitution).
 		Get(resp)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgGetServicePoint)

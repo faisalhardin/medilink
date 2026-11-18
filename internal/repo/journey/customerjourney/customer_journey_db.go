@@ -282,6 +282,20 @@ func (c *UserJourneyDB) ListServicePoints(ctx context.Context, params model.GetS
 	return c.JourneyDB.ListServicePoints(ctx, params)
 }
 
+// roomClinicID returns the caller's clinic for a room id lookup. A session with
+// no clinic gets the same Set404 as a hidden room, because JourneyDB drops its
+// clinic filter when the id is not above 0 and would reach every clinic's rooms.
+func roomClinicID(ctx context.Context) (int64, error) {
+	userDetail, found := auth.GetUserDetailFromCtx(ctx)
+	if !found {
+		return 0, commonerr.SetNewUnauthorizedAPICall()
+	}
+	if userDetail.InstitutionID <= 0 {
+		return 0, commonerr.Set404()
+	}
+	return userDetail.InstitutionID, nil
+}
+
 func (c *UserJourneyDB) GetServicePoint(ctx context.Context, servicePoint model.MstServicePoint) (resp *model.MstServicePoint, err error) {
 
 	defer func() {
@@ -290,13 +304,10 @@ func (c *UserJourneyDB) GetServicePoint(ctx context.Context, servicePoint model.
 		}
 	}()
 
-	userDetail, found := auth.GetUserDetailFromCtx(ctx)
-	if !found {
-		err = commonerr.SetNewUnauthorizedAPICall()
+	servicePoint.IDMstInstitution, err = roomClinicID(ctx)
+	if err != nil {
 		return
 	}
-
-	servicePoint.IDMstInstitution = userDetail.InstitutionID
 
 	return c.JourneyDB.GetServicePoint(ctx, servicePoint)
 }
@@ -309,13 +320,10 @@ func (c *UserJourneyDB) UpdateServicePoint(ctx context.Context, mstServicePoint 
 		}
 	}()
 
-	userDetail, found := auth.GetUserDetailFromCtx(ctx)
-	if !found {
-		err = commonerr.SetNewUnauthorizedAPICall()
+	mstServicePoint.IDMstInstitution, err = roomClinicID(ctx)
+	if err != nil {
 		return
 	}
-
-	mstServicePoint.IDMstInstitution = userDetail.InstitutionID
 
 	return c.JourneyDB.UpdateServicePoint(ctx, mstServicePoint)
 }
@@ -328,13 +336,10 @@ func (c *UserJourneyDB) DeleteServicePoint(ctx context.Context, mstServicePoint 
 		}
 	}()
 
-	userDetail, found := auth.GetUserDetailFromCtx(ctx)
-	if !found {
-		err = commonerr.SetNewUnauthorizedAPICall()
+	mstServicePoint.IDMstInstitution, err = roomClinicID(ctx)
+	if err != nil {
 		return
 	}
-
-	mstServicePoint.IDMstInstitution = userDetail.InstitutionID
 
 	return c.JourneyDB.DeleteServicePoint(ctx, mstServicePoint)
 }

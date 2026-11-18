@@ -14,10 +14,9 @@ import (
 	"github.com/pkg/errors"
 )
 
-// The four names are one contract. At this boundary every hidden room is
-// already ErrorNoAffectedRow, so one fake covers missing, other clinic, orphan,
-// and archived.
-func TestRoomLookupIs404(t *testing.T) {
+// Tests only the usecase mapping from ErrorNoAffectedRow to Set404. Whether the
+// repo scoping hides each case is covered at the repo layer, not here.
+func TestRoomLookupErrMapsNoRowTo404(t *testing.T) {
 	for _, tc := range []struct{ name string }{
 		{"missing"}, {"other_clinic"}, {"orphan"}, {"archived"},
 	} {
