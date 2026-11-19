@@ -10,8 +10,9 @@ import (
 )
 
 const (
-	WrapErrMsgPrefix            = "PermissionDB."
-	WrapMsgGetByRoleNames       = WrapErrMsgPrefix + "GetPermissionsByRoleNames"
+	WrapErrMsgPrefix          = "PermissionDB."
+	WrapMsgGetByRoleNames     = WrapErrMsgPrefix + "GetPermissionsByRoleNames"
+	WrapMsgHasStaffPermission = WrapErrMsgPrefix + "HasStaffPermission"
 )
 
 type Conn struct {
@@ -43,4 +44,23 @@ func (c *Conn) GetPermissionsByRoleNames(ctx context.Context, roleNames []string
 	}
 
 	return permissions, nil
+}
+
+func (c *Conn) HasStaffPermission(ctx context.Context, staffID int64, code string) (bool, error) {
+	if staffID <= 0 {
+		return false, nil
+	}
+
+	found, err := c.DB.MasterDB.Context(ctx).
+		Table(model.MAP_ROLE_STAFF).
+		Alias("mrs").
+		Join("INNER", model.MST_ROLE_TABLE+" r", "r.id = mrs.id_mst_role AND r.delete_time IS NULL").
+		Join("INNER", model.MAP_ROLE_PERMISSION+" mrp", "mrp.id_mst_role = r.id").
+		Join("INNER", model.MST_PERMISSION_TABLE+" p", "p.id = mrp.id_mst_permission AND p.delete_time IS NULL").
+		Where("mrs.id_mst_staff = ? AND p.code = ?", staffID, code).
+		Exist(&model.RoleStaffMapping{})
+	if err != nil {
+		return false, errors.Wrap(err, WrapMsgHasStaffPermission)
+	}
+	return found, nil
 }
