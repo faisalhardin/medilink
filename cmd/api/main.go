@@ -432,8 +432,9 @@ func main() {
 
 	// module block start
 	middlewareModule := mwmodule.NewMiddlewareModule(&mwmodule.Module{
-		Cfg:    cfg,
-		AuthUC: authUC,
+		Cfg:         cfg,
+		AuthUC:      authUC,
+		Permissions: permissionDB,
 	})
 	// module block end
 
