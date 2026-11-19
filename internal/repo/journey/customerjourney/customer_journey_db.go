@@ -252,13 +252,10 @@ func (c *UserJourneyDB) InserNewServicePoint(ctx context.Context, mstServicePoin
 		}
 	}()
 
-	userDetail, found := auth.GetUserDetailFromCtx(ctx)
-	if !found {
-		err = commonerr.SetNewUnauthorizedAPICall()
+	mstServicePoint.IDMstInstitution, err = roomClinicID(ctx)
+	if err != nil {
 		return
 	}
-
-	mstServicePoint.IDMstInstitution = userDetail.InstitutionID
 
 	return c.JourneyDB.InserNewServicePoint(ctx, mstServicePoint)
 }

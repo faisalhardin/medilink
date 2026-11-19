@@ -37,6 +37,12 @@ func (r *recordingRoomDB) DeleteServicePoint(_ context.Context, sp *model.MstSer
 	return nil
 }
 
+func (r *recordingRoomDB) InserNewServicePoint(_ context.Context, sp *model.MstServicePoint) error {
+	r.calls++
+	r.institution = sp.IDMstInstitution
+	return nil
+}
+
 func roomCalls(c *UserJourneyDB) map[string]func(context.Context) error {
 	return map[string]func(context.Context) error{
 		"get": func(ctx context.Context) error {
@@ -76,6 +82,41 @@ func TestRoomLookupWithoutClinicIs404AndSkipsRepo(t *testing.T) {
 		if repo.calls != 0 {
 			t.Fatalf("clinic %d reached the repo %d time(s)", clinic, repo.calls)
 		}
+	}
+}
+
+func TestInserNewServicePointRejectsEmptyClinicAndStampsCaller(t *testing.T) {
+	for _, clinic := range []int64{0, -1} {
+		repo := &recordingRoomDB{}
+		c := &UserJourneyDB{JourneyDB: repo}
+		ctx := auth.SetUserDetailToCtx(context.Background(), model.UserJWTPayload{InstitutionID: clinic})
+		err := c.InserNewServicePoint(ctx, &model.MstServicePoint{Name: "room"})
+
+		got := httptest.NewRecorder()
+		want := httptest.NewRecorder()
+		if setErr := commonwriter.SetError(context.Background(), got, err); setErr != nil {
+			t.Fatalf("clinic %d: SetError: %v", clinic, setErr)
+		}
+		if setErr := commonwriter.SetError(context.Background(), want, commonerr.Set404()); setErr != nil {
+			t.Fatalf("clinic %d: SetError want: %v", clinic, setErr)
+		}
+		if got.Code != want.Code || !bytes.Equal(got.Body.Bytes(), want.Body.Bytes()) {
+			t.Fatalf("clinic %d: got %d %s want %d %s", clinic, got.Code, got.Body.Bytes(), want.Code, want.Body.Bytes())
+		}
+		if repo.calls != 0 {
+			t.Fatalf("clinic %d reached the repo %d time(s)", clinic, repo.calls)
+		}
+	}
+
+	repo := &recordingRoomDB{}
+	c := &UserJourneyDB{JourneyDB: repo}
+	ctx := auth.SetUserDetailToCtx(context.Background(), model.UserJWTPayload{InstitutionID: 7})
+	room := &model.MstServicePoint{Name: "room"}
+	if err := c.InserNewServicePoint(ctx, room); err != nil {
+		t.Fatal(err)
+	}
+	if repo.calls != 1 || repo.institution != 7 || room.IDMstInstitution != 7 {
+		t.Fatalf("calls=%d institution=%d room=%d, want 1 and 7", repo.calls, repo.institution, room.IDMstInstitution)
 	}
 }
 

@@ -2,6 +2,7 @@ package journey
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	"github.com/faisalhardin/medilink/internal/entity/constant"
@@ -314,20 +315,34 @@ func (u *JourneyUC) InsertNewServicePoint(ctx context.Context, servicePoint *mod
 		err = commonerr.SetNewUnauthorizedAPICall()
 		return
 	}
+	// JourneyDB omits id_mst_institution unless the id is above 0.
+	if userDetail.InstitutionID <= 0 {
+		err = commonerr.Set404()
+		return
+	}
 
 	err = u.validateJourneyBoardOwnership(ctx, userDetail, servicePoint.IDMstBoard)
 	if err != nil {
-		err = errors.Wrap(err, WrapMsgArchiveJourneyPoint)
+		err = errors.Wrap(servicePointCreateErr(err), WrapMsgInsertNewServicePoint)
 		return
 	}
 
 	err = u.JourneyDB.InserNewServicePoint(ctx, servicePoint)
 	if err != nil {
-		err = errors.Wrap(err, WrapMsgArchiveJourneyPoint)
+		err = errors.Wrap(err, WrapMsgInsertNewServicePoint)
 		return
 	}
 
 	return
+}
+
+func servicePointCreateErr(err error) error {
+	err = roomLookupErr(err)
+	var msg *commonerr.ErrorMessage
+	if errors.As(err, &msg) && msg != nil && msg.Code == http.StatusUnauthorized {
+		return commonerr.Set404()
+	}
+	return err
 }
 
 func (u *JourneyUC) UpdateServicePoint(ctx context.Context, servicePoint *model.MstServicePoint) (err error) {
