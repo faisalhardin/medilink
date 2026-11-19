@@ -100,6 +100,7 @@ type GetServicePointParams struct {
 	Name             []string `schema:"name"`
 	IDMstBoard       int64    `schema:"board_id"`
 	IDMstInstitution int64
+	IncludeArchived  bool `schema:"include_archived"`
 	CommonRequestPayload
 }
 
