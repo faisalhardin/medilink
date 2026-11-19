@@ -1417,3 +1417,39 @@ CREATE INDEX IF NOT EXISTS idx_commission_worksheet_unapproved
 -- ---- 20260917120000_add_worksheet.sql ----
 -- (desired state already reflected above: mdl_trx_worksheet + commission.worksheet_id)
 
+-- ---- 20261113120000_service_point_clinic_name_unique.sql ----
+
+-- Single normalization for room names. Index, CHECK, migration guards and app
+-- lookups must all call this so "same name" means one thing everywhere.
+CREATE OR REPLACE FUNCTION mdl_service_point_name_key(name text)
+RETURNS text
+LANGUAGE SQL
+IMMUTABLE
+PARALLEL SAFE
+AS $$
+    SELECT lower(btrim(name))
+$$;
+
+ALTER TABLE mdl_mst_service_point
+    ADD CONSTRAINT mdl_mst_service_point_name_not_blank
+    CHECK (mdl_service_point_name_key(name) <> '');
+
+-- One live room name per clinic. Clinic 0 = unresolved orphans, deliberately outside.
+CREATE UNIQUE INDEX IF NOT EXISTS ux_service_point_institution_name
+    ON mdl_mst_service_point (id_mst_institution, mdl_service_point_name_key(name))
+    WHERE delete_time IS NULL AND id_mst_institution <> 0;
+
+CREATE INDEX IF NOT EXISTS idx_service_point_institution_board
+    ON mdl_mst_service_point (id_mst_institution, id_mst_journey_board)
+    WHERE delete_time IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_service_point_board
+    ON mdl_mst_service_point (id_mst_journey_board)
+    WHERE delete_time IS NULL;
+
+-- Lead with the room. Institution is the second column so a clinic-scoped
+-- open-visit count can use this index.
+CREATE INDEX IF NOT EXISTS idx_patient_visit_service_point
+    ON mdl_trx_patient_visit (id_mst_service_point, id_mst_institution)
+    WHERE delete_time IS NULL AND id_mst_service_point IS NOT NULL;
+
