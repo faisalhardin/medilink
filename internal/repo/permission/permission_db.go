@@ -46,14 +46,15 @@ func (c *Conn) GetPermissionsByRoleNames(ctx context.Context, roleNames []string
 	return permissions, nil
 }
 
-func (c *Conn) HasStaffPermission(ctx context.Context, staffID int64, code string) (bool, error) {
-	if staffID <= 0 {
+func (c *Conn) HasStaffPermission(ctx context.Context, staffID, clinicID int64, code string) (bool, error) {
+	if staffID <= 0 || clinicID <= 0 {
 		return false, nil
 	}
 
 	found, err := c.DB.MasterDB.Context(ctx).
 		Table(model.MAP_ROLE_STAFF).
 		Alias("mrs").
+		Join("INNER", model.MST_STAFF_TABLE+" s", "s.id = mrs.id_mst_staff AND s.delete_time IS NULL AND s.id_mst_institution = ?", clinicID).
 		Join("INNER", model.MST_ROLE_TABLE+" r", "r.id = mrs.id_mst_role AND r.delete_time IS NULL").
 		Join("INNER", model.MAP_ROLE_PERMISSION+" mrp", "mrp.id_mst_role = r.id").
 		Join("INNER", model.MST_PERMISSION_TABLE+" p", "p.id = mrp.id_mst_permission AND p.delete_time IS NULL").

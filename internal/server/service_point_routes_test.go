@@ -18,7 +18,7 @@ type grantPerms struct {
 	grant bool
 }
 
-func (p *grantPerms) HasStaffPermission(context.Context, int64, string) (bool, error) {
+func (p *grantPerms) HasStaffPermission(context.Context, int64, int64, string) (bool, error) {
 	return p.grant, nil
 }
 

@@ -54,7 +54,7 @@ var AllowedMethodRequest = []string{
 }
 
 type PermissionChecker interface {
-	HasStaffPermission(ctx context.Context, staffID int64, code string) (bool, error)
+	HasStaffPermission(ctx context.Context, staffID, clinicID int64, code string) (bool, error)
 }
 
 type Module struct {
@@ -181,7 +181,7 @@ func (m *Module) RequirePermissionStrictWhen(code string, applies func(*http.Req
 				return
 			}
 
-			granted, err := m.Permissions.HasStaffPermission(ctx, userDetail.UserID, code)
+			granted, err := m.Permissions.HasStaffPermission(ctx, userDetail.UserID, userDetail.InstitutionID, code)
 			if err != nil {
 				handleError(ctx, w, r, err)
 				return

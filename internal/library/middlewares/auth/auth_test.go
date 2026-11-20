@@ -14,16 +14,18 @@ import (
 )
 
 type fakePerms struct {
-	grant   bool
-	err     error
-	calls   int
-	staffID int64
-	code    string
+	grant    bool
+	err      error
+	calls    int
+	staffID  int64
+	clinicID int64
+	code     string
 }
 
-func (f *fakePerms) HasStaffPermission(_ context.Context, staffID int64, code string) (bool, error) {
+func (f *fakePerms) HasStaffPermission(_ context.Context, staffID, clinicID int64, code string) (bool, error) {
 	f.calls++
 	f.staffID = staffID
+	f.clinicID = clinicID
 	f.code = code
 	return f.grant, f.err
 }
@@ -33,7 +35,7 @@ type flipPerms struct {
 	i      int
 }
 
-func (f *flipPerms) HasStaffPermission(context.Context, int64, string) (bool, error) {
+func (f *flipPerms) HasStaffPermission(context.Context, int64, int64, string) (bool, error) {
 	grant := f.grants[f.i]
 	f.i++
 	return grant, nil
@@ -206,6 +208,49 @@ func TestRequirePermissionStrictWhenIncludeArchived(t *testing.T) {
 			}
 			if tt.status == http.StatusForbidden && !strings.Contains(rec.Body.String(), "insufficient_permissions") {
 				t.Fatalf("body %s", rec.Body.Bytes())
+			}
+		})
+	}
+}
+
+type staffRow struct {
+	clinic      int64
+	deactivated bool
+}
+
+type staffDirectoryPerms struct {
+	staff map[int64]staffRow
+}
+
+func (d *staffDirectoryPerms) HasStaffPermission(_ context.Context, staffID, clinicID int64, _ string) (bool, error) {
+	row, ok := d.staff[staffID]
+	return ok && !row.deactivated && row.clinic == clinicID && clinicID > 0, nil
+}
+
+func TestRequirePermissionStrictDeniesDeactivatedOrRelocatedStaff(t *testing.T) {
+	code := permconst.ServicePointManage
+	perms := &staffDirectoryPerms{staff: map[int64]staffRow{
+		4: {clinic: 7},
+		5: {clinic: 7, deactivated: true},
+		6: {clinic: 8},
+	}}
+	mw := (&Module{Permissions: perms}).RequirePermissionStrict(code)
+
+	tests := []struct {
+		name   string
+		user   model.UserJWTPayload
+		status int
+	}{
+		{"active staff", model.UserJWTPayload{UserID: 4, InstitutionID: 7}, http.StatusOK},
+		{"deactivated admin with live jwt", model.UserJWTPayload{UserID: 5, InstitutionID: 7, Roles: []model.UserRoleJWTDetail{{Name: roleconst.Administrator}}, Permissions: []string{code}}, http.StatusForbidden},
+		{"jwt clinic differs from staff clinic", model.UserJWTPayload{UserID: 6, InstitutionID: 7}, http.StatusForbidden},
+		{"jwt without clinic", model.UserJWTPayload{UserID: 4}, http.StatusForbidden},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := serve(mw, &tt.user, "/v1/journey/service-point")
+			if rec.Code != tt.status {
+				t.Fatalf("status %d body %s, want %d", rec.Code, rec.Body.Bytes(), tt.status)
 			}
 		})
 	}
