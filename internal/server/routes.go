@@ -103,11 +103,13 @@ func RegisterRoutes(m *module) http.Handler {
 				})
 
 				journey.Route("/service-point", func(servicePoint chi.Router) {
-					servicePoint.Get("/", m.httpHandler.JourneyHandler.ListServicePoint)
-					servicePoint.Get("/{id}", m.httpHandler.JourneyHandler.GetServicePoint)
-					servicePoint.Post("/", m.httpHandler.JourneyHandler.InsertNewServicePoint)
-					servicePoint.Patch("/{id}", m.httpHandler.JourneyHandler.UpdateServicePoint)
-					servicePoint.Delete("/{id}", m.httpHandler.JourneyHandler.ArchiveServicePoint)
+					registerServicePointRoutes(servicePoint, servicePointHandlers{
+						List:    m.httpHandler.JourneyHandler.ListServicePoint,
+						Get:     m.httpHandler.JourneyHandler.GetServicePoint,
+						Create:  m.httpHandler.JourneyHandler.InsertNewServicePoint,
+						Patch:   m.httpHandler.JourneyHandler.UpdateServicePoint,
+						Archive: m.httpHandler.JourneyHandler.ArchiveServicePoint,
+					}, m.middlewareModule)
 				})
 			})
 

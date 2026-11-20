@@ -47,6 +47,11 @@ const (
 	JourneyDelete = "journey.delete"
 )
 
+// Service point permissions
+const (
+	ServicePointManage = "service_point.manage"
+)
+
 // Recall permissions
 const (
 	RecallRead   = "recall.read"

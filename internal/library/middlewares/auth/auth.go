@@ -12,6 +12,7 @@ import (
 	authuc "github.com/faisalhardin/medilink/internal/entity/usecase/auth"
 	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
 	commonwriter "github.com/faisalhardin/medilink/internal/library/common/writer"
+	"github.com/faisalhardin/medilink/internal/library/util/common/binding"
 	authusecase "github.com/faisalhardin/medilink/internal/usecase/auth"
 	"github.com/go-chi/cors"
 )
@@ -52,9 +53,14 @@ var AllowedMethodRequest = []string{
 	"PATCH",
 }
 
+type PermissionChecker interface {
+	HasStaffPermission(ctx context.Context, staffID, clinicID int64, code string) (bool, error)
+}
+
 type Module struct {
-	Cfg    *config.Config
-	AuthUC authuc.AuthUC
+	Cfg         *config.Config
+	AuthUC      authuc.AuthUC
+	Permissions PermissionChecker
 }
 
 type userAuth struct{}
@@ -151,6 +157,59 @@ func (m *Module) RequireAnyPermission(permissions ...string) func(http.Handler) 
 			))
 		})
 	}
+}
+
+func (m *Module) RequirePermissionStrict(code string) func(http.Handler) http.Handler {
+	return m.RequirePermissionStrictWhen(code, func(*http.Request) bool { return true })
+}
+
+func (m *Module) RequirePermissionStrictWhen(code string, applies func(*http.Request) bool) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
+			userDetail, found := GetUserDetailFromCtx(ctx)
+			if !found {
+				handleError(ctx, w, r, commonerr.SetNewUnauthorizedAPICall())
+				return
+			}
+			if applies != nil && !applies(r) {
+				next.ServeHTTP(w, r)
+				return
+			}
+			if m.Permissions == nil {
+				handleError(ctx, w, r, commonerr.SetNewInternalError())
+				return
+			}
+
+			granted, err := m.Permissions.HasStaffPermission(ctx, userDetail.UserID, userDetail.InstitutionID, code)
+			if err != nil {
+				handleError(ctx, w, r, err)
+				return
+			}
+			if !granted {
+				handleError(ctx, w, r, commonerr.SetNewError(
+					http.StatusForbidden,
+					"insufficient_permissions",
+					fmt.Sprintf("User does not have required permission: %s", code),
+				))
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+type archivedListQuery struct {
+	IncludeArchived bool `schema:"include_archived"`
+}
+
+func WantsArchivedServicePointList(r *http.Request) bool {
+	var q archivedListQuery
+	if err := binding.Bind(r, &q); err != nil {
+		return true
+	}
+	return q.IncludeArchived
 }
 
 func (m *Module) CorsHandler(next http.Handler) http.Handler {
