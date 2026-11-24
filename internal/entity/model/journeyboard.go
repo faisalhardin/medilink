@@ -73,6 +73,43 @@ type MstServicePoint struct {
 	DeleteTime *time.Time `xorm:"'delete_time' deleted" json:"-" `
 }
 
+type SyncStatus string
+
+const (
+	SyncPending    SyncStatus = "pending"
+	SyncProcessing SyncStatus = "processing"
+	SyncSynced     SyncStatus = "synced"
+	SyncFailed     SyncStatus = "failed"
+	SyncInactive   SyncStatus = "inactive"
+)
+
+func ParseSyncStatus(s string) (SyncStatus, bool) {
+	switch status := SyncStatus(s); status {
+	case SyncPending, SyncProcessing, SyncSynced, SyncFailed, SyncInactive:
+		return status, true
+	}
+	return "", false
+}
+
+// Room is the wire shape of a service point. No field uses omitempty so every
+// client sees the same keys: Location is null when unknown and JourneyPointIDs
+// is [] when the room has no mapped column.
+type Room struct {
+	ID              int64         `json:"id"`
+	Name            string        `json:"name"`
+	BoardID         int64         `json:"board_id"`
+	IsClinical      bool          `json:"is_clinical"`
+	JourneyPointIDs []int64       `json:"journey_point_ids"`
+	Location        *RoomLocation `json:"location"`
+}
+
+type RoomLocation struct {
+	SyncStatus  SyncStatus `json:"sync_status"`
+	LastJobType string     `json:"last_job_type"`
+	FailureKind *string    `json:"failure_kind"`
+	FromClear   bool       `json:"from_clear"`
+}
+
 // model for mdl_map_service_point_journey_point
 type MapServicePointJourneyPoint struct {
 	IDMstJourneyPoint int64 `xorm:"'id_mst_journey_point'"`
