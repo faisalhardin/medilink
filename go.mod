@@ -18,6 +18,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/rs/zerolog v1.32.0
 	golang.org/x/oauth2 v0.23.0
+	xorm.io/builder v0.3.6
 	xorm.io/core v0.7.3
 )
 
@@ -48,7 +49,6 @@ require (
 	golang.org/x/net v0.21.0 // indirect
 	golang.org/x/sys v0.25.0 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
-	xorm.io/builder v0.3.6 // indirect
 )
 
 require (

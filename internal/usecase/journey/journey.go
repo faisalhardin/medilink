@@ -38,9 +38,10 @@ const (
 )
 
 type JourneyUC struct {
-	JourneyDB   journeyRepo.JourneyDB
-	PatientDB   patientRepo.PatientDB
-	Transaction xorm.DBTransactionInterface
+	JourneyDB    journeyRepo.JourneyDB
+	PatientDB    patientRepo.PatientDB
+	Transaction  xorm.DBTransactionInterface
+	RoomLocation RoomLocationPort
 }
 
 func NewJourneyUC(conn *JourneyUC) *JourneyUC {
@@ -287,8 +288,8 @@ func roomLookupErr(err error) error {
 	return err
 }
 
-func (u *JourneyUC) GetServicePoint(ctx context.Context, servicePointID int64) (servicePoint *model.MstServicePoint, err error) {
-	servicePoint, err = u.JourneyDB.GetServicePoint(ctx, model.MstServicePoint{
+func (u *JourneyUC) GetServicePoint(ctx context.Context, servicePointID int64) (room *model.Room, err error) {
+	row, err := u.JourneyDB.GetServicePoint(ctx, model.MstServicePoint{
 		ID: servicePointID,
 	})
 	if err != nil {
@@ -296,17 +297,71 @@ func (u *JourneyUC) GetServicePoint(ctx context.Context, servicePointID int64) (
 		return
 	}
 
+	rooms, err := u.toRooms(ctx, []model.MstServicePoint{*row})
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgGetServicePoint)
+		return
+	}
+	room = &rooms[0]
 	return
 }
 
-func (u *JourneyUC) ListServicePoints(ctx context.Context, params model.GetServicePointParams) (servicePoints []model.MstServicePoint, err error) {
-	servicePoints, err = u.JourneyDB.ListServicePoints(ctx, params)
+func (u *JourneyUC) ListServicePoints(ctx context.Context, params model.GetServicePointParams) (rooms []model.Room, err error) {
+	rows, err := u.JourneyDB.ListServicePoints(ctx, params)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgListServicePoints)
 		return
 	}
 
+	rooms, err = u.toRooms(ctx, rows)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgListServicePoints)
+		return
+	}
 	return
+}
+
+func (u *JourneyUC) toRooms(ctx context.Context, rows []model.MstServicePoint) ([]model.Room, error) {
+	rooms := make([]model.Room, 0, len(rows))
+	if len(rows) == 0 {
+		return rooms, nil
+	}
+
+	ids := make([]int64, len(rows))
+	for i, row := range rows {
+		ids[i] = row.ID
+	}
+
+	jpByRoom, err := u.JourneyDB.ListJourneyPointIDs(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+
+	locByRoom, err := roomLocationPort(u.RoomLocation).Read(ctx, rows[0].IDMstInstitution, ids)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, row := range rows {
+		jp := jpByRoom[row.ID]
+		if jp == nil {
+			jp = []int64{}
+		}
+		loc := locByRoom[row.ID]
+		if loc != nil {
+			if _, ok := model.ParseSyncStatus(string(loc.SyncStatus)); !ok {
+				loc = nil
+			}
+		}
+		rooms = append(rooms, model.Room{
+			ID:              row.ID,
+			Name:            row.Name,
+			BoardID:         row.IDMstBoard,
+			JourneyPointIDs: jp,
+			Location:        loc,
+		})
+	}
+	return rooms, nil
 }
 
 func (u *JourneyUC) InsertNewServicePoint(ctx context.Context, servicePoint *model.MstServicePoint) (err error) {
