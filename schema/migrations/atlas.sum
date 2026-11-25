@@ -1,4 +1,4 @@
-h1:TNORcOvlakJ0/1GyGx/nGRTxAIOCdaNrDTaCRFS1jZE=
+h1:OEtEBfZodJfIuUKqUmpmvJMimhJY6ZdT/qQK+wQcISE=
 20260901120000_baseline.sql h1:1qlU+SwahBCz2VcNzKXnGCiJ0xNmgDTnRDvX/WbxreE=
 20260902120000_add_idx_visit_product_visit.sql h1:ucMSlqdUNUAFjFsTXTW717E3pTGbJbIT+1MRRmXF1IY=
 20260907120000_add_idx_mst_staff_uuid.sql h1:pAhYqjG3AGsvKkhrPq0b0u2rMJttPHfwoNpPd0O3bQU=
@@ -16,3 +16,4 @@ h1:TNORcOvlakJ0/1GyGx/nGRTxAIOCdaNrDTaCRFS1jZE=
 20261024120000_icd10_dental_seed.sql h1:qoC3pW76roc4HaEqijOPber8ySaT9JwaBZSiw7X64X8=
 20261113120000_service_point_clinic_name_unique.sql h1:KEspoqb5JmaKwprnzQmzaXOwesuJmLyNJmEhxAVf5bk=
 20261119140000_seed_service_point_manage_permission.sql h1:5NAfyBCMcrMJ+Y4LCF3V184PJLSMr7TLhwitSjIcaOE=
+20261125120000_map_service_point_journey_point_pk.sql h1:vL938slDh0iE3eFPWjWl9jpgfQJ4Af67JcYh2XCHMCM=
