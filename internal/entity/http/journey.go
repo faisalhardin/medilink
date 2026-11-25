@@ -20,4 +20,8 @@ type JourneyHandler interface {
 	InsertNewServicePoint(w http.ResponseWriter, r *http.Request)
 	UpdateServicePoint(w http.ResponseWriter, r *http.Request)
 	ArchiveServicePoint(w http.ResponseWriter, r *http.Request)
+	GetRoomJourneyPoints(w http.ResponseWriter, r *http.Request)
+	PutRoomJourneyPoints(w http.ResponseWriter, r *http.Request)
+	GetColumnRooms(w http.ResponseWriter, r *http.Request)
+	PutColumnRooms(w http.ResponseWriter, r *http.Request)
 }

@@ -23,20 +23,7 @@ func (p *grantPerms) HasStaffPermission(context.Context, int64, int64, string) (
 }
 
 func TestServicePointRoutesRequireLiveGrant(t *testing.T) {
-	payloads := []model.UserJWTPayload{
-		{
-			UserID:      4,
-			Roles:       []model.UserRoleJWTDetail{{Name: roleconst.Administrator}},
-			Permissions: []string{permconst.ServicePointManage},
-		},
-		{
-			UserID:      5,
-			Roles:       []model.UserRoleJWTDetail{{Name: "clerk"}},
-			Permissions: []string{permconst.ServicePointManage},
-		},
-	}
-
-	for _, user := range payloads {
+	for _, user := range grantlessUsers() {
 		hit := 0
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			hit++
@@ -47,6 +34,7 @@ func TestServicePointRoutesRequireLiveGrant(t *testing.T) {
 		router.Route("/v1/journey/service-point", func(r chi.Router) {
 			registerServicePointRoutes(r, servicePointHandlers{
 				List: handler, Get: handler, Create: handler, Patch: handler, Archive: handler,
+				GetJourneyPoints: handler, PutJourneyPoints: handler,
 			}, mw)
 		})
 
@@ -57,6 +45,8 @@ func TestServicePointRoutesRequireLiveGrant(t *testing.T) {
 			{http.MethodPost, "/v1/journey/service-point"},
 			{http.MethodPatch, "/v1/journey/service-point/9"},
 			{http.MethodDelete, "/v1/journey/service-point/9"},
+			{http.MethodGet, "/v1/journey/service-point/9/journey-points"},
+			{http.MethodPut, "/v1/journey/service-point/9/journey-points"},
 		}
 		for _, call := range denied {
 			hit = 0
@@ -73,6 +63,54 @@ func TestServicePointRoutesRequireLiveGrant(t *testing.T) {
 				t.Fatalf("GET %s user %d: status %d hit %d body %s", path, user.UserID, rec.Code, hit, rec.Body.Bytes())
 			}
 		}
+	}
+}
+
+func TestJourneyPointRoomRoutesRequireLiveGrantOnPutOnly(t *testing.T) {
+	for _, user := range grantlessUsers() {
+		hit := 0
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			hit++
+			w.WriteHeader(http.StatusOK)
+		})
+		mw := authmodule.NewMiddlewareModule(&authmodule.Module{Permissions: &grantPerms{grant: false}})
+		router := chi.NewRouter()
+		router.Route("/v1/journey/point", func(r chi.Router) {
+			registerJourneyPointRoomRoutes(r, journeyPointRoomHandlers{Get: handler, Put: handler}, mw)
+		})
+
+		hit = 0
+		rec := requestAs(router, http.MethodPut, "/v1/journey/point/9/service-points", user)
+		if rec.Code != http.StatusForbidden || hit != 0 || !strings.Contains(rec.Body.String(), "insufficient_permissions") {
+			t.Fatalf("PUT user %d: status %d hit %d body %s", user.UserID, rec.Code, hit, rec.Body.Bytes())
+		}
+
+		hit = 0
+		rec = requestAs(router, http.MethodGet, "/v1/journey/point/9/service-points", user)
+		if rec.Code != http.StatusOK || hit != 1 {
+			t.Fatalf("GET user %d: status %d hit %d body %s", user.UserID, rec.Code, hit, rec.Body.Bytes())
+		}
+	}
+}
+
+func grantlessUsers() []model.UserJWTPayload {
+	return []model.UserJWTPayload{
+		{
+			UserID:      1,
+			Roles:       []model.UserRoleJWTDetail{{RoleID: 1, Name: roleconst.Administrator}},
+			RolesIDSet:  map[string]bool{roleconst.Administrator: true},
+			Permissions: []string{permconst.ServicePointManage},
+		},
+		{
+			UserID:      4,
+			Roles:       []model.UserRoleJWTDetail{{Name: roleconst.Administrator}},
+			Permissions: []string{permconst.ServicePointManage},
+		},
+		{
+			UserID:      5,
+			Roles:       []model.UserRoleJWTDetail{{Name: "clerk"}},
+			Permissions: []string{permconst.ServicePointManage},
+		},
 	}
 }
 
