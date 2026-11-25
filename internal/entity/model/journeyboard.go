@@ -117,6 +117,63 @@ type MapServicePointJourneyPoint struct {
 	IDMstServicePoint int64 `xorm:"'id_mst_service_point'"`
 }
 
+// LinkRoom is a service point. LinkColumn is a journey point.
+type LinkKind int
+
+const (
+	LinkRoom LinkKind = iota
+	LinkColumn
+)
+
+func (k LinkKind) Other() LinkKind {
+	if k == LinkColumn {
+		return LinkRoom
+	}
+	return LinkColumn
+}
+
+type LinkQuery struct {
+	Kind   LinkKind
+	Clinic int64
+	IDs    []int64
+}
+
+type LinkNode struct {
+	ID      int64
+	BoardID int64
+}
+
+type LinkSet struct {
+	Side    LinkKind
+	Clinic  int64
+	Board   int64
+	Subject int64
+	Targets []int64
+}
+
+type PutRoomJourneyPointsRequest struct {
+	JourneyPointIDs *[]int64 `json:"journey_point_ids"`
+}
+
+type PutJourneyPointRoomsRequest struct {
+	ServicePointIDs *[]int64 `json:"service_point_ids"`
+}
+
+type RoomJourneyPoints struct {
+	JourneyPointIDs []int64 `json:"journey_point_ids"`
+}
+
+type JourneyPointRooms struct {
+	PickerRequired bool         `json:"picker_required"`
+	Items          []PickerRoom `json:"items"`
+}
+
+type PickerRoom struct {
+	ID         int64  `json:"id"`
+	Name       string `json:"name"`
+	IsClinical bool   `json:"is_clinical"`
+}
+
 // model for mdl_mst_journey_point
 type GetJourneyPointParams struct {
 	IDs              []int64 `schema:"ids"`

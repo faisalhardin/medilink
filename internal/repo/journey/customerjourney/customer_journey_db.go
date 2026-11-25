@@ -284,6 +284,30 @@ func (c *UserJourneyDB) ListJourneyPointIDs(ctx context.Context, roomIDs []int64
 	return c.JourneyDB.ListJourneyPointIDs(ctx, roomIDs)
 }
 
+func (c *UserJourneyDB) ListLinkNodes(ctx context.Context, query model.LinkQuery) (nodes []model.LinkNode, err error) {
+	query.Clinic, err = roomClinicID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return c.JourneyDB.ListLinkNodes(ctx, query)
+}
+
+func (c *UserJourneyDB) LockJourneyBoard(ctx context.Context, boardID int64) error {
+	return c.JourneyDB.LockJourneyBoard(ctx, boardID)
+}
+
+func (c *UserJourneyDB) ReplaceLinks(ctx context.Context, set model.LinkSet) error {
+	return c.JourneyDB.ReplaceLinks(ctx, set)
+}
+
+func (c *UserJourneyDB) ListColumnRooms(ctx context.Context, clinic, columnID int64) ([]model.PickerRoom, error) {
+	clinic, err := roomClinicID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return c.JourneyDB.ListColumnRooms(ctx, clinic, columnID)
+}
+
 // roomClinicID returns the caller's clinic for a room id lookup. A session with
 // no clinic gets the same Set404 as a hidden room.
 func roomClinicID(ctx context.Context) (int64, error) {
