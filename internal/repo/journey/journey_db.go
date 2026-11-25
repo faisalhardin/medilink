@@ -10,6 +10,7 @@ import (
 	xormlib "github.com/faisalhardin/medilink/internal/library/db/xorm"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
+	"xorm.io/builder"
 )
 
 const (
@@ -31,6 +32,7 @@ const (
 
 	WrapMsgInserNewServicePoint = "InserNewServicePoint"
 	WrapMsgListServicePoints    = "ListServicePoints"
+	WrapMsgListJourneyPointIDs  = "ListJourneyPointIDs"
 	WrapMsgGetServicePoint      = "GetServicePoint"
 	WrapMsgUpdateServicePoint   = "UpdateServicePoint"
 	WrapMsgDeleteServicePoint   = "DeleteServicePoint"
@@ -392,33 +394,68 @@ func (c *JourneyDB) InserNewServicePoint(ctx context.Context, mstServicePoint *m
 
 }
 
+// ListServicePoints returns no rows without a clinic, so a session with no
+// clinic can never list another clinic's rooms.
 func (c *JourneyDB) ListServicePoints(ctx context.Context, params model.GetServicePointParams) (resp []model.MstServicePoint, err error) {
+	if params.IDMstInstitution <= 0 {
+		return []model.MstServicePoint{}, nil
+	}
+
 	session := c.DB.SlaveDB.Table(database.MstServicePointTable)
-
-	if params.IDMstInstitution > 0 {
-		session.Where("id_mst_institution = ?", params.IDMstInstitution)
-	}
-
-	if len(params.ID) > 0 {
-		session.Where("id = ANY(?)", pq.Array(params))
-	}
-
-	if len(params.Name) > 0 {
-		substringNames := []string{}
-		for _, name := range params.Name {
-			substringNames = append(substringNames, fmt.Sprintf("%%%s%%", name))
-		}
-		session.Where("name ilike ANY(?)", pq.Array(substringNames))
+	if params.IncludeArchived {
+		session.Unscoped()
 	}
 
 	err = session.
-		Where("id_mst_journey_board = ?", params.IDMstBoard).
+		Where(servicePointListCond(params)).
 		Limit(params.Limit, params.Offset).
 		OrderBy("id ASC").
 		Find(&resp)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgListServicePoints)
 		return
+	}
+	return
+}
+
+func servicePointListCond(params model.GetServicePointParams) builder.Cond {
+	cond := builder.And(builder.Eq{"id_mst_institution": params.IDMstInstitution})
+	if len(params.ID) > 0 {
+		cond = cond.And(builder.Expr("id = ANY(?)", pq.Array(params.ID)))
+	}
+	if len(params.Name) > 0 {
+		substringNames := []string{}
+		for _, name := range params.Name {
+			substringNames = append(substringNames, fmt.Sprintf("%%%s%%", name))
+		}
+		cond = cond.And(builder.Expr("name ilike ANY(?)", pq.Array(substringNames)))
+	}
+	if params.IDMstBoard > 0 {
+		cond = cond.And(builder.Eq{"id_mst_journey_board": params.IDMstBoard})
+	}
+	return cond
+}
+
+func (c *JourneyDB) ListJourneyPointIDs(ctx context.Context, roomIDs []int64) (resp map[int64][]int64, err error) {
+	resp = map[int64][]int64{}
+	if len(roomIDs) == 0 {
+		return
+	}
+
+	rows := []model.MapServicePointJourneyPoint{}
+	err = c.DB.SlaveDB.Table(database.MapServicePointJourneyPoint).Alias("m").
+		Join(database.SQLInner, database.MstJourneyPointTable+" jp", "jp.id = m.id_mst_journey_point AND jp.delete_time IS NULL").
+		Select("m.id_mst_service_point, m.id_mst_journey_point").
+		Where("m.id_mst_service_point = ANY(?)", pq.Array(roomIDs)).
+		OrderBy("m.id_mst_journey_point ASC").
+		Find(&rows)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgListJourneyPointIDs)
+		return
+	}
+
+	for _, row := range rows {
+		resp[row.IDMstServicePoint] = append(resp[row.IDMstServicePoint], row.IDMstJourneyPoint)
 	}
 	return
 }

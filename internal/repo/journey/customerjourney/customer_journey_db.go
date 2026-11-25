@@ -279,9 +279,13 @@ func (c *UserJourneyDB) ListServicePoints(ctx context.Context, params model.GetS
 	return c.JourneyDB.ListServicePoints(ctx, params)
 }
 
+// ListJourneyPointIDs trusts roomIDs to come from a clinic-scoped list or get.
+func (c *UserJourneyDB) ListJourneyPointIDs(ctx context.Context, roomIDs []int64) (resp map[int64][]int64, err error) {
+	return c.JourneyDB.ListJourneyPointIDs(ctx, roomIDs)
+}
+
 // roomClinicID returns the caller's clinic for a room id lookup. A session with
-// no clinic gets the same Set404 as a hidden room, because JourneyDB drops its
-// clinic filter when the id is not above 0 and would reach every clinic's rooms.
+// no clinic gets the same Set404 as a hidden room.
 func roomClinicID(ctx context.Context) (int64, error) {
 	userDetail, found := auth.GetUserDetailFromCtx(ctx)
 	if !found {
