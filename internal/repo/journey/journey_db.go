@@ -443,9 +443,11 @@ func (c *JourneyDB) ListJourneyPointIDs(ctx context.Context, roomIDs []int64) (r
 	}
 
 	rows := []model.MapServicePointJourneyPoint{}
-	err = c.DB.SlaveDB.Table(database.MapServicePointJourneyPoint).
-		Where("id_mst_service_point = ANY(?)", pq.Array(roomIDs)).
-		OrderBy("id_mst_journey_point ASC").
+	err = c.DB.SlaveDB.Table(database.MapServicePointJourneyPoint).Alias("m").
+		Join(database.SQLInner, database.MstJourneyPointTable+" jp", "jp.id = m.id_mst_journey_point AND jp.delete_time IS NULL").
+		Select("m.id_mst_service_point, m.id_mst_journey_point").
+		Where("m.id_mst_service_point = ANY(?)", pq.Array(roomIDs)).
+		OrderBy("m.id_mst_journey_point ASC").
 		Find(&rows)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgListJourneyPointIDs)

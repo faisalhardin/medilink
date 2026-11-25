@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/faisalhardin/medilink/internal/entity/constant"
 	"github.com/faisalhardin/medilink/internal/entity/model"
@@ -208,10 +209,11 @@ func (f fixedLocation) Read(context.Context, int64, []int64) (map[int64]*model.R
 }
 
 func TestListServicePointsReturnsRooms(t *testing.T) {
+	deleted := time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC)
 	repo := roomDB{
 		rows: []model.MstServicePoint{
 			{ID: 12, Name: "Poli Gigi", IDMstBoard: 3, IDMstInstitution: 7},
-			{ID: 13, Name: "Kasir", IDMstBoard: 3, IDMstInstitution: 7},
+			{ID: 13, Name: "Kasir", IDMstBoard: 3, IDMstInstitution: 7, DeleteTime: &deleted},
 		},
 		jp: map[int64][]int64{12: {7, 9}},
 	}
@@ -222,7 +224,7 @@ func TestListServicePointsReturnsRooms(t *testing.T) {
 	}
 	want := []model.Room{
 		{ID: 12, Name: "Poli Gigi", BoardID: 3, JourneyPointIDs: []int64{7, 9}},
-		{ID: 13, Name: "Kasir", BoardID: 3, JourneyPointIDs: []int64{}},
+		{ID: 13, Name: "Kasir", BoardID: 3, JourneyPointIDs: []int64{}, Archived: true},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %#v\nwant %#v", got, want)

@@ -50,7 +50,7 @@ func TestGetServicePointReturnsRoomObject(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.Bytes())
 	}
-	want := `{"id":12,"name":"Poli","board_id":3,"is_clinical":false,"journey_point_ids":[],"location":null}`
+	want := `{"id":12,"name":"Poli","board_id":3,"is_clinical":false,"archived":false,"journey_point_ids":[],"location":null}`
 	if !strings.Contains(rec.Body.String(), want) {
 		t.Fatalf("body %s missing %s", rec.Body.Bytes(), want)
 	}

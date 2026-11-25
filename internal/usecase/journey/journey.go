@@ -357,6 +357,7 @@ func (u *JourneyUC) toRooms(ctx context.Context, rows []model.MstServicePoint) (
 			ID:              row.ID,
 			Name:            row.Name,
 			BoardID:         row.IDMstBoard,
+			Archived:        row.DeleteTime != nil,
 			JourneyPointIDs: jp,
 			Location:        loc,
 		})

@@ -99,6 +99,7 @@ type Room struct {
 	Name            string        `json:"name"`
 	BoardID         int64         `json:"board_id"`
 	IsClinical      bool          `json:"is_clinical"`
+	Archived        bool          `json:"archived"`
 	JourneyPointIDs []int64       `json:"journey_point_ids"`
 	Location        *RoomLocation `json:"location"`
 }
