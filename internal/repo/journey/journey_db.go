@@ -539,6 +539,11 @@ func (c *JourneyDB) ReplaceLinks(ctx context.Context, set model.LinkSet) (err er
 	case model.LinkRoom:
 		deleteSQL = `DELETE FROM ` + database.MapServicePointJourneyPoint + ` AS m
 			WHERE m.id_mst_service_point = ?
+			  AND EXISTS (
+			    SELECT 1 FROM ` + database.MstServicePointTable + ` sp
+			    WHERE sp.id = m.id_mst_service_point
+			      AND sp.id_mst_institution = ?
+			  )
 			  AND m.id_mst_journey_point IN (
 			    SELECT jp.id FROM ` + database.MstJourneyPointTable + ` jp
 			    WHERE jp.id_mst_journey_board = ?
@@ -556,7 +561,7 @@ func (c *JourneyDB) ReplaceLinks(ctx context.Context, set model.LinkSet) (err er
 			 AND jp.delete_time IS NULL
 			 AND jp.id_mst_journey_board = sp.id_mst_journey_board
 			ON CONFLICT (id_mst_service_point, id_mst_journey_point) DO NOTHING`
-		if _, err = c.session(ctx).Exec(deleteSQL, set.Subject, set.Board); err != nil {
+		if _, err = c.session(ctx).Exec(deleteSQL, set.Subject, set.Clinic, set.Board); err != nil {
 			return errors.Wrap(err, WrapMsgReplaceLinks)
 		}
 		_, err = c.session(ctx).Exec(insertSQL, pq.Array(targets), set.Subject, set.Clinic, set.Board)
@@ -566,6 +571,7 @@ func (c *JourneyDB) ReplaceLinks(ctx context.Context, set model.LinkSet) (err er
 			  AND m.id_mst_service_point IN (
 			    SELECT sp.id FROM ` + database.MstServicePointTable + ` sp
 			    WHERE sp.id_mst_journey_board = ?
+			      AND sp.id_mst_institution = ?
 			  )`
 		insertSQL = `INSERT INTO ` + database.MapServicePointJourneyPoint + ` (id_mst_service_point, id_mst_journey_point)
 			SELECT sp.id, jp.id
@@ -580,7 +586,7 @@ func (c *JourneyDB) ReplaceLinks(ctx context.Context, set model.LinkSet) (err er
 			 AND sp.id_mst_institution = ?
 			 AND sp.id_mst_journey_board = jp.id_mst_journey_board
 			ON CONFLICT (id_mst_service_point, id_mst_journey_point) DO NOTHING`
-		if _, err = c.session(ctx).Exec(deleteSQL, set.Subject, set.Board); err != nil {
+		if _, err = c.session(ctx).Exec(deleteSQL, set.Subject, set.Board, set.Clinic); err != nil {
 			return errors.Wrap(err, WrapMsgReplaceLinks)
 		}
 		_, err = c.session(ctx).Exec(insertSQL, pq.Array(targets), set.Subject, set.Board, set.Clinic)
