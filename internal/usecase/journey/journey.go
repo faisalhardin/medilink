@@ -15,6 +15,7 @@ import (
 	"github.com/faisalhardin/medilink/internal/library/middlewares/auth"
 	customtime "github.com/faisalhardin/medilink/pkg/type/time"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/volatiletech/null/v8"
 )
@@ -378,8 +379,13 @@ func roomName(raw string) (string, error) {
 }
 
 func roomWriteErr(err error) error {
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23505" && strings.Contains(pgErr.ConstraintName, servicePointNameConstraint) {
+	var pgxErr *pgconn.PgError
+	if errors.As(err, &pgxErr) && pgxErr.Code == "23505" && strings.Contains(pgxErr.ConstraintName, servicePointNameConstraint) {
+		return commonerr.RoomNameTaken()
+	}
+	// Master DB uses lib/pq; unique violations arrive as *pq.Error.
+	var pqErr *pq.Error
+	if errors.As(err, &pqErr) && string(pqErr.Code) == "23505" && strings.Contains(pqErr.Constraint, servicePointNameConstraint) {
 		return commonerr.RoomNameTaken()
 	}
 	return roomLookupErr(err)
@@ -400,7 +406,7 @@ func (u *JourneyUC) clinicalEnqueue(ctx context.Context, clinic, roomID int64, c
 	if !clinical {
 		return nil
 	}
-	return roomLocationPort(u.RoomLocation).Enqueue(ctx, clinic, roomID, jobLocationUpsert)
+	return roomLocationPort(u.RoomLocation).Enqueue(ctx, clinic, roomID, jobLocationCreate)
 }
 
 func (u *JourneyUC) InsertNewServicePoint(ctx context.Context, req model.CreateRoomRequest) (room *model.Room, err error) {

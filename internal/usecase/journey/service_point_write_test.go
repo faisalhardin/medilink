@@ -13,6 +13,7 @@ import (
 	commonwriter "github.com/faisalhardin/medilink/internal/library/common/writer"
 	"github.com/faisalhardin/medilink/internal/library/middlewares/auth"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/lib/pq"
 	"github.com/pkg/errors"
 )
 
@@ -142,6 +143,7 @@ func sameIDs(got, want []int64) bool {
 func TestInsertNewServicePointWrite(t *testing.T) {
 	taken := errors.Wrap(&pgconn.PgError{Code: "23505", ConstraintName: "ux_service_point_institution_name"}, "insert")
 	takenQualified := errors.Wrap(&pgconn.PgError{Code: "23505", ConstraintName: "public.ux_service_point_institution_name"}, "insert")
+	takenPQ := errors.Wrap(&pq.Error{Code: "23505", Constraint: "ux_service_point_institution_name"}, "insert")
 	otherUnique := errors.Wrap(&pgconn.PgError{Code: "23505", ConstraintName: "ux_other"}, "insert")
 	owned := model.MstJourneyBoard{ID: 3, IDMstInstitution: 7}
 	clinic := clinicPtr(7)
@@ -171,6 +173,7 @@ func TestInsertNewServicePointWrite(t *testing.T) {
 		{name: "no session", req: model.CreateRoomRequest{Name: "room", BoardID: 3}, wantErr: commonerr.SetNewUnauthorizedAPICall()},
 		{name: "23505 name taken", clinic: clinic, req: model.CreateRoomRequest{Name: "Poli", BoardID: 3, IsClinical: true}, board: owned, insertErr: taken, loc: &lockedLocation{}, boardGets: 1, inserted: true, inst: 7, wantErr: commonerr.RoomNameTaken()},
 		{name: "23505 qualified constraint", clinic: clinic, req: model.CreateRoomRequest{Name: "Poli", BoardID: 3, IsClinical: true}, board: owned, insertErr: takenQualified, loc: &lockedLocation{}, boardGets: 1, inserted: true, inst: 7, wantErr: commonerr.RoomNameTaken()},
+		{name: "23505 lib/pq", clinic: clinic, req: model.CreateRoomRequest{Name: "Poli", BoardID: 3, IsClinical: true}, board: owned, insertErr: takenPQ, loc: &lockedLocation{}, boardGets: 1, inserted: true, inst: 7, wantErr: commonerr.RoomNameTaken()},
 		{name: "23505 other constraint", clinic: clinic, req: model.CreateRoomRequest{Name: "Poli", BoardID: 3, IsClinical: true}, board: owned, insertErr: otherUnique, loc: &lockedLocation{}, boardGets: 1, inserted: true, inst: 7, reject409: true},
 		{name: "clinical noop", clinic: clinic, req: model.CreateRoomRequest{Name: "Poli", BoardID: 3, IsClinical: true}, board: owned, boardGets: 1, inserted: true, roomName: "Poli", inst: 7},
 		{name: "clinical locked", clinic: clinic, req: model.CreateRoomRequest{Name: "Poli", BoardID: 3, IsClinical: true}, board: owned, loc: &lockedLocation{locked: true}, boardGets: 1, wantErr: commonerr.RoomClearing()},
@@ -222,7 +225,7 @@ func TestInsertNewServicePointWrite(t *testing.T) {
 			if tt.loc != nil && !sameIDs(tt.loc.enqueued, tt.queue) {
 				t.Fatalf("enqueued %v want %v", tt.loc.enqueued, tt.queue)
 			}
-			if len(tt.queue) > 0 && (len(tt.loc.jobs) != 1 || tt.loc.jobs[0] != "location.upsert") {
+			if len(tt.queue) > 0 && (len(tt.loc.jobs) != 1 || tt.loc.jobs[0] != jobLocationCreate) {
 				t.Fatalf("jobs %v", tt.loc.jobs)
 			}
 		})
@@ -310,7 +313,7 @@ func TestUpdateServicePointWrite(t *testing.T) {
 			if tt.loc != nil && !sameIDs(tt.loc.enqueued, tt.queue) {
 				t.Fatalf("enqueued %v want %v", tt.loc.enqueued, tt.queue)
 			}
-			if len(tt.queue) > 0 && (len(tt.loc.jobs) != 1 || tt.loc.jobs[0] != "location.upsert") {
+			if len(tt.queue) > 0 && (len(tt.loc.jobs) != 1 || tt.loc.jobs[0] != jobLocationCreate) {
 				t.Fatalf("jobs %v", tt.loc.jobs)
 			}
 		})
