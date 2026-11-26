@@ -8,6 +8,7 @@ import (
 	"github.com/faisalhardin/medilink/internal/entity/constant/database"
 	"github.com/faisalhardin/medilink/internal/entity/model"
 	xormlib "github.com/faisalhardin/medilink/internal/library/db/xorm"
+	"github.com/go-xorm/xorm"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"xorm.io/builder"
@@ -33,6 +34,10 @@ const (
 	WrapMsgInserNewServicePoint = "InserNewServicePoint"
 	WrapMsgListServicePoints    = "ListServicePoints"
 	WrapMsgListJourneyPointIDs  = "ListJourneyPointIDs"
+	WrapMsgListLinkNodes        = "ListLinkNodes"
+	WrapMsgLockJourneyBoard     = "LockJourneyBoard"
+	WrapMsgReplaceLinks         = "ReplaceLinks"
+	WrapMsgListColumnRooms      = "ListColumnRooms"
 	WrapMsgGetServicePoint      = "GetServicePoint"
 	WrapMsgUpdateServicePoint   = "UpdateServicePoint"
 	WrapMsgDeleteServicePoint   = "DeleteServicePoint"
@@ -47,6 +52,15 @@ type JourneyDB struct {
 
 func NewJourneyDB(conn *JourneyDB) *JourneyDB {
 	return conn
+}
+
+// session returns the active transaction, or a master session when the caller
+// is not inside one. Link reads that follow a board lock must use this.
+func (c *JourneyDB) session(ctx context.Context) *xorm.Session {
+	if s := xormlib.GetDBSession(ctx); s != nil {
+		return s
+	}
+	return c.DB.MasterDB.Context(ctx)
 }
 
 func (c *JourneyDB) InsertNewJourneyBoard(ctx context.Context, journeyBoard *model.MstJourneyBoard) (err error) {
@@ -445,6 +459,7 @@ func (c *JourneyDB) ListJourneyPointIDs(ctx context.Context, roomIDs []int64) (r
 	rows := []model.MapServicePointJourneyPoint{}
 	err = c.DB.SlaveDB.Table(database.MapServicePointJourneyPoint).Alias("m").
 		Join(database.SQLInner, database.MstJourneyPointTable+" jp", "jp.id = m.id_mst_journey_point AND jp.delete_time IS NULL").
+		Join(database.SQLInner, database.MstServicePointTable+" sp", "sp.id = m.id_mst_service_point AND jp.id_mst_journey_board = sp.id_mst_journey_board").
 		Select("m.id_mst_service_point, m.id_mst_journey_point").
 		Where("m.id_mst_service_point = ANY(?)", pq.Array(roomIDs)).
 		OrderBy("m.id_mst_journey_point ASC").
@@ -456,6 +471,171 @@ func (c *JourneyDB) ListJourneyPointIDs(ctx context.Context, roomIDs []int64) (r
 
 	for _, row := range rows {
 		resp[row.IDMstServicePoint] = append(resp[row.IDMstServicePoint], row.IDMstJourneyPoint)
+	}
+	return
+}
+
+func (c *JourneyDB) ListLinkNodes(ctx context.Context, query model.LinkQuery) (nodes []model.LinkNode, err error) {
+	nodes = []model.LinkNode{}
+	if query.Clinic <= 0 || len(query.IDs) == 0 {
+		return
+	}
+
+	var sqlText string
+	switch query.Kind {
+	case model.LinkRoom:
+		sqlText = `SELECT id, id_mst_journey_board AS board_id
+			FROM ` + database.MstServicePointTable + `
+			WHERE id_mst_institution = ?
+			  AND delete_time IS NULL
+			  AND id = ANY(?)`
+	case model.LinkColumn:
+		sqlText = `SELECT jp.id, jp.id_mst_journey_board AS board_id
+			FROM ` + database.MstJourneyPointTable + ` jp
+			INNER JOIN ` + database.MstJourneyBoardTable + ` b
+			  ON b.id = jp.id_mst_journey_board
+			 AND b.delete_time IS NULL
+			 AND b.id_mst_institution = ?
+			WHERE jp.delete_time IS NULL
+			  AND jp.id = ANY(?)`
+	default:
+		return
+	}
+
+	err = c.session(ctx).SQL(sqlText, query.Clinic, pq.Array(query.IDs)).Find(&nodes)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgListLinkNodes)
+		return
+	}
+	if nodes == nil {
+		nodes = []model.LinkNode{}
+	}
+	return
+}
+
+func (c *JourneyDB) LockJourneyBoard(ctx context.Context, boardID int64) (err error) {
+	var id int64
+	has, err := c.session(ctx).SQL(
+		`SELECT id FROM `+database.MstJourneyBoardTable+` WHERE id = ? FOR UPDATE`,
+		boardID,
+	).Get(&id)
+	if err != nil {
+		return errors.Wrap(err, WrapMsgLockJourneyBoard)
+	}
+	if !has {
+		return errors.Wrap(constant.ErrorNoAffectedRow, WrapMsgLockJourneyBoard)
+	}
+	return nil
+}
+
+func (c *JourneyDB) ReplaceLinks(ctx context.Context, set model.LinkSet) (err error) {
+	targets := set.Targets
+	if targets == nil {
+		targets = []int64{}
+	}
+
+	var deleteSQL, insertSQL string
+	switch set.Side {
+	case model.LinkRoom:
+		deleteSQL = `DELETE FROM ` + database.MapServicePointJourneyPoint + ` AS m
+			WHERE m.id_mst_service_point = ?
+			  AND EXISTS (
+			    SELECT 1 FROM ` + database.MstServicePointTable + ` sp
+			    WHERE sp.id = m.id_mst_service_point
+			      AND sp.id_mst_institution = ?
+			  )
+			  AND m.id_mst_journey_point IN (
+			    SELECT jp.id FROM ` + database.MstJourneyPointTable + ` jp
+			    WHERE jp.id_mst_journey_board = ?
+			  )`
+		insertSQL = `INSERT INTO ` + database.MapServicePointJourneyPoint + ` (id_mst_service_point, id_mst_journey_point)
+			SELECT sp.id, jp.id
+			FROM unnest(CAST(? AS bigint[])) AS t(id)
+			JOIN ` + database.MstServicePointTable + ` sp
+			  ON sp.id = ?
+			 AND sp.delete_time IS NULL
+			 AND sp.id_mst_institution = ?
+			 AND sp.id_mst_journey_board = ?
+			JOIN ` + database.MstJourneyPointTable + ` jp
+			  ON jp.id = t.id
+			 AND jp.delete_time IS NULL
+			 AND jp.id_mst_journey_board = sp.id_mst_journey_board
+			ON CONFLICT (id_mst_service_point, id_mst_journey_point) DO NOTHING`
+		if _, err = c.session(ctx).Exec(deleteSQL, set.Subject, set.Clinic, set.Board); err != nil {
+			return errors.Wrap(err, WrapMsgReplaceLinks)
+		}
+		_, err = c.session(ctx).Exec(insertSQL, pq.Array(targets), set.Subject, set.Clinic, set.Board)
+	case model.LinkColumn:
+		deleteSQL = `DELETE FROM ` + database.MapServicePointJourneyPoint + ` AS m
+			WHERE m.id_mst_journey_point = ?
+			  AND m.id_mst_service_point IN (
+			    SELECT sp.id FROM ` + database.MstServicePointTable + ` sp
+			    WHERE sp.id_mst_journey_board = ?
+			      AND sp.id_mst_institution = ?
+			  )`
+		insertSQL = `INSERT INTO ` + database.MapServicePointJourneyPoint + ` (id_mst_service_point, id_mst_journey_point)
+			SELECT sp.id, jp.id
+			FROM unnest(CAST(? AS bigint[])) AS t(id)
+			JOIN ` + database.MstJourneyPointTable + ` jp
+			  ON jp.id = ?
+			 AND jp.delete_time IS NULL
+			 AND jp.id_mst_journey_board = ?
+			JOIN ` + database.MstServicePointTable + ` sp
+			  ON sp.id = t.id
+			 AND sp.delete_time IS NULL
+			 AND sp.id_mst_institution = ?
+			 AND sp.id_mst_journey_board = jp.id_mst_journey_board
+			ON CONFLICT (id_mst_service_point, id_mst_journey_point) DO NOTHING`
+		if _, err = c.session(ctx).Exec(deleteSQL, set.Subject, set.Board, set.Clinic); err != nil {
+			return errors.Wrap(err, WrapMsgReplaceLinks)
+		}
+		_, err = c.session(ctx).Exec(insertSQL, pq.Array(targets), set.Subject, set.Board, set.Clinic)
+	default:
+		return errors.Wrap(errors.New("unknown link side"), WrapMsgReplaceLinks)
+	}
+	if err != nil {
+		return errors.Wrap(err, WrapMsgReplaceLinks)
+	}
+	return nil
+}
+
+type columnRoomRow struct {
+	ID   int64  `xorm:"id"`
+	Name string `xorm:"name"`
+}
+
+func (c *JourneyDB) ListColumnRooms(ctx context.Context, clinic, columnID int64) (rooms []model.PickerRoom, err error) {
+	rooms = []model.PickerRoom{}
+	if clinic <= 0 {
+		return
+	}
+
+	rows := []columnRoomRow{}
+	err = c.session(ctx).SQL(`
+		SELECT sp.id, sp.name
+		FROM `+database.MapServicePointJourneyPoint+` m
+		INNER JOIN `+database.MstServicePointTable+` sp
+		  ON sp.id = m.id_mst_service_point
+		 AND sp.delete_time IS NULL
+		 AND sp.id_mst_institution = ?
+		INNER JOIN `+database.MstJourneyPointTable+` jp
+		  ON jp.id = m.id_mst_journey_point
+		 AND jp.delete_time IS NULL
+		 AND jp.id_mst_journey_board = sp.id_mst_journey_board
+		INNER JOIN `+database.MstJourneyBoardTable+` b
+		  ON b.id = jp.id_mst_journey_board
+		 AND b.delete_time IS NULL
+		 AND b.id_mst_institution = ?
+		WHERE m.id_mst_journey_point = ?
+		ORDER BY sp.id ASC`,
+		clinic, clinic, columnID).Find(&rows)
+	if err != nil {
+		return nil, errors.Wrap(err, WrapMsgListColumnRooms)
+	}
+
+	rooms = make([]model.PickerRoom, 0, len(rows))
+	for _, row := range rows {
+		rooms = append(rooms, model.PickerRoom{ID: row.ID, Name: row.Name})
 	}
 	return
 }

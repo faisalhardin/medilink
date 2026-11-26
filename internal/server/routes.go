@@ -95,20 +95,26 @@ func RegisterRoutes(m *module) http.Handler {
 					board.Delete("/", m.httpHandler.JourneyHandler.DeleteJourneyBoard)
 				})
 
-				journey.Route("/point", func(board chi.Router) {
-					board.Post("/", m.httpHandler.JourneyHandler.InsertNewJourneyPoint)
-					board.Patch("/{id}", m.httpHandler.JourneyHandler.UpdateJourneyPoint)
-					board.Patch("/rename", m.httpHandler.JourneyHandler.RenameJourneyPoint)
-					board.Patch("/archive", m.httpHandler.JourneyHandler.ArchiveJourneyPoint)
+				journey.Route("/point", func(point chi.Router) {
+					point.Post("/", m.httpHandler.JourneyHandler.InsertNewJourneyPoint)
+					point.Patch("/{id}", m.httpHandler.JourneyHandler.UpdateJourneyPoint)
+					point.Patch("/rename", m.httpHandler.JourneyHandler.RenameJourneyPoint)
+					point.Patch("/archive", m.httpHandler.JourneyHandler.ArchiveJourneyPoint)
+					registerJourneyPointRoomRoutes(point, journeyPointRoomHandlers{
+						Get: m.httpHandler.JourneyHandler.GetColumnRooms,
+						Put: m.httpHandler.JourneyHandler.PutColumnRooms,
+					}, m.middlewareModule)
 				})
 
 				journey.Route("/service-point", func(servicePoint chi.Router) {
 					registerServicePointRoutes(servicePoint, servicePointHandlers{
-						List:    m.httpHandler.JourneyHandler.ListServicePoint,
-						Get:     m.httpHandler.JourneyHandler.GetServicePoint,
-						Create:  m.httpHandler.JourneyHandler.InsertNewServicePoint,
-						Patch:   m.httpHandler.JourneyHandler.UpdateServicePoint,
-						Archive: m.httpHandler.JourneyHandler.ArchiveServicePoint,
+						List:             m.httpHandler.JourneyHandler.ListServicePoint,
+						Get:              m.httpHandler.JourneyHandler.GetServicePoint,
+						Create:           m.httpHandler.JourneyHandler.InsertNewServicePoint,
+						Patch:            m.httpHandler.JourneyHandler.UpdateServicePoint,
+						Archive:          m.httpHandler.JourneyHandler.ArchiveServicePoint,
+						GetJourneyPoints: m.httpHandler.JourneyHandler.GetRoomJourneyPoints,
+						PutJourneyPoints: m.httpHandler.JourneyHandler.PutRoomJourneyPoints,
 					}, m.middlewareModule)
 				})
 			})

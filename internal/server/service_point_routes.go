@@ -9,11 +9,18 @@ import (
 )
 
 type servicePointHandlers struct {
-	List    http.HandlerFunc
-	Get     http.HandlerFunc
-	Create  http.HandlerFunc
-	Patch   http.HandlerFunc
-	Archive http.HandlerFunc
+	List             http.HandlerFunc
+	Get              http.HandlerFunc
+	Create           http.HandlerFunc
+	Patch            http.HandlerFunc
+	Archive          http.HandlerFunc
+	GetJourneyPoints http.HandlerFunc
+	PutJourneyPoints http.HandlerFunc
+}
+
+type journeyPointRoomHandlers struct {
+	Get http.HandlerFunc
+	Put http.HandlerFunc
 }
 
 func registerServicePointRoutes(r chi.Router, h servicePointHandlers, mw *authmodule.Module) {
@@ -26,4 +33,14 @@ func registerServicePointRoutes(r chi.Router, h servicePointHandlers, mw *authmo
 		Patch("/{id}", h.Patch)
 	r.With(mw.RequirePermissionStrict(permconst.ServicePointManage)).
 		Delete("/{id}", h.Archive)
+	r.With(mw.RequirePermissionStrict(permconst.ServicePointManage)).
+		Get("/{id}/journey-points", h.GetJourneyPoints)
+	r.With(mw.RequirePermissionStrict(permconst.ServicePointManage)).
+		Put("/{id}/journey-points", h.PutJourneyPoints)
+}
+
+func registerJourneyPointRoomRoutes(r chi.Router, h journeyPointRoomHandlers, mw *authmodule.Module) {
+	r.With(mw.RequirePermissionStrict(permconst.ServicePointManage)).
+		Put("/{id}/service-points", h.Put)
+	r.Get("/{id}/service-points", h.Get)
 }

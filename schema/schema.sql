@@ -77,9 +77,12 @@ CREATE TABLE public.mdl_map_role_staff (
 -- DROP TABLE public.mdl_map_service_point_journey_point;
 
 CREATE TABLE public.mdl_map_service_point_journey_point (
-	id_mst_service_point int8 NULL,
-	id_mst_journey_point int8 NULL
+	id_mst_service_point int8 NOT NULL,
+	id_mst_journey_point int8 NOT NULL,
+	CONSTRAINT mdl_map_service_point_journey_point_pkey PRIMARY KEY (id_mst_service_point, id_mst_journey_point)
 );
+
+CREATE INDEX idx_map_service_point_journey_point_journey_point ON public.mdl_map_service_point_journey_point USING btree (id_mst_journey_point);
 
 
 -- public.mdl_map_staff_journey_point definition
