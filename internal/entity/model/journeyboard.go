@@ -73,6 +73,19 @@ type MstServicePoint struct {
 	DeleteTime *time.Time `xorm:"'delete_time' deleted" json:"-" `
 }
 
+// CreateRoomRequest is a new room. The clinic comes from the session.
+type CreateRoomRequest struct {
+	Name       string `json:"name"`
+	BoardID    int64  `json:"board_id"`
+	IsClinical bool   `json:"is_clinical"`
+}
+
+// RenameRoomRequest changes a room. A nil Name keeps the stored name.
+type RenameRoomRequest struct {
+	Name       *string `json:"name"`
+	IsClinical bool    `json:"is_clinical"`
+}
+
 type SyncStatus string
 
 const (

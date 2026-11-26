@@ -76,6 +76,11 @@ func SetOKWithData(ctx context.Context, w http.ResponseWriter, data interface{})
 	return err
 }
 
+func SetCreatedWithData(ctx context.Context, w http.ResponseWriter, data interface{}) (err error) {
+	_, err = WriteJSONAPIData(w, nil, http.StatusCreated, data)
+	return err
+}
+
 func SetOKWithByte(ctx context.Context, w http.ResponseWriter, b []byte) (err error) {
 	_, err = w.Write(b)
 	return

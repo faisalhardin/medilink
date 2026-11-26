@@ -11,6 +11,7 @@ import (
 	journeyRepo "github.com/faisalhardin/medilink/internal/entity/repo/journey"
 	"github.com/faisalhardin/medilink/internal/library/common/commonerr"
 	commonwriter "github.com/faisalhardin/medilink/internal/library/common/writer"
+	"github.com/faisalhardin/medilink/internal/library/middlewares/auth"
 	"github.com/pkg/errors"
 )
 
@@ -22,14 +23,16 @@ func TestRoomLookupErrMapsNoRowTo404(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			uc := &JourneyUC{JourneyDB: hiddenRoomDB{}}
-			ctx := context.Background()
+			ctx := auth.SetUserDetailToCtx(context.Background(), model.UserJWTPayload{InstitutionID: 7})
+			name := "x"
 			for verb, call := range map[string]func() error{
 				"get": func() error {
 					_, err := uc.GetServicePoint(ctx, 99)
 					return err
 				},
 				"update": func() error {
-					return uc.UpdateServicePoint(ctx, &model.MstServicePoint{ID: 99, Name: "x"})
+					_, err := uc.UpdateServicePoint(ctx, 99, model.RenameRoomRequest{Name: &name})
+					return err
 				},
 				"archive": func() error {
 					return uc.ArchiveServicePoint(ctx, &model.MstServicePoint{ID: 99})

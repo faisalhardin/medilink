@@ -35,12 +35,16 @@ func (b *boardLookup) InserNewServicePoint(context.Context, *model.MstServicePoi
 	return nil
 }
 
+func (b *boardLookup) ListJourneyPointIDs(context.Context, []int64) (map[int64][]int64, error) {
+	return map[int64][]int64{}, nil
+}
+
 func TestInsertNewServicePointHidesMissingClinicAndForeignBoard(t *testing.T) {
 	for _, clinic := range []int64{0, -1} {
 		repo := &boardLookup{}
 		uc := &JourneyUC{JourneyDB: repo}
 		ctx := auth.SetUserDetailToCtx(context.Background(), model.UserJWTPayload{InstitutionID: clinic})
-		err := uc.InsertNewServicePoint(ctx, &model.MstServicePoint{IDMstBoard: 3, Name: "room"})
+		_, err := uc.InsertNewServicePoint(ctx, model.CreateRoomRequest{BoardID: 3, Name: "room"})
 		assertSame404(t, err)
 		if repo.gets != 0 || repo.inserts != 0 {
 			t.Fatalf("clinic %d gets=%d inserts=%d", clinic, repo.gets, repo.inserts)
@@ -60,7 +64,7 @@ func TestInsertNewServicePointHidesMissingClinicAndForeignBoard(t *testing.T) {
 			repo := &boardLookup{board: tt.board, getErr: tt.getErr}
 			uc := &JourneyUC{JourneyDB: repo}
 			ctx := auth.SetUserDetailToCtx(context.Background(), model.UserJWTPayload{InstitutionID: 7})
-			err := uc.InsertNewServicePoint(ctx, &model.MstServicePoint{IDMstBoard: 3, Name: "room"})
+			_, err := uc.InsertNewServicePoint(ctx, model.CreateRoomRequest{BoardID: 3, Name: "room"})
 			assertSame404(t, err)
 			if repo.gets != 1 || repo.inserts != 0 {
 				t.Fatalf("gets=%d inserts=%d", repo.gets, repo.inserts)
@@ -71,11 +75,12 @@ func TestInsertNewServicePointHidesMissingClinicAndForeignBoard(t *testing.T) {
 	repo := &boardLookup{board: model.MstJourneyBoard{ID: 3, IDMstInstitution: 7}}
 	uc := &JourneyUC{JourneyDB: repo}
 	ctx := auth.SetUserDetailToCtx(context.Background(), model.UserJWTPayload{InstitutionID: 7})
-	if err := uc.InsertNewServicePoint(ctx, &model.MstServicePoint{IDMstBoard: 3, Name: "room"}); err != nil {
+	room, err := uc.InsertNewServicePoint(ctx, model.CreateRoomRequest{BoardID: 3, Name: "room"})
+	if err != nil {
 		t.Fatal(err)
 	}
-	if repo.inserts != 1 {
-		t.Fatalf("inserts=%d", repo.inserts)
+	if repo.inserts != 1 || room == nil || room.Name != "room" || room.BoardID != 3 {
+		t.Fatalf("inserts=%d room=%#v", repo.inserts, room)
 	}
 }
 

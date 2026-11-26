@@ -23,7 +23,7 @@ type JourneyUC interface {
 	ReplaceLinks(ctx context.Context, side model.LinkKind, subjectID int64, targets []int64) (ids []int64, err error)
 	GetColumnRooms(ctx context.Context, columnID int64) (rooms model.JourneyPointRooms, err error)
 	ListServicePoints(ctx context.Context, params model.GetServicePointParams) (servicePoints []model.Room, err error)
-	InsertNewServicePoint(ctx context.Context, servicePoint *model.MstServicePoint) (err error)
-	UpdateServicePoint(ctx context.Context, servicePoint *model.MstServicePoint) (err error)
+	InsertNewServicePoint(ctx context.Context, req model.CreateRoomRequest) (room *model.Room, err error)
+	UpdateServicePoint(ctx context.Context, id int64, req model.RenameRoomRequest) (room *model.Room, err error)
 	ArchiveServicePoint(ctx context.Context, servicePoint *model.MstServicePoint) (err error)
 }
