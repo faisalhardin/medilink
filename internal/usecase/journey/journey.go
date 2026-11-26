@@ -3,6 +3,7 @@ package journey
 import (
 	"context"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/faisalhardin/medilink/internal/entity/constant"
@@ -13,6 +14,8 @@ import (
 	"github.com/faisalhardin/medilink/internal/library/db/xorm"
 	"github.com/faisalhardin/medilink/internal/library/middlewares/auth"
 	customtime "github.com/faisalhardin/medilink/pkg/type/time"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/volatiletech/null/v8"
 )
@@ -365,7 +368,56 @@ func (u *JourneyUC) toRooms(ctx context.Context, rows []model.MstServicePoint) (
 	return rooms, nil
 }
 
-func (u *JourneyUC) InsertNewServicePoint(ctx context.Context, servicePoint *model.MstServicePoint) (err error) {
+const servicePointNameConstraint = "ux_service_point_institution_name"
+
+func roomName(raw string) (string, error) {
+	name := strings.TrimSpace(raw)
+	if name == "" {
+		return "", commonerr.RoomNameRequired()
+	}
+	return name, nil
+}
+
+func roomWriteErr(err error) error {
+	var pgxErr *pgconn.PgError
+	if errors.As(err, &pgxErr) && pgxErr.Code == "23505" && strings.Contains(pgxErr.ConstraintName, servicePointNameConstraint) {
+		return commonerr.RoomNameTaken()
+	}
+	// Master DB uses lib/pq; unique violations arrive as *pq.Error.
+	var pqErr *pq.Error
+	if errors.As(err, &pqErr) && string(pqErr.Code) == "23505" && strings.Contains(pqErr.Constraint, servicePointNameConstraint) {
+		return commonerr.RoomNameTaken()
+	}
+	return roomLookupErr(err)
+}
+
+func (u *JourneyUC) clinicalGuard(ctx context.Context, clinic, roomID int64, clinical bool) error {
+	if !clinical {
+		return nil
+	}
+	locked, err := roomLocationPort(u.RoomLocation).Clearing(ctx, clinic, roomID)
+	if err != nil || !locked {
+		return err
+	}
+	return commonerr.RoomClearing()
+}
+
+func (u *JourneyUC) clinicalEnqueue(ctx context.Context, clinic, roomID int64, clinical bool) error {
+	if !clinical {
+		return nil
+	}
+	return roomLocationPort(u.RoomLocation).Enqueue(ctx, clinic, roomID, jobLocationCreate)
+}
+
+func (u *JourneyUC) InsertNewServicePoint(ctx context.Context, req model.CreateRoomRequest) (room *model.Room, err error) {
+	ids := commonerr.RoomIDs{Board: req.BoardID}
+	defer func() {
+		if room != nil {
+			ids.Room = room.ID
+		}
+		commonerr.LogRoom(commonerr.RoomOpCreate, ids, err)
+	}()
+
 	userDetail, found := auth.GetUserDetailFromCtx(ctx)
 	if !found {
 		err = commonerr.SetNewUnauthorizedAPICall()
@@ -376,19 +428,48 @@ func (u *JourneyUC) InsertNewServicePoint(ctx context.Context, servicePoint *mod
 		err = commonerr.Set404()
 		return
 	}
+	ids.Institution = userDetail.InstitutionID
 
-	err = u.validateJourneyBoardOwnership(ctx, userDetail, servicePoint.IDMstBoard)
+	name, err := roomName(req.Name)
+	if err != nil {
+		return
+	}
+
+	err = u.validateJourneyBoardOwnership(ctx, userDetail, req.BoardID)
 	if err != nil {
 		err = errors.Wrap(servicePointCreateErr(err), WrapMsgInsertNewServicePoint)
 		return
 	}
 
-	err = u.JourneyDB.InserNewServicePoint(ctx, servicePoint)
+	err = u.clinicalGuard(ctx, userDetail.InstitutionID, 0, req.IsClinical)
 	if err != nil {
 		err = errors.Wrap(err, WrapMsgInsertNewServicePoint)
 		return
 	}
 
+	row := &model.MstServicePoint{
+		Name:             name,
+		IDMstBoard:       req.BoardID,
+		IDMstInstitution: userDetail.InstitutionID,
+	}
+	err = u.JourneyDB.InserNewServicePoint(ctx, row)
+	if err != nil {
+		err = errors.Wrap(roomWriteErr(err), WrapMsgInsertNewServicePoint)
+		return
+	}
+
+	err = u.clinicalEnqueue(ctx, userDetail.InstitutionID, row.ID, req.IsClinical)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgInsertNewServicePoint)
+		return
+	}
+
+	rooms, err := u.toRooms(ctx, []model.MstServicePoint{*row})
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgInsertNewServicePoint)
+		return
+	}
+	room = &rooms[0]
 	return
 }
 
@@ -401,14 +482,66 @@ func servicePointCreateErr(err error) error {
 	return err
 }
 
-func (u *JourneyUC) UpdateServicePoint(ctx context.Context, servicePoint *model.MstServicePoint) (err error) {
+func (u *JourneyUC) UpdateServicePoint(ctx context.Context, id int64, req model.RenameRoomRequest) (room *model.Room, err error) {
+	ids := commonerr.RoomIDs{Room: id}
+	defer func() {
+		commonerr.LogRoom(commonerr.RoomOpRename, ids, err)
+	}()
 
-	err = u.JourneyDB.UpdateServicePoint(ctx, servicePoint)
+	userDetail, found := auth.GetUserDetailFromCtx(ctx)
+	if !found {
+		err = commonerr.SetNewUnauthorizedAPICall()
+		return
+	}
+	if userDetail.InstitutionID <= 0 {
+		err = commonerr.Set404()
+		return
+	}
+	ids.Institution = userDetail.InstitutionID
+
+	var name string
+	if req.Name != nil {
+		name, err = roomName(*req.Name)
+		if err != nil {
+			return
+		}
+	}
+
+	row, err := u.JourneyDB.GetServicePoint(ctx, model.MstServicePoint{ID: id})
 	if err != nil {
 		err = errors.Wrap(roomLookupErr(err), WrapMsgUpdateServicePoint)
 		return
 	}
+	ids.Board = row.IDMstBoard
+	if req.Name == nil {
+		name = row.Name
+	}
 
+	err = u.clinicalGuard(ctx, userDetail.InstitutionID, id, req.IsClinical)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgUpdateServicePoint)
+		return
+	}
+
+	err = u.JourneyDB.UpdateServicePoint(ctx, &model.MstServicePoint{ID: id, Name: name})
+	if err != nil {
+		err = errors.Wrap(roomWriteErr(err), WrapMsgUpdateServicePoint)
+		return
+	}
+
+	err = u.clinicalEnqueue(ctx, userDetail.InstitutionID, id, req.IsClinical)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgUpdateServicePoint)
+		return
+	}
+
+	row.Name = name
+	rooms, err := u.toRooms(ctx, []model.MstServicePoint{*row})
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgUpdateServicePoint)
+		return
+	}
+	room = &rooms[0]
 	return
 }
 

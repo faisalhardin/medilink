@@ -275,20 +275,20 @@ func (h *JourneyHandler) ListServicePoint(w http.ResponseWriter, r *http.Request
 func (h *JourneyHandler) InsertNewServicePoint(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	request := &model.MstServicePoint{}
-	err := bindingBind(r, request)
+	request := model.CreateRoomRequest{}
+	err := bindingBind(r, &request)
 	if err != nil {
 		commonwriter.SetError(ctx, w, err)
 		return
 	}
 
-	err = h.JourneyUC.InsertNewServicePoint(ctx, request)
+	room, err := h.JourneyUC.InsertNewServicePoint(ctx, request)
 	if err != nil {
 		commonwriter.SetError(ctx, w, err)
 		return
 	}
 
-	commonwriter.SetOKWithData(ctx, w, request)
+	commonwriter.SetCreatedWithData(ctx, w, room)
 }
 
 func (h *JourneyHandler) UpdateServicePoint(w http.ResponseWriter, r *http.Request) {
@@ -302,22 +302,20 @@ func (h *JourneyHandler) UpdateServicePoint(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	request := &model.MstServicePoint{}
-	err = bindingBind(r, request)
+	request := model.RenameRoomRequest{}
+	err = bindingBind(r, &request)
 	if err != nil {
 		commonwriter.SetError(ctx, w, err)
 		return
 	}
 
-	request.ID = servicePointID
-
-	err = h.JourneyUC.UpdateServicePoint(ctx, request)
+	room, err := h.JourneyUC.UpdateServicePoint(ctx, servicePointID, request)
 	if err != nil {
 		commonwriter.SetError(ctx, w, err)
 		return
 	}
 
-	commonwriter.SetOKWithData(ctx, w, "ok")
+	commonwriter.SetOKWithData(ctx, w, room)
 }
 
 func (h *JourneyHandler) ArchiveServicePoint(w http.ResponseWriter, r *http.Request) {

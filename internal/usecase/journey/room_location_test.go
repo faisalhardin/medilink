@@ -14,6 +14,10 @@ func TestNoopRoomLocation(t *testing.T) {
 	if err := port.Enqueue(context.Background(), 7, 1, "create"); err != nil {
 		t.Fatal(err)
 	}
+	locked, err := port.Clearing(context.Background(), 7, 0)
+	if err != nil || locked {
+		t.Fatalf("Clearing locked=%v err=%v", locked, err)
+	}
 }
 
 func TestNilRoomLocationPortActsAsNoop(t *testing.T) {
