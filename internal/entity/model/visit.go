@@ -100,6 +100,7 @@ type InsertNewVisitRequest struct {
 	PatientUUID         string          `json:"patient_uuid"`
 	JourneyPointShortID string          `json:"journey_point_id"`
 	Notes               json.RawMessage `json:"notes"`
+	ServicePointID      null.Int64      `json:"service_point_id"`
 }
 
 type UpdatePatientVisitRequest struct {
