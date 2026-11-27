@@ -58,11 +58,16 @@ func init() {
 	}
 }
 
-// needsCount names stay on RoomHasOpenVisits so this path cannot report count 0.
+// roomByName maps known room error names onto their constructors.
+// needsCount names panic here so callers cannot emit room_has_open_visits
+// without a count via SetNewError/Append; use RoomHasOpenVisits(n).
 func roomByName(name string) *ErrorMessage {
 	for i := range roomErrors {
-		if roomErrors[i].name != name || roomErrors[i].needsCount {
+		if roomErrors[i].name != name {
 			continue
+		}
+		if roomErrors[i].needsCount {
+			panic("use RoomHasOpenVisits")
 		}
 		return roomMessage(roomErrors[i].kind, nil)
 	}

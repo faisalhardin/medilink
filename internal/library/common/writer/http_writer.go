@@ -117,10 +117,12 @@ func SetErrorFormat(ctx context.Context, w http.ResponseWriter, errFormat *commo
 }
 
 func getRequestInfo(ctx context.Context) requestinfo.RequestInfo {
-	ctxData := chi.RouteContext(ctx)
 	reqInfo := requestinfo.GetRequestInfo(ctx)
-	if ctxData != nil {
-		reqInfo.RequestURL = ctxData.RoutePattern()
+	reqInfo.RequestURL = "unknown"
+	if ctxData := chi.RouteContext(ctx); ctxData != nil {
+		if pattern := ctxData.RoutePattern(); pattern != "" {
+			reqInfo.RequestURL = pattern
+		}
 	}
 	return reqInfo
 }
