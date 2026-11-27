@@ -382,6 +382,11 @@ func (c *Conn) InsertDtlPatientVisit(ctx context.Context, request *model.DtlPati
 		session = c.DB.MasterDB.Context(ctx)
 	}
 
+	// xorm/pq reject a nil RawMessage for jsonb; SQL NULL is fine via JSON null.
+	if request.Notes == nil {
+		request.Notes = json.RawMessage("null")
+	}
+
 	_, err = session.
 		Nullable("id_mst_service_point").
 		Table(model.DtlPatientVisitTableName).
