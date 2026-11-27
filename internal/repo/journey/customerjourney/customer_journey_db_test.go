@@ -60,6 +60,24 @@ func (r *recordingRoomDB) LockJourneyBoard(context.Context, int64) error {
 	return nil
 }
 
+func (r *recordingRoomDB) LockRoom(_ context.Context, clinicID, _ int64) (*model.MstServicePoint, error) {
+	r.calls++
+	r.institution = clinicID
+	return &model.MstServicePoint{ID: 9, IDMstInstitution: clinicID}, nil
+}
+
+func (r *recordingRoomDB) LockRoomShare(_ context.Context, clinicID, _ int64) (*model.MstServicePoint, error) {
+	r.calls++
+	r.institution = clinicID
+	return &model.MstServicePoint{ID: 9, IDMstInstitution: clinicID}, nil
+}
+
+func (r *recordingRoomDB) DetachRoomLinks(_ context.Context, clinicID, _ int64) error {
+	r.calls++
+	r.institution = clinicID
+	return nil
+}
+
 func (r *recordingRoomDB) ReplaceLinks(_ context.Context, set model.LinkSet) error {
 	r.calls++
 	r.institution = set.Clinic
@@ -77,6 +95,22 @@ func roomCalls(c *UserJourneyDB) map[string]func(context.Context) error {
 		},
 		"archive": func(ctx context.Context) error {
 			return c.DeleteServicePoint(ctx, &model.MstServicePoint{ID: 99})
+		},
+	}
+}
+
+func roomLockCalls(c *UserJourneyDB) map[string]func(context.Context) error {
+	return map[string]func(context.Context) error{
+		"lock": func(ctx context.Context) error {
+			_, err := c.LockRoom(ctx, 99, 9)
+			return err
+		},
+		"share": func(ctx context.Context) error {
+			_, err := c.LockRoomShare(ctx, 99, 9)
+			return err
+		},
+		"detach": func(ctx context.Context) error {
+			return c.DetachRoomLinks(ctx, 99, 9)
 		},
 	}
 }
@@ -209,6 +243,40 @@ func TestRoomLookupWithClinicStampsRepo(t *testing.T) {
 		if err := call(ctx); err != nil {
 			t.Fatalf("%s: %v", verb, err)
 		}
+		if repo.calls != 1 || repo.institution != 7 {
+			t.Fatalf("%s: calls=%d institution=%d, want 1 and 7", verb, repo.calls, repo.institution)
+		}
+	}
+}
+
+func TestRoomLockWrappersWithoutClinicAre404AndSkipRepo(t *testing.T) {
+	for _, clinic := range []int64{0, -1} {
+		repo := &recordingRoomDB{}
+		c := &UserJourneyDB{JourneyDB: repo}
+		ctx := auth.SetUserDetailToCtx(context.Background(), model.UserJWTPayload{InstitutionID: clinic})
+
+		for verb, call := range roomLockCalls(c) {
+			t.Run(verb, func(t *testing.T) {
+				assertWire(t, call(ctx), commonerr.Set404())
+			})
+		}
+		if repo.calls != 0 {
+			t.Fatalf("clinic %d reached the repo %d time(s)", clinic, repo.calls)
+		}
+	}
+}
+
+func TestRoomLockWrappersStampCallerClinic(t *testing.T) {
+	repo := &recordingRoomDB{}
+	c := &UserJourneyDB{JourneyDB: repo}
+	ctx := auth.SetUserDetailToCtx(context.Background(), model.UserJWTPayload{InstitutionID: 7})
+
+	for verb, call := range roomLockCalls(c) {
+		repo.calls, repo.institution = 0, 0
+		if err := call(ctx); err != nil {
+			t.Fatalf("%s: %v", verb, err)
+		}
+		// Caller passed clinic 99; wrapper must stamp the JWT clinic (7).
 		if repo.calls != 1 || repo.institution != 7 {
 			t.Fatalf("%s: calls=%d institution=%d, want 1 and 7", verb, repo.calls, repo.institution)
 		}
