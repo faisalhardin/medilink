@@ -176,6 +176,32 @@ func TestSetErrorRoomWire(t *testing.T) {
 	})
 }
 
+func TestGetRequestInfoNIKPathIsUnknown(t *testing.T) {
+	nikPath := "/v1/patients/3201012345670001"
+	ctx := requestinfo.SetRequestContext(context.Background(), httptest.NewRequest(http.MethodGet, nikPath, nil))
+	info := getRequestInfo(ctx)
+	if info.RequestURL != "unknown" {
+		t.Fatalf("RequestURL %q", info.RequestURL)
+	}
+	if strings.Contains(info.RequestURL, "3201012345670001") {
+		t.Fatalf("NIK leaked in RequestURL %q", info.RequestURL)
+	}
+
+	emptyRoute := context.WithValue(ctx, chi.RouteCtxKey, chi.NewRouteContext())
+	info = getRequestInfo(emptyRoute)
+	if info.RequestURL != "unknown" {
+		t.Fatalf("empty route RequestURL %q", info.RequestURL)
+	}
+
+	rctx := chi.NewRouteContext()
+	rctx.RoutePatterns = []string{"/v1/patients/{nik}"}
+	patterned := context.WithValue(ctx, chi.RouteCtxKey, rctx)
+	info = getRequestInfo(patterned)
+	if info.RequestURL != "/v1/patients/{nik}" {
+		t.Fatalf("pattern RequestURL %q", info.RequestURL)
+	}
+}
+
 func roomCtx() context.Context {
 	ctx := requestinfo.SetRequestContext(context.Background(), httptest.NewRequest(http.MethodPost, "/v1/rooms/9", nil))
 	rctx := chi.NewRouteContext()

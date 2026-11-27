@@ -296,6 +296,30 @@ func (c *UserJourneyDB) LockJourneyBoard(ctx context.Context, boardID int64) err
 	return c.JourneyDB.LockJourneyBoard(ctx, boardID)
 }
 
+func (c *UserJourneyDB) LockRoom(ctx context.Context, clinicID, roomID int64) (*model.MstServicePoint, error) {
+	clinic, err := roomClinicID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return c.JourneyDB.LockRoom(ctx, clinic, roomID)
+}
+
+func (c *UserJourneyDB) LockRoomShare(ctx context.Context, clinicID, roomID int64) (*model.MstServicePoint, error) {
+	clinic, err := roomClinicID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return c.JourneyDB.LockRoomShare(ctx, clinic, roomID)
+}
+
+func (c *UserJourneyDB) DetachRoomLinks(ctx context.Context, clinicID, roomID int64) error {
+	clinic, err := roomClinicID(ctx)
+	if err != nil {
+		return err
+	}
+	return c.JourneyDB.DetachRoomLinks(ctx, clinic, roomID)
+}
+
 func (c *UserJourneyDB) ReplaceLinks(ctx context.Context, set model.LinkSet) error {
 	return c.JourneyDB.ReplaceLinks(ctx, set)
 }

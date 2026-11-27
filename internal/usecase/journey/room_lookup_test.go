@@ -22,7 +22,11 @@ func TestRoomLookupErrMapsNoRowTo404(t *testing.T) {
 		{"missing"}, {"other_clinic"}, {"orphan"}, {"archived"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			uc := &JourneyUC{JourneyDB: hiddenRoomDB{}}
+			uc := &JourneyUC{
+				JourneyDB:   hiddenRoomDB{},
+				PatientDB:   &archivePatientDB{},
+				Transaction: archiveTx{},
+			}
 			ctx := auth.SetUserDetailToCtx(context.Background(), model.UserJWTPayload{InstitutionID: 7})
 			name := "x"
 			for verb, call := range map[string]func() error{
@@ -35,7 +39,8 @@ func TestRoomLookupErrMapsNoRowTo404(t *testing.T) {
 					return err
 				},
 				"archive": func() error {
-					return uc.ArchiveServicePoint(ctx, &model.MstServicePoint{ID: 99})
+					_, err := uc.ArchiveServicePoint(ctx, 99)
+					return err
 				},
 			} {
 				assertSet404Wire(t, verb, call())
@@ -58,6 +63,10 @@ func (hiddenRoomDB) UpdateServicePoint(context.Context, *model.MstServicePoint) 
 
 func (hiddenRoomDB) DeleteServicePoint(context.Context, *model.MstServicePoint) error {
 	return errors.Wrap(constant.ErrorNoAffectedRow, "hidden")
+}
+
+func (hiddenRoomDB) LockRoom(context.Context, int64, int64) (*model.MstServicePoint, error) {
+	return nil, errors.Wrap(constant.ErrorNoAffectedRow, "hidden")
 }
 
 func assertSet404Wire(t *testing.T, verb string, err error) {

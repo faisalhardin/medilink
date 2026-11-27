@@ -124,6 +124,11 @@ type RoomLocation struct {
 	FromClear   bool       `json:"from_clear"`
 }
 
+// ArchiveRoomResult is the DELETE /service-point/{id} success body.
+type ArchiveRoomResult struct {
+	Archived bool `json:"archived"`
+}
+
 // model for mdl_map_service_point_journey_point
 type MapServicePointJourneyPoint struct {
 	IDMstJourneyPoint int64 `xorm:"'id_mst_journey_point'"`

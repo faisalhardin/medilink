@@ -14,7 +14,10 @@ type RoomLocationPort interface {
 	Clearing(ctx context.Context, clinicID, roomID int64) (bool, error)
 }
 
-const jobLocationCreate = "location_create"
+const (
+	jobLocationCreate     = "location_create"
+	jobLocationInactivate = "location_inactivate"
+)
 
 type NoopRoomLocation struct{}
 

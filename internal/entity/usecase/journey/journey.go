@@ -25,5 +25,5 @@ type JourneyUC interface {
 	ListServicePoints(ctx context.Context, params model.GetServicePointParams) (servicePoints []model.Room, err error)
 	InsertNewServicePoint(ctx context.Context, req model.CreateRoomRequest) (room *model.Room, err error)
 	UpdateServicePoint(ctx context.Context, id int64, req model.RenameRoomRequest) (room *model.Room, err error)
-	ArchiveServicePoint(ctx context.Context, servicePoint *model.MstServicePoint) (err error)
+	ArchiveServicePoint(ctx context.Context, roomID int64) (result model.ArchiveRoomResult, err error)
 }

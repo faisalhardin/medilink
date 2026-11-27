@@ -24,7 +24,8 @@ func SetRequestContext(ctx context.Context, r *http.Request) context.Context {
 		StartRequest: time.Now(),
 		Host:         r.Host,
 		SourceIP:     r.RemoteAddr,
-		RequestURL:   r.URL.Path,
+		// Never store the raw path: patient NIK and other identifiers can appear in URLs.
+		RequestURL: "unknown",
 		Method:       r.Method,
 		UserAgent:    r.UserAgent(),
 	}
