@@ -36,6 +36,9 @@ const (
 	WrapMsgListJourneyPointIDs  = "ListJourneyPointIDs"
 	WrapMsgListLinkNodes        = "ListLinkNodes"
 	WrapMsgLockJourneyBoard     = "LockJourneyBoard"
+	WrapMsgLockRoom             = "LockRoom"
+	WrapMsgLockRoomShare        = "LockRoomShare"
+	WrapMsgDetachRoomLinks      = "DetachRoomLinks"
 	WrapMsgReplaceLinks         = "ReplaceLinks"
 	WrapMsgListColumnRooms      = "ListColumnRooms"
 	WrapMsgGetServicePoint      = "GetServicePoint"
@@ -528,6 +531,55 @@ func (c *JourneyDB) LockJourneyBoard(ctx context.Context, boardID int64) (err er
 	return nil
 }
 
+func (c *JourneyDB) lockRoom(ctx context.Context, clinicID, roomID int64, mode, wrap string) (*model.MstServicePoint, error) {
+	if clinicID <= 0 {
+		return nil, errors.Wrap(constant.ErrorNoAffectedRow, wrap)
+	}
+	row := &model.MstServicePoint{}
+	has, err := c.session(ctx).SQL(
+		`SELECT id, name, id_mst_journey_board, id_mst_institution, create_time, update_time, delete_time
+		 FROM `+database.MstServicePointTable+`
+		 WHERE id = ? AND id_mst_institution = ? AND delete_time IS NULL
+		 `+mode,
+		roomID, clinicID,
+	).Get(row)
+	if err != nil {
+		return nil, errors.Wrap(err, wrap)
+	}
+	if !has {
+		return nil, errors.Wrap(constant.ErrorNoAffectedRow, wrap)
+	}
+	return row, nil
+}
+
+// LockRoom takes FOR UPDATE on the active clinic-scoped room row. BE-5 archive holds this lock for the whole txn.
+func (c *JourneyDB) LockRoom(ctx context.Context, clinicID, roomID int64) (*model.MstServicePoint, error) {
+	return c.lockRoom(ctx, clinicID, roomID, "FOR UPDATE", WrapMsgLockRoom)
+}
+
+// LockRoomShare takes FOR SHARE on the same row. BE-7 move/first-step uses this so it waits on archive and cannot land on an archived room.
+func (c *JourneyDB) LockRoomShare(ctx context.Context, clinicID, roomID int64) (*model.MstServicePoint, error) {
+	return c.lockRoom(ctx, clinicID, roomID, "FOR SHARE", WrapMsgLockRoomShare)
+}
+
+func (c *JourneyDB) DetachRoomLinks(ctx context.Context, clinicID, roomID int64) (err error) {
+	if clinicID <= 0 {
+		return errors.Wrap(constant.ErrorNoAffectedRow, WrapMsgDetachRoomLinks)
+	}
+	_, err = c.session(ctx).Exec(`
+		DELETE FROM `+database.MapServicePointJourneyPoint+` AS m
+		WHERE m.id_mst_service_point = ?
+		  AND EXISTS (
+		    SELECT 1 FROM `+database.MstServicePointTable+` sp
+		    WHERE sp.id = m.id_mst_service_point
+		      AND sp.id_mst_institution = ?
+		  )`, roomID, clinicID)
+	if err != nil {
+		return errors.Wrap(err, WrapMsgDetachRoomLinks)
+	}
+	return nil
+}
+
 func (c *JourneyDB) ReplaceLinks(ctx context.Context, set model.LinkSet) (err error) {
 	targets := set.Targets
 	if targets == nil {
@@ -688,7 +740,7 @@ func (c *JourneyDB) UpdateServicePoint(ctx context.Context, mstServicePoint *mod
 }
 
 func (c *JourneyDB) DeleteServicePoint(ctx context.Context, mstServicePoint *model.MstServicePoint) (err error) {
-	session := c.DB.MasterDB.Table(database.MstServicePointTable)
+	session := c.session(ctx).Table(database.MstServicePointTable)
 
 	if mstServicePoint.IDMstInstitution > 0 {
 		session.Where("id_mst_institution = ?", mstServicePoint.IDMstInstitution)

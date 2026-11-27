@@ -545,12 +545,69 @@ func (u *JourneyUC) UpdateServicePoint(ctx context.Context, id int64, req model.
 	return
 }
 
-func (u *JourneyUC) ArchiveServicePoint(ctx context.Context, servicePoint *model.MstServicePoint) (err error) {
-	err = u.JourneyDB.DeleteServicePoint(ctx, servicePoint)
+func (u *JourneyUC) ArchiveServicePoint(ctx context.Context, roomID int64) (result model.ArchiveRoomResult, err error) {
+	ids := commonerr.RoomIDs{Room: roomID}
+	defer func() {
+		commonerr.LogRoom(commonerr.RoomOpArchive, ids, err)
+	}()
+
+	userDetail, found := auth.GetUserDetailFromCtx(ctx)
+	if !found {
+		err = commonerr.SetNewUnauthorizedAPICall()
+		return
+	}
+	if userDetail.InstitutionID <= 0 {
+		err = commonerr.Set404()
+		return
+	}
+	ids.Institution = userDetail.InstitutionID
+
+	session, err := u.Transaction.Begin(ctx)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgArchiveServicePoint)
+		return
+	}
+	defer u.Transaction.Finish(session, &err)
+	ctx = xorm.SetDBSession(ctx, session)
+
+	row, err := u.JourneyDB.LockRoom(ctx, userDetail.InstitutionID, roomID)
+	if err != nil {
+		err = errors.Wrap(roomLookupErr(err), WrapMsgArchiveServicePoint)
+		return
+	}
+	ids.Board = row.IDMstBoard
+
+	open, err := u.PatientDB.CountOpenVisitsByRoom(ctx, userDetail.InstitutionID, roomID)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgArchiveServicePoint)
+		return
+	}
+	if open > 0 {
+		err = commonerr.RoomHasOpenVisits(open)
+		return
+	}
+
+	err = u.JourneyDB.DetachRoomLinks(ctx, userDetail.InstitutionID, roomID)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgArchiveServicePoint)
+		return
+	}
+
+	err = u.JourneyDB.DeleteServicePoint(ctx, &model.MstServicePoint{
+		ID:               roomID,
+		IDMstInstitution: userDetail.InstitutionID,
+	})
 	if err != nil {
 		err = errors.Wrap(roomLookupErr(err), WrapMsgArchiveServicePoint)
 		return
 	}
 
+	err = roomLocationPort(u.RoomLocation).Enqueue(ctx, userDetail.InstitutionID, roomID, jobLocationInactivate)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgArchiveServicePoint)
+		return
+	}
+
+	result.Archived = true
 	return
 }

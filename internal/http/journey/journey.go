@@ -329,13 +329,11 @@ func (h *JourneyHandler) ArchiveServicePoint(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	err = h.JourneyUC.ArchiveServicePoint(ctx, &model.MstServicePoint{
-		ID: servicePointID,
-	})
+	result, err := h.JourneyUC.ArchiveServicePoint(ctx, servicePointID)
 	if err != nil {
 		commonwriter.SetError(ctx, w, err)
 		return
 	}
 
-	commonwriter.SetOKWithData(ctx, w, "ok")
+	commonwriter.SetOKWithData(ctx, w, result)
 }
