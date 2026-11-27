@@ -44,7 +44,7 @@ type DtlPatientVisit struct {
 	ActionBy           int64           `xorm:"action_by_id_mst_staff" json:"-"`
 	Notes              json.RawMessage `xorm:"'notes'" json:"notes"`
 	Contributors       json.RawMessage `xorm:"'contributors'" json:"contributors"`
-	IDMstServicePoint  int64           `xorm:"id_mst_service_point" json:"service_point_id"`
+	IDMstServicePoint  int64           `xorm:"'id_mst_service_point' null" json:"service_point_id"`
 	CreateTime         time.Time       `json:"create_time" xorm:"'create_time' created"`
 	UpdateTime         time.Time       `json:"update_time" xorm:"'update_time' updated"`
 	DeleteTime         *time.Time      `json:"-" xorm:"'delete_time' deleted"`
@@ -155,7 +155,7 @@ type DtlPatientVisitRequest struct {
 	JourneyPointName  string          `json:"name_mst_journey_point"`
 	IDMstJourneyPoint string          `json:"id_mst_journey_point"`
 	Notes             json.RawMessage `json:"notes"`
-	IDMstServicePoint null.Int64      `json:"id_mst_service_point"`
+	IDMstServicePoint null.Int64      `json:"service_point_id"`
 }
 
 type InsertPatientVisitRequest struct {
