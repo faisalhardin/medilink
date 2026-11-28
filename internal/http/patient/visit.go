@@ -123,7 +123,7 @@ func (h *PatientHandler) UpdatePatientVisit(w http.ResponseWriter, r *http.Reque
 
 	visitIDStr := chi.URLParam(r, "id")
 	visitID, err := strconv.ParseInt(visitIDStr, 10, 64)
-	if err != nil {
+	if err != nil || visitID <= 0 {
 		errMsg := commonerr.SetNewBadRequest("Visit", "Invalid Visit ID")
 		commonwriter.SetError(ctx, w, errMsg)
 		return

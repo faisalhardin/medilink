@@ -189,7 +189,10 @@ func (c *Conn) GetPatients(ctx context.Context, params model.GetPatientParams) (
 }
 
 func (c *Conn) RecordPatientVisit(ctx context.Context, request *model.TrxPatientVisit) (err error) {
-	session := c.DB.MasterDB
+	session := xormlib.GetDBSession(ctx)
+	if session == nil {
+		session = c.DB.MasterDB.Context(ctx)
+	}
 
 	if request.ProductCart == nil {
 		emptyArray := []string{}
@@ -197,6 +200,7 @@ func (c *Conn) RecordPatientVisit(ctx context.Context, request *model.TrxPatient
 	}
 
 	_, err = session.
+		Nullable("id_mst_service_point").
 		Table(model.TrxPatientVisitTableName).
 		InsertOne(request)
 	if err != nil {
@@ -285,7 +289,11 @@ func (c *Conn) GetPatientVisits(ctx context.Context, params model.GetPatientVisi
 }
 
 func (c *Conn) UpdatePatientVisit(ctx context.Context, updateRequest model.UpdatePatientVisitRequest) (trxVisit model.TrxPatientVisit, err error) {
-	session := c.DB.MasterDB.Table(model.TrxPatientVisitTableName)
+	session := xormlib.GetDBSession(ctx)
+	if session == nil {
+		session = c.DB.MasterDB.Context(ctx)
+	}
+	session = session.Table(model.TrxPatientVisitTableName)
 
 	trxVisit = model.TrxPatientVisit{
 		ID:               updateRequest.ID,
@@ -304,7 +312,7 @@ func (c *Conn) UpdatePatientVisit(ctx context.Context, updateRequest model.Updat
 
 	if updateRequest.IDMstServicePoint.Valid {
 		trxVisit.IDMstServicePoint = updateRequest.IDMstServicePoint.Int64
-		session.Cols("id_mst_service_point")
+		session.Cols("id_mst_service_point").Nullable("id_mst_service_point")
 	}
 
 	if updateRequest.UpdateTimeMstJourneyPointID.Valid {
@@ -374,7 +382,13 @@ func (c *Conn) InsertDtlPatientVisit(ctx context.Context, request *model.DtlPati
 		session = c.DB.MasterDB.Context(ctx)
 	}
 
+	// xorm/pq reject a nil RawMessage for jsonb; SQL NULL is fine via JSON null.
+	if request.Notes == nil {
+		request.Notes = json.RawMessage("null")
+	}
+
 	_, err = session.
+		Nullable("id_mst_service_point").
 		Table(model.DtlPatientVisitTableName).
 		InsertOne(request)
 	if err != nil {

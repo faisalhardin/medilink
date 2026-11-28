@@ -58,9 +58,12 @@ func NewVisitUC(u *VisitUC) *VisitUC {
 }
 
 func (u *VisitUC) InsertNewVisit(ctx context.Context, req model.InsertNewVisitRequest) (err error) {
-
-	session, _ := u.Transaction.Begin(ctx)
+	session, err := u.Transaction.Begin(ctx)
+	if err != nil {
+		return errors.Wrap(err, WrapMsgInsertNewVisit)
+	}
 	defer u.Transaction.Finish(session, &err)
+	ctx = xorm.SetDBSession(ctx, session)
 
 	userDetail, found := auth.GetUserDetailFromCtx(ctx)
 	if !found {
@@ -98,11 +101,17 @@ func (u *VisitUC) InsertNewVisit(ctx context.Context, req model.InsertNewVisitRe
 	patientID := mstPatient[0].ID
 	institutionID := userDetail.InstitutionID
 
+	roomID, err := u.resolveStepRoom(ctx, institutionID, journeyPoint.ID, req.ServicePointID, stepRoomMove)
+	if err != nil {
+		return err
+	}
+
 	newTrxVisit := &model.TrxPatientVisit{
 		IDMstPatient:                patientID,
 		IDMstInstitution:            institutionID,
 		IDMstJourneyPoint:           journeyPoint.ID,
 		IDMstJourneyBoard:           journeyBoard.ID,
+		IDMstServicePoint:           roomID,
 		UpdateTimeMstJourneyPointID: time.Now().Unix(),
 	}
 
@@ -111,15 +120,12 @@ func (u *VisitUC) InsertNewVisit(ctx context.Context, req model.InsertNewVisitRe
 		return errors.Wrap(err, WrapMsgInsertNewVisit)
 	}
 
-	if req.Notes == nil {
-		return
-	}
-
 	visitDetail := model.DtlPatientVisit{
 		IDTrxPatientVisit: newTrxVisit.ID,
 		Notes:             req.Notes,
 		JourneyPointName:  journeyPoint.Name,
 		IDMstJourneyPoint: journeyPoint.ID,
+		IDMstServicePoint: roomID,
 	}
 	visitDetail.AddContributor(userDetail.Email)
 
@@ -392,19 +398,56 @@ func (u *VisitUC) UpdatePatientVisit(ctx context.Context, req model.UpdatePatien
 		return
 	}
 
-	if req.ShortIDMstJourneyPoint.Valid {
-		journeyPoint, err := u.JourneyDB.GetJourneyPointByShortID(ctx, req.ShortIDMstJourneyPoint.String)
+	if !req.ShortIDMstJourneyPoint.Valid {
+		// rooms only change on column moves
+		req.IDMstServicePoint = null.Int64{}
+		_, err = u.PatientDB.UpdatePatientVisit(ctx, req)
 		if err != nil {
 			return errors.Wrap(err, WrapMsgUpdatePatientVisit)
 		}
-		req.IDMstJourneyPoint = null.Int64From(journeyPoint.ID)
+		return
+	}
+
+	if _, err = u.ValidatePatientVisitExist(ctx, ValidatePatientVisitExistRequest{
+		IDTrxPatientVisit: req.ID,
+	}); err != nil {
+		return
+	}
+
+	session, err := u.Transaction.Begin(ctx)
+	if err != nil {
+		return errors.Wrap(err, WrapMsgUpdatePatientVisit)
+	}
+	defer u.Transaction.Finish(session, &err)
+	ctx = xorm.SetDBSession(ctx, session)
+
+	journeyPoint, err := u.JourneyDB.GetJourneyPointByShortID(ctx, req.ShortIDMstJourneyPoint.String)
+	if err != nil {
+		return errors.Wrap(err, WrapMsgUpdatePatientVisit)
+	}
+
+	roomID, err := u.resolveStepRoom(ctx, userDetail.InstitutionID, journeyPoint.ID, req.IDMstServicePoint, stepRoomMove)
+	if err != nil {
+		return err
+	}
+	req.IDMstJourneyPoint = null.Int64From(journeyPoint.ID)
+	req.IDMstServicePoint = null.Int64From(roomID)
+
+	visitDetail := model.DtlPatientVisit{
+		IDTrxPatientVisit: req.ID,
+		JourneyPointName:  journeyPoint.Name,
+		IDMstJourneyPoint: journeyPoint.ID,
+		IDMstServicePoint: roomID,
+	}
+	visitDetail.AddContributor(userDetail.Email)
+	if err = u.PatientDB.InsertDtlPatientVisit(ctx, &visitDetail); err != nil {
+		return errors.Wrap(err, WrapMsgUpdatePatientVisit)
 	}
 
 	_, err = u.PatientDB.UpdatePatientVisit(ctx, req)
 	if err != nil {
 		return errors.Wrap(err, WrapMsgUpdatePatientVisit)
 	}
-
 	return
 }
 
@@ -416,6 +459,11 @@ func (u *VisitUC) ValidatePatientVisitExist(ctx context.Context, req ValidatePat
 	userDetail, found := auth.GetUserDetailFromCtx(ctx)
 	if !found {
 		err = commonerr.SetNewUnauthorizedAPICall()
+		return
+	}
+
+	if req.IDTrxPatientVisit <= 0 {
+		err = commonerr.SetNewBadRequest("invalid", "no patient visit found")
 		return
 	}
 
@@ -466,6 +514,14 @@ func (u *VisitUC) UpsertVisitTouchpoint(ctx context.Context, req model.DtlPatien
 }
 
 func (u *VisitUC) InsertVisitTouchpoint(ctx context.Context, req model.DtlPatientVisitRequest) (dtlPatientVisit model.DtlPatientVisitWithShortID, err error) {
+	session, err := u.Transaction.Begin(ctx)
+	if err != nil {
+		err = errors.Wrap(err, WrapMsgInsertVisitTouchpoint)
+		return
+	}
+	defer u.Transaction.Finish(session, &err)
+	ctx = xorm.SetDBSession(ctx, session)
+
 	userDetail, err := u.ValidatePatientVisitExist(ctx, ValidatePatientVisitExistRequest{
 		IDTrxPatientVisit: req.IDTrxPatientVisit,
 	})
@@ -492,6 +548,11 @@ func (u *VisitUC) InsertVisitTouchpoint(ctx context.Context, req model.DtlPatien
 		return
 	}
 
+	roomID, err := u.resolveStepRoom(ctx, userDetail.InstitutionID, mstJourneyPoint.ID, req.IDMstServicePoint, stepRoomNote)
+	if err != nil {
+		return
+	}
+
 	dtlPatientVisit = model.DtlPatientVisitWithShortID{
 		DtlPatientVisit: model.DtlPatientVisit{
 			JourneyPointName:  mstJourneyPoint.Name,
@@ -499,7 +560,7 @@ func (u *VisitUC) InsertVisitTouchpoint(ctx context.Context, req model.DtlPatien
 			IDTrxPatientVisit: req.IDTrxPatientVisit,
 			IDMstJourneyPoint: mstJourneyPoint.ID,
 			Contributors:      contributors,
-			IDMstServicePoint: req.IDMstServicePoint.Int64,
+			IDMstServicePoint: roomID,
 		},
 		ShortIDMstJourneyPoint: mstJourneyPoint.ShortID,
 	}
