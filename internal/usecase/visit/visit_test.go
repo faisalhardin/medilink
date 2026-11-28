@@ -380,6 +380,7 @@ type stepJourney struct {
 	ev     *stepEvents
 	rooms  []model.PickerRoom
 	hidden map[int64]struct{}
+	points map[string]*model.MstJourneyPoint
 	locks  []int64
 	lists  int
 	fail   error
@@ -407,7 +408,16 @@ func (j *stepJourney) GetJourneyPoint(_ context.Context, point model.MstJourneyP
 	return j.column(point.ShortID), nil
 }
 
-func (j *stepJourney) GetJourneyPointByShortID(_ context.Context, shortID string) (*model.MstJourneyPoint, error) {
+func (j *stepJourney) GetJourneyPointByShortID(_ context.Context, shortID string, institutionID int64) (*model.MstJourneyPoint, error) {
+	if point, ok := j.points[shortID]; ok {
+		if point.IDMstInstitution != institutionID {
+			return nil, constant.ErrorRowNotFound
+		}
+		return point, nil
+	}
+	if shortID == "nosuchxx" {
+		return nil, constant.ErrorRowNotFound
+	}
 	return j.column(shortID), nil
 }
 
@@ -643,6 +653,45 @@ func TestUpdatePatientVisit_MoveRejectsOtherInstitution(t *testing.T) {
 	}
 	if patient.detail != nil || patient.updatedVisit || ev.has("begin") || journey.lists != 0 {
 		t.Fatalf("other-clinic move wrote history detail=%v updated=%v seq=%v lists=%d", patient.detail != nil, patient.updatedVisit, ev.seq, journey.lists)
+	}
+}
+
+func TestUpdatePatientVisit_MoveRejectsForeignAndUnknownColumn(t *testing.T) {
+	cases := []struct {
+		name    string
+		shortID string
+		points  map[string]*model.MstJourneyPoint
+	}{
+		{
+			name:    "other clinic column",
+			shortID: "otherjp1",
+			points: map[string]*model.MstJourneyPoint{
+				"otherjp1": {ID: 99, Name: "Foreign", ShortID: "otherjp1", IDMstInstitution: testInstitutionID + 1},
+			},
+		},
+		{
+			name:    "unknown short_id",
+			shortID: "nosuchxx",
+		},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			uc, patient, journey, ev := newStepUC([]int64{roomLinked})
+			journey.points = tc.points
+			err := uc.UpdatePatientVisit(adminCtx(), model.UpdatePatientVisitRequest{
+				ID:                     testVisitID,
+				ShortIDMstJourneyPoint: null.StringFrom(tc.shortID),
+			})
+			assertRoomErr(t, err, 404, "404")
+			assertNoStepWrite(t, patient)
+			if ev.has("begin") {
+				t.Fatalf("column reject opened a transaction: %v", ev.seq)
+			}
+			if patient.updatedVisit || journey.lists != 0 {
+				t.Fatalf("column reject wrote visit or listed rooms updated=%v lists=%d", patient.updatedVisit, journey.lists)
+			}
+		})
 	}
 }
 

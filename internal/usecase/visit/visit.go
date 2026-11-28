@@ -414,17 +414,23 @@ func (u *VisitUC) UpdatePatientVisit(ctx context.Context, req model.UpdatePatien
 		return
 	}
 
+	journeyPoint, err := u.JourneyDB.GetJourneyPointByShortID(ctx, req.ShortIDMstJourneyPoint.String, userDetail.InstitutionID)
+	if err != nil {
+		if errors.Is(err, constant.ErrorRowNotFound) {
+			return commonerr.Set404()
+		}
+		return errors.Wrap(err, WrapMsgUpdatePatientVisit)
+	}
+	if journeyPoint == nil || journeyPoint.ID == 0 {
+		return commonerr.Set404()
+	}
+
 	session, err := u.Transaction.Begin(ctx)
 	if err != nil {
 		return errors.Wrap(err, WrapMsgUpdatePatientVisit)
 	}
 	defer u.Transaction.Finish(session, &err)
 	ctx = xorm.SetDBSession(ctx, session)
-
-	journeyPoint, err := u.JourneyDB.GetJourneyPointByShortID(ctx, req.ShortIDMstJourneyPoint.String)
-	if err != nil {
-		return errors.Wrap(err, WrapMsgUpdatePatientVisit)
-	}
 
 	roomID, err := u.resolveStepRoom(ctx, userDetail.InstitutionID, journeyPoint.ID, req.IDMstServicePoint, stepRoomMove)
 	if err != nil {
