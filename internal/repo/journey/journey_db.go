@@ -338,8 +338,10 @@ func (c *JourneyDB) ListJourneyPointsWithoutShortID(ctx context.Context, params 
 	return
 }
 
-// GetJourneyPointByShortID retrieves a journey point by its short ID
-func (c *JourneyDB) GetJourneyPointByShortID(ctx context.Context, shortID string) (resp *model.MstJourneyPoint, err error) {
+// GetJourneyPointByShortID retrieves a live journey point by short ID for a clinic.
+// institutionID is accepted here so callers compile; clinic/board scoping lands with the fix.
+func (c *JourneyDB) GetJourneyPointByShortID(ctx context.Context, shortID string, institutionID int64) (resp *model.MstJourneyPoint, err error) {
+	_ = institutionID
 	session := c.DB.SlaveDB.Table(database.MstJourneyPointTable)
 	resp = &model.MstJourneyPoint{}
 

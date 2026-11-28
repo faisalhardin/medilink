@@ -421,7 +421,7 @@ func (u *VisitUC) UpdatePatientVisit(ctx context.Context, req model.UpdatePatien
 	defer u.Transaction.Finish(session, &err)
 	ctx = xorm.SetDBSession(ctx, session)
 
-	journeyPoint, err := u.JourneyDB.GetJourneyPointByShortID(ctx, req.ShortIDMstJourneyPoint.String)
+	journeyPoint, err := u.JourneyDB.GetJourneyPointByShortID(ctx, req.ShortIDMstJourneyPoint.String, userDetail.InstitutionID)
 	if err != nil {
 		return errors.Wrap(err, WrapMsgUpdatePatientVisit)
 	}
