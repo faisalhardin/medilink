@@ -462,6 +462,11 @@ func (u *VisitUC) ValidatePatientVisitExist(ctx context.Context, req ValidatePat
 		return
 	}
 
+	if req.IDTrxPatientVisit <= 0 {
+		err = commonerr.SetNewBadRequest("invalid", "no patient visit found")
+		return
+	}
+
 	visit, err := u.PatientDB.GetPatientVisits(ctx, model.GetPatientVisitParams{
 		IDPatientVisit:   req.IDTrxPatientVisit,
 		IDMstInstitution: userDetail.InstitutionID,

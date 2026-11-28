@@ -646,6 +646,20 @@ func TestUpdatePatientVisit_MoveRejectsOtherInstitution(t *testing.T) {
 	}
 }
 
+func TestUpdatePatientVisit_MoveRejectsZeroVisitID(t *testing.T) {
+	uc, patient, journey, ev := newStepUC([]int64{roomLinked})
+	err := uc.UpdatePatientVisit(adminCtx(), model.UpdatePatientVisitRequest{
+		ID:                     0,
+		ShortIDMstJourneyPoint: null.StringFrom("jp"),
+	})
+	if err == nil {
+		t.Fatal("expected move with visit id 0 to fail")
+	}
+	if patient.detail != nil || patient.updatedVisit || ev.has("begin") || journey.lists != 0 {
+		t.Fatalf("zero visit id wrote history detail=%v updated=%v seq=%v lists=%d", patient.detail != nil, patient.updatedVisit, ev.seq, journey.lists)
+	}
+}
+
 func TestInsertVisitTouchpoint_RevalidatesRoom(t *testing.T) {
 	cases := []stepRoomCase{
 		{name: "missing", room: null.Int64From(roomMissing), lock: roomMissing},
