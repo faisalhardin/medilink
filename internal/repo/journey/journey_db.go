@@ -338,22 +338,28 @@ func (c *JourneyDB) ListJourneyPointsWithoutShortID(ctx context.Context, params 
 	return
 }
 
-// GetJourneyPointByShortID retrieves a live journey point by short ID for a clinic.
-// institutionID is accepted here so callers compile; clinic/board scoping lands with the fix.
+// GetJourneyPointByShortID returns a live column for the clinic via its board.
+// Unknown, other-clinic, or archived short_ids return ErrorRowNotFound.
 func (c *JourneyDB) GetJourneyPointByShortID(ctx context.Context, shortID string, institutionID int64) (resp *model.MstJourneyPoint, err error) {
-	_ = institutionID
-	session := c.DB.SlaveDB.Table(database.MstJourneyPointTable)
-	resp = &model.MstJourneyPoint{}
-
-	_, err = session.
-		Where("short_id = ?", shortID).
-		Get(resp)
-	if err != nil {
-		err = errors.Wrap(err, WrapMsgGetJourneyPoint)
-		return
+	if institutionID <= 0 || shortID == "" {
+		return nil, errors.Wrap(constant.ErrorRowNotFound, WrapMsgGetJourneyPoint)
 	}
 
-	return
+	resp = &model.MstJourneyPoint{}
+	found, err := c.DB.SlaveDB.Table(database.MstJourneyPointTable).Alias("mmjp").
+		Join(database.SQLInner, database.MstJourneyBoardTable+" mmjb",
+			"mmjb.id = mmjp.id_mst_journey_board AND mmjb.delete_time IS NULL").
+		Where("mmjp.short_id = ?", shortID).
+		Where("mmjb.id_mst_institution = ?", institutionID).
+		Select("mmjp.*").
+		Get(resp)
+	if err != nil {
+		return nil, errors.Wrap(err, WrapMsgGetJourneyPoint)
+	}
+	if !found || resp.ID == 0 {
+		return nil, errors.Wrap(constant.ErrorRowNotFound, WrapMsgGetJourneyPoint)
+	}
+	return resp, nil
 }
 
 func (c *JourneyDB) UpdateJourneyPoint(ctx context.Context, journeyPoint *model.MstJourneyPoint) (err error) {

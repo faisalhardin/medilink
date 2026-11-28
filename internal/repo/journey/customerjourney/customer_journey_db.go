@@ -216,7 +216,6 @@ func (c *UserJourneyDB) GetJourneyPointByShortID(ctx context.Context, shortID st
 	if err != nil {
 		return nil, err
 	}
-	_ = institutionID
 	return c.JourneyDB.GetJourneyPointByShortID(ctx, shortID, clinic)
 }
 
