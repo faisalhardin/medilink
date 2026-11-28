@@ -399,10 +399,18 @@ func (u *VisitUC) UpdatePatientVisit(ctx context.Context, req model.UpdatePatien
 	}
 
 	if !req.ShortIDMstJourneyPoint.Valid {
+		// rooms only change on column moves
+		req.IDMstServicePoint = null.Int64{}
 		_, err = u.PatientDB.UpdatePatientVisit(ctx, req)
 		if err != nil {
 			return errors.Wrap(err, WrapMsgUpdatePatientVisit)
 		}
+		return
+	}
+
+	if _, err = u.ValidatePatientVisitExist(ctx, ValidatePatientVisitExistRequest{
+		IDTrxPatientVisit: req.ID,
+	}); err != nil {
 		return
 	}
 

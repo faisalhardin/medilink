@@ -34,7 +34,16 @@ func (s *lockPatientDB) GetPatientVisitsByID(context.Context, int64) (model.TrxP
 	return s.visit, nil
 }
 
-func (s *lockPatientDB) GetPatientVisits(context.Context, model.GetPatientVisitParams) ([]model.GetPatientVisitResponse, error) {
+func (s *lockPatientDB) GetPatientVisits(_ context.Context, p model.GetPatientVisitParams) ([]model.GetPatientVisitResponse, error) {
+	if s.visit.ID == 0 {
+		return nil, nil
+	}
+	if p.IDPatientVisit != 0 && s.visit.ID != p.IDPatientVisit {
+		return nil, nil
+	}
+	if p.IDMstInstitution != 0 && s.visit.IDMstInstitution != p.IDMstInstitution {
+		return nil, nil
+	}
 	return []model.GetPatientVisitResponse{{
 		TrxPatientVisit: model.TrxPatientVisit{ID: s.visit.ID, IDMstInstitution: s.visit.IDMstInstitution},
 	}}, nil
@@ -606,8 +615,9 @@ func TestUpdatePatientVisit_MoveStoresStepRoom(t *testing.T) {
 func TestUpdatePatientVisit_StatusDoesNotWriteStep(t *testing.T) {
 	uc, patient, journey, ev := newStepUC([]int64{roomLinked, roomSecond})
 	err := uc.UpdatePatientVisit(adminCtx(), model.UpdatePatientVisitRequest{
-		ID:     testVisitID,
-		Status: null.StringFrom("open"),
+		ID:                testVisitID,
+		Status:            null.StringFrom("open"),
+		IDMstServicePoint: null.Int64From(roomForeign),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -617,6 +627,22 @@ func TestUpdatePatientVisit_StatusDoesNotWriteStep(t *testing.T) {
 	}
 	if !patient.updatedVisit || patient.update.IDMstServicePoint.Valid {
 		t.Fatalf("update %+v", patient.update)
+	}
+}
+
+func TestUpdatePatientVisit_MoveRejectsOtherInstitution(t *testing.T) {
+	uc, patient, journey, ev := newStepUC([]int64{roomLinked})
+	patient.visit = lockedVisitRow()
+	patient.visit.IDMstInstitution = testInstitutionID + 1
+	err := uc.UpdatePatientVisit(adminCtx(), model.UpdatePatientVisitRequest{
+		ID:                     testVisitID,
+		ShortIDMstJourneyPoint: null.StringFrom("jp"),
+	})
+	if err == nil {
+		t.Fatal("expected other-clinic move to fail")
+	}
+	if patient.detail != nil || patient.updatedVisit || ev.has("begin") || journey.lists != 0 {
+		t.Fatalf("other-clinic move wrote history detail=%v updated=%v seq=%v lists=%d", patient.detail != nil, patient.updatedVisit, ev.seq, journey.lists)
 	}
 }
 
